@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Box, Typography, Card, CardContent, Chip, Button, Stack, Tabs, Tab,
+  Box, Typography, Card, CardContent, Chip, Button, Stack,
   CircularProgress, Alert, AlertTitle,
 } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
@@ -82,9 +83,14 @@ export default function MyInvoicesPage() {
         </Alert>
       )}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        {TABS.map((t) => <Tab key={t.key} label={t.label} />)}
-      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <TabRail
+          ariaLabel="Invoice states"
+          value={tab}
+          onChange={setTab}
+          items={TABS.map((t, i) => ({ key: i, label: t.label }))}
+        />
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 

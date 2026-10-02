@@ -30,8 +30,9 @@ const KIT = path.join(__dirname, 'index.js');
 const MAX_SCROLLER_PATCHES = 0;
 const MAX_SCROLL_BUTTONS = 0;
 // Rows still rendered with MUI's own <Tabs>. 19 when the ban landed; 16 after the three profile headers;
-// 14 after user management and artisan applications.
-const MAX_MUI_TAB_ROWS = 14;
+// 14 after user management and artisan applications; 8 after the three invoice queues, the two finance
+// clients and a store's own repairs.
+const MAX_MUI_TAB_ROWS = 8;
 
 function sourceFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

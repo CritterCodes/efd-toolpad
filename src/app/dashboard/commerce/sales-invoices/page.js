@@ -21,11 +21,10 @@ import {
   MenuItem,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
+import { TabRail } from '@/components/facelift';
 import {
   Add as AddIcon,
   Close as CloseIcon,
@@ -338,12 +337,17 @@ export default function SalesInvoicesPage() {
         {error && <Alert severity="error">{error}</Alert>}
 
         <Box sx={{ borderBottom: `1px solid ${UI.border}` }}>
-          <Tabs value={tab} onChange={(event, value) => setTab(value)}>
-            <Tab value="all" label="All" />
-            <Tab value="open" label="Open" />
-            <Tab value="paid" label="Paid" />
-            <Tab value="void" label="Void" />
-          </Tabs>
+          <TabRail
+            ariaLabel="Sales invoice states"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: 'all', label: 'All' },
+              { key: 'open', label: 'Open' },
+              { key: 'paid', label: 'Paid' },
+              { key: 'void', label: 'Void' },
+            ]}
+          />
         </Box>
 
         <Grid container spacing={2}>

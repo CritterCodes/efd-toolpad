@@ -9,9 +9,8 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { TabRail } from '@/components/facelift';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Link from 'next/link';
 import { ANALYTICS_DATE_RANGE_OPTIONS } from '@/services/repairAnalytics';
@@ -277,10 +276,15 @@ export default function FinanceExpensesClient() {
 
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent sx={{ pb: 0 }}>
-          <Tabs value={tab} onChange={(_event, next) => setTab(next)} sx={{ mb: 2 }}>
-            <Tab label="Expenses" value="expenses" />
-            <Tab label="Recurring" value="recurring" />
-          </Tabs>
+          <TabRail
+            ariaLabel="Expense views"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: 'expenses', label: 'Expenses' },
+              { key: 'recurring', label: 'Recurring' },
+            ]}
+          />
         </CardContent>
       </Card>
 

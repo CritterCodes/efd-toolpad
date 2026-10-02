@@ -11,9 +11,8 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { TabRail } from '@/components/facelift';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { SummaryCard, buildStullerLineState, formatMoney, formatQuantity, getDefaultConsumeForm, getDefaultItemForm, getDefaultReceiveForm } from './inventoryParts';
 import { InventoryLowStockTab } from './InventoryLowStockTab';
@@ -324,12 +323,17 @@ export default function FinanceInventoryClient() {
 
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent sx={{ pb: 0 }}>
-          <Tabs value={tab} onChange={(_event, next) => setTab(next)} sx={{ mb: 2 }}>
-            <Tab label="Inventory Items" value="items" />
-            <Tab label="Receiving" value="receiving" />
-            <Tab label="Consumption" value="consumption" />
-            <Tab label="Low Stock" value="low-stock" />
-          </Tabs>
+          <TabRail
+            ariaLabel="Inventory views"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: 'items', label: 'Inventory Items' },
+              { key: 'receiving', label: 'Receiving' },
+              { key: 'consumption', label: 'Consumption' },
+              { key: 'low-stock', label: 'Low Stock' },
+            ]}
+          />
         </CardContent>
       </Card>
 
