@@ -1,9 +1,9 @@
 "use client";
 
 import React from 'react';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import {
   Box,
-  Typography,
   Button,
   Dialog,
   DialogTitle,
@@ -31,15 +31,20 @@ export default function UserActionDialog({
       <DialogContent>
         {actionDialog.user && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="body1" gutterBottom>
-              <strong>User:</strong> {actionDialog.user.firstName} {actionDialog.user.lastName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              <strong>Email:</strong> {actionDialog.user.email}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Requested Role:</strong> {actionDialog.user.approvalData?.requestedRole || actionDialog.user.role}
-            </Typography>
+            <FaceliftRoot>
+              <FieldList>
+                <Field
+                  label="User"
+                  value={[actionDialog.user.firstName, actionDialog.user.lastName].filter(Boolean).join(' ')}
+                  strong
+                />
+                <Field label="Email" value={actionDialog.user.email} mono />
+                <Field
+                  label="Requested role"
+                  value={actionDialog.user.approvalData?.requestedRole || actionDialog.user.role}
+                />
+              </FieldList>
+            </FaceliftRoot>
           </Box>
         )}
 

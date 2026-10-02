@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  Typography,
   Box,
   TextField
 } from '@mui/material';
@@ -31,15 +31,16 @@ export default function ActionDialog({ open, onClose, application, actionType, o
       </DialogTitle>
       <DialogContent>
         <Box>
-          <Typography variant="body1" gutterBottom>
-            <strong>Business:</strong> {application.businessName}
-          </Typography>
-          <Typography variant="body1" gutterBottom>
-            <strong>Contact:</strong> {application.contactFirstName} {application.contactLastName}
-          </Typography>
-          <Typography variant="body1" gutterBottom>
-            <strong>Email:</strong> {application.email}
-          </Typography>
+          <FaceliftRoot>
+            <FieldList>
+              <Field label="Business" value={application.businessName} strong />
+              <Field
+                label="Contact"
+                value={[application.contactFirstName, application.contactLastName].filter(Boolean).join(' ')}
+              />
+              <Field label="Email" value={application.email} mono />
+            </FieldList>
+          </FaceliftRoot>
           
           <TextField
             fullWidth
