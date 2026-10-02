@@ -18,7 +18,11 @@ export function formatDate(value) {
   });
 }
 
-/** 40px gold icon tile — the mock's row/stat icon treatment. */
+/**
+ * 40px icon tile. Neutral, not gold: there is one of these on every stat card and every queue row, so
+ * gold here spends the page's single accent six times before the reader reaches an action (DESIGN.md,
+ * "one gold per view").
+ */
 export function IconTile({ children }) {
   return (
     <Box
@@ -30,7 +34,7 @@ export function IconTile({ children }) {
         placeItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.05)',
         border: `1px solid ${facelift.border}`,
-        color: facelift.gold,
+        color: facelift.text2,
         flexShrink: 0,
         '& svg': { fontSize: 19 },
       }}
@@ -72,7 +76,7 @@ export function StatCard({ label, value, subtext, icon, progress }) {
       {typeof progress === 'number' && (
         <Box sx={{ mt: 1.5 }}>
           <Box sx={{ height: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
-            <Box sx={{ width: `${progress}%`, height: '100%', borderRadius: 999, backgroundColor: facelift.gold }} />
+            <Box sx={{ width: `${progress}%`, height: '100%', borderRadius: 999, backgroundColor: facelift.text2 }} />
           </Box>
           <Typography sx={{ mt: 1, fontFamily: facelift.mono, fontSize: '0.66rem', color: facelift.text3 }}>
             {progress}% of total repair volume completed
@@ -98,14 +102,17 @@ export function PanelHeader({ overline, title, action }) {
   );
 }
 
-/** Gold text link-button used at the end of rows and panels. */
+/**
+ * The text link-button at the end of rows and panels. White, not gold — there are five or six on the
+ * dashboard, and "Open" is navigation, not the one thing to do next.
+ */
 export function OpenLink({ onClick, children = 'Open' }) {
   return (
     <Button
       endIcon={<ArrowForwardIcon />}
       onClick={onClick}
       sx={{
-        color: facelift.gold,
+        color: facelift.text,
         minWidth: 0,
         p: 0,
         textTransform: 'none',

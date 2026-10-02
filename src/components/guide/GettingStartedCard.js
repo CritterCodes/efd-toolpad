@@ -39,8 +39,12 @@ export default function GettingStartedCard({ sx }) {
     setHidden(true);
   };
 
+  // One gold per view (DESIGN.md), and on this card it is the NEXT step's button — nothing else. This
+  // card used to spend gold five ways at once: a side-stripe the brand doc explicitly forbids as
+  // decoration, a gold text button, a gold progress bar, a gold ring on every unfinished row, and a gold
+  // contained button on each of them. Four gold buttons in one card is four answers to "what now".
   return (
-    <SurfaceCard accent={facelift.gold} style={{ padding: 20, marginBottom: 24, ...sx }}>
+    <SurfaceCard style={{ padding: 20, marginBottom: 24, ...sx }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
         <Box sx={{ minWidth: 0 }}>
           <SectionLabel>Getting started</SectionLabel>
@@ -49,17 +53,19 @@ export default function GettingStartedCard({ sx }) {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-          <Button size="small" onClick={() => router.push('/dashboard/guide')} sx={{ textTransform: 'none', color: facelift.gold }}>How EFD works</Button>
-          <Button size="small" onClick={hide} sx={{ textTransform: 'none', color: 'rgba(255,255,255,0.6)' }}>Hide for now</Button>
+          <Button size="small" onClick={() => router.push('/dashboard/guide')} sx={{ textTransform: 'none', color: facelift.text2 }}>How EFD works</Button>
+          <Button size="small" onClick={hide} sx={{ textTransform: 'none', color: facelift.text2 }}>Hide for now</Button>
         </Stack>
       </Stack>
       <LinearProgress
         variant="determinate"
         value={(done / total) * 100}
-        sx={{ height: 6, borderRadius: 3, mb: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: facelift.gold } }}
+        sx={{ height: 6, borderRadius: 3, mb: 2, bgcolor: 'rgba(255,255,255,0.08)', '& .MuiLinearProgress-bar': { bgcolor: facelift.text2 } }}
       />
       <Stack spacing={1}>
-        {data.checklist.map((item) => (
+        {data.checklist.map((item) => {
+          const isNext = item.id === next?.id;
+          return (
           <Box
             key={item.id}
             sx={{
@@ -70,8 +76,8 @@ export default function GettingStartedCard({ sx }) {
             }}
           >
             {item.done
-              ? <CheckCircleIcon sx={{ color: '#66BB6A', mt: 0.25 }} fontSize="small" />
-              : <RadioButtonUncheckedIcon sx={{ color: facelift.gold, mt: 0.25 }} fontSize="small" />}
+              ? <CheckCircleIcon sx={{ color: facelift.success, mt: 0.25 }} fontSize="small" />
+              : <RadioButtonUncheckedIcon sx={{ color: isNext ? facelift.gold : facelift.text4, mt: 0.25 }} fontSize="small" />}
             <Box sx={{ flex: 1, minWidth: 160 }}>
               <Typography sx={{ fontWeight: 600, color: '#fff', textDecoration: item.done ? 'line-through' : 'none' }}>{item.label}</Typography>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.66)' }}>{item.detail}</Typography>
@@ -79,16 +85,23 @@ export default function GettingStartedCard({ sx }) {
             {!item.done && (
               <Button
                 size="small"
-                variant="contained"
+                variant={isNext ? 'contained' : 'outlined'}
                 endIcon={<ArrowForwardIcon />}
                 onClick={() => router.push(item.href)}
-                sx={{ textTransform: 'none', bgcolor: facelift.gold, color: '#1a1205', '&:hover': { bgcolor: facelift.gold }, flexShrink: 0 }}
+                sx={{
+                  textTransform: 'none',
+                  flexShrink: 0,
+                  ...(isNext
+                    ? { bgcolor: facelift.gold, color: '#1a1205', '&:hover': { bgcolor: facelift.gold } }
+                    : { color: facelift.text, borderColor: facelift.border }),
+                }}
               >
                 {item.cta}
               </Button>
             )}
           </Box>
-        ))}
+          );
+        })}
       </Stack>
     </SurfaceCard>
   );
