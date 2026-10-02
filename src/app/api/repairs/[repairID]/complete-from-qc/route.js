@@ -4,6 +4,8 @@ import { requireRepairOps } from '@/lib/apiAuth';
 import { buildCompleteFromQcUpdate, REPAIR_STATUS } from '@/services/repairWorkflow';
 import { creditRepairLaborAtQc } from '@/services/repairs/benchHandoff';
 import { autoInvoiceAtQcPass } from '@/services/repairs/autoInvoice';
+import { qcPassRefusal, qcPassIsSelfCertified } from '@/services/bench/benchRules';
+import { readQcMode } from '@/services/repairs/qcMode';
 
 export const POST = async (req, { params }) => {
   try {
@@ -23,6 +25,19 @@ export const POST = async (req, { params }) => {
     if (repair.status !== REPAIR_STATUS.QC) {
       return NextResponse.json({ error: `${repairID} isn't in QC (it's ${repair.status}).` }, { status: 409 });
     }
+
+    // EFD-DEFECTS B6, and the reason the rule lives in benchRules rather than in one handler: this
+    // route is a SECOND sink. The Move page and the scan's "Approve QC" both post straight here,
+    // bypassing the bench action entirely, so guarding only that one would leave the easier door
+    // open — scan your own ticket, approve it, credited and invoiced.
+    const mode = await readQcMode();
+    const refusal = qcPassRefusal(repair, {
+      userID: session.user.userID,
+      isAdmin: ['admin', 'dev'].includes(session?.user?.role),
+      mode,
+    });
+    if (refusal) return NextResponse.json({ error: refusal.message }, { status: 403 });
+
     await creditRepairLaborAtQc({ repair, session });
 
     // QC pass always lands on COMPLETED first; auto-invoicing below advances the repair to
@@ -30,11 +45,16 @@ export const POST = async (req, { params }) => {
     // The old readyForPickup/deliveryBatched flags survive as the invoice's deliveryMethod.
     // If invoicing fails the repair STAYS COMPLETED — visible on the closeout tab, the old
     // manual flow, instead of silently skipping the bill.
-    let updated = await RepairsModel.updateById(repairID, buildCompleteFromQcUpdate({
-      nextStatus: 'COMPLETED',
-      userName: session.user.name,
-      now: new Date(),
-    }));
+    let updated = await RepairsModel.updateById(repairID, {
+      ...buildCompleteFromQcUpdate({
+        nextStatus: 'COMPLETED',
+        userName: session.user.name,
+        now: new Date(),
+      }),
+      // A pass by someone who did the work is a self-certification whichever door it came through —
+      // including an admin's, which the refusal above lets by.
+      ...(qcPassIsSelfCertified(repair, session.user.userID) ? { qcSelfCertified: true } : {}),
+    });
 
     // Repairs land on an invoice AT QC PASS (owner, 2026-09-04) — the manual "move items to
     // the invoice" step on Payment & Pickup is now only the fallback.
