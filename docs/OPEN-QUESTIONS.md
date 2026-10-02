@@ -393,3 +393,41 @@ $327/hour as billed.
 [Geller Blue Book, $399 kit, Release 6.6 Nov 2025](https://www.jewelerprofit.com/Blue_Book.html)
 
 **Status:** open.
+
+---
+
+### Q15 — Half-shank bills ten portions of sizing stock; every size-up bills one (opened 2026-10-02)
+
+**Context.** Found auditing all 34 repair tasks against a published trade sheet (Q14). Read-only from production,
+2026-10-02:
+
+| Task | sizing stock | wholesale, 14k | wholesale, platinum |
+|---|---|---|---|
+| Size Up — up to 3mm shank | **× 1** | $63.67 | $82.88 |
+| Size Up — 3 to 5mm shanks | **× 1** | $72.82 | — |
+| Sizing Beads | **× 1** | $63.67 | — |
+| **Half-Shank — up to 3mm** | **× 10** | **$269.52** | **$450.84** |
+| **Half-Shank — 3 to 5mm** | **× 10** | **$360.96** | **$587.16** |
+
+A portion of 14k 3×2mm stock is about **$20.64** (the stick is $144.51 at `portionsPerUnit: 7`), so ten portions put
+**$206 of metal** into one half-shank before labour. Platinum is worse: $37.01 a portion, $370 of metal.
+
+For scale, Benchie's Q1 2025 trade sheet prices a **full** ring sizing — stones tightened, widest shank band — at
+**$116** in 14k and **$182** in platinum. The catalogue asks $360.96 and $587.16 for a half-shank. A half shank is
+more work than a sizing; it is not three times the price of the dearest one on the sheet.
+
+The engine is doing exactly what the recipe says — this is task data, not a pricing bug. `Half-Shank — Platinum, up
+to 3mm` also carries no laser tool line while its gold sibling carries solder, which is worth a glance at the same
+time.
+
+**Why it matters beyond the price.** Any half-shank quote the shop gives today is several times the trade rate, so
+it is almost certainly refused — which means the defect shows up as *work not won* rather than as a complaint.
+
+**Recommendation.** Set the quantity to what a half shank actually consumes and leave everything else alone. One or
+two portions is the likely answer given a full size-up is one, but how much stock a half shank eats is a bench
+question and the owner's to answer, not something to infer from the data. For reference, at ×2 the 14k half-shank
+lands near $82 wholesale and at ×3 near $107 — either sits sensibly just above a full sizing rather than triple it.
+
+Price-moving, so nothing has been changed.
+
+**Status:** open.
