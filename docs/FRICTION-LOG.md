@@ -53,6 +53,19 @@ for a guardrail.
   `gh pr merge`, never after. **Proposed:** give efd-shop the same branch protection as efd-toolpad — a required
   `test` check and no direct pushes — so the two repos behave the same way and the habit is safe in both. That is
   a repository settings change, so it needs the owner.
+- **2026-10-02: `scripts/views.mjs --keep` will crawl a *stale* server.** `--keep` leaves the production server
+  running on 4300 so you can click through afterwards. Start the next crawl without killing it and the script
+  reuses whatever is already listening — which is the *previous* build. I nearly verified a TabRail conversion
+  against a build that predated it; the giveaway was a tab measuring 40px when the new rail is 44px.
+  **Workaround:** before every crawl, `netstat -ano | grep ":4300.*LISTENING"` and `taskkill //PID <pid> //F`.
+  **Proposed:** have `views.mjs` refuse to reuse a server it did not start, or stamp the build id it serves and
+  compare. A verification tool that silently verifies the wrong thing is worse than one that fails.
+- **2026-10-02: the dev database has almost no rows, so whole screens cannot be verified in a browser.**
+  `efd-database-DEV` holds the six `views.check` users and essentially nothing else: no repairs, no custom
+  orders, no drops, no designs, no materials. The views crawl still proves 115 pages render, but a card grid with
+  no cards proves nothing about the card. Four conversions this session (completed repairs, the repair card grid,
+  one custom order, one design) were shipped on a build plus an identical-shape argument rather than a render.
+  **Proposed:** a seed script that writes one row of each kind into `efd-database-DEV`, run by the views tooling.
 - **2026-10-02: the views crawl signs in, so it can never see a signed-out page.** `scripts/views.mjs --role admin`
   authenticates and then crawls 115 pages, which is exactly why it missed that `RootLayout` mounted the MUI theme
   only on its signed-in branch: `/auth/change-password` was an all-white card with a blue button, and
