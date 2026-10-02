@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import { Box, Typography, Card, CardContent, Pagination } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -56,12 +57,12 @@ const RepairsGrid = ({ repairs, rowsPerPage = 6 }) => {
                                     <Typography variant="h6" fontWeight="600">
                                         {repair.description}
                                     </Typography>
-                                    <Typography sx={{ color: 'text.secondary' }}>
-                                        <strong>Client:</strong> {repair.clientName}
-                                    </Typography>
-                                    <Typography sx={{ color: 'text.secondary' }}>
-                                        <strong>Due Date:</strong> {repair.promiseDate || 'N/A'}
-                                    </Typography>
+                                    <FaceliftRoot>
+                                        <FieldList>
+                                            <Field label="Client" value={repair.clientName} />
+                                            <Field label="Due" value={repair.promiseDate} />
+                                        </FieldList>
+                                    </FaceliftRoot>
                                     <Typography
                                         sx={{
                                             mt: 2,

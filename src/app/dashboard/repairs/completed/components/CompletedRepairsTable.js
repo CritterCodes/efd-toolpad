@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import {
     TableContainer,
     Paper,
@@ -92,19 +93,19 @@ export const CompletedRepairsTable = ({
                                             <Typography variant="h6" gutterBottom component="div">
                                                 Repair Details
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                <strong>Item Description:</strong> {repair.repairDescription || repair.itemDescription || 'No description'}
-                                            </Typography>
-                                            {repair.notes && (
-                                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                                    <strong>Notes:</strong> {repair.notes}
-                                                </Typography>
-                                            )}
-                                            {isMobile && repair.totalCost && (
-                                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                                    <strong>Total Cost:</strong> {formatCurrency(repair.totalCost)}
-                                                </Typography>
-                                            )}
+                                            <FaceliftRoot>
+                                                <FieldList min={240}>
+                                                    <Field
+                                                        label="Item description"
+                                                        value={repair.repairDescription || repair.itemDescription}
+                                                    />
+                                                    {repair.notes && <Field label="Notes" value={repair.notes} />}
+                                                    {/* On a phone the table has no cost column, so the row carries it. */}
+                                                    {isMobile && repair.totalCost && (
+                                                        <Field label="Total cost" value={formatCurrency(repair.totalCost)} mono strong />
+                                                    )}
+                                                </FieldList>
+                                            </FaceliftRoot>
                                         </Box>
                                     </Collapse>
                                 </TableCell>

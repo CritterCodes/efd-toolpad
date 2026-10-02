@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FaceliftRoot, Field, FieldList } from '@/components/facelift';
 import { 
     Box, 
     Card, 
@@ -89,15 +90,15 @@ const ArtisanImage = ({ artisan, onImageChange }) => {
                         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                             Business Information
                         </Typography>
-                        <Typography variant="body2">
-                            <strong>Business:</strong> {artisan.business || 'Not specified'}
-                        </Typography>
-                        <Typography variant="body2">
-                            <strong>Email:</strong> {artisan.email || 'Not specified'}
-                        </Typography>
-                        <Typography variant="body2">
-                            <strong>Phone:</strong> {artisan.phoneNumber || 'Not specified'}
-                        </Typography>
+                        <FaceliftRoot>
+                            {/* 160, not the default 120: this card is ~250px inside, and an email in a
+                                121px column breaks mid-word. One column reads; two do not. */}
+                            <FieldList min={160}>
+                                <Field label="Business" value={artisan.business} />
+                                <Field label="Email" value={artisan.email} mono />
+                                <Field label="Phone" value={artisan.phoneNumber} mono />
+                            </FieldList>
+                        </FaceliftRoot>
                     </Box>
                 </Box>
             </CardContent>
