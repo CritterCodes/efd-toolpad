@@ -127,3 +127,66 @@ which matters, because a full dev-mode crawl is impractical (3 pages compiled in
 |---|---|---|
 | Placeholder accounts | `test@test.com` is on 21 accounts, two of them **stores** whose email notices therefore go nowhere. Clear them? | **Give the two stores their real addresses**, leave the walk-ins blank. Then the unique email index can go on and the duplicate problem is closed for good. |
 | PWA settings | `DebugInformation.js` renders the browser's user agent and URL in a way that differs between server and browser by construction. It sits behind a tab, so it may never render on load. | **Leave it** until #418 is seen again; it is the first place to look if it is. Changing it now would be a guess. |
+
+---
+
+# Continued — 2026-10-01, through the day
+
+> Same run, picking up after #240 (the report above). Every PR went through CI before merging; every production
+> deploy reached READY and the ship check passed.
+
+## Merged
+
+| PR | What |
+|---|---|
+| [#241](https://github.com/CritterCodes/efd-toolpad/pull/241) | **Q14 — retip and whole-catalogue pricing**, opened with the audit behind it (below). Documentation only; no price moved. |
+| [#242](https://github.com/CritterCodes/efd-toolpad/pull/242) | max-lines: Leads page 643 → under the limit. |
+| [#243](https://github.com/CritterCodes/efd-toolpad/pull/243) | **Five selection bars were 160px off-centre**, and at 320px the action button sat off-screen. Fixed + guard test. |
+| [#244](https://github.com/CritterCodes/efd-toolpad/pull/244) | **Q15 — Half-Shank bills ten portions of sizing stock** while every size-up bills one. |
+| [#245](https://github.com/CritterCodes/efd-toolpad/pull/245) | max-lines: Labor Review page 609 → 376, with 13 cases over the two figures a reviewer decides on. |
+| [#246](https://github.com/CritterCodes/efd-toolpad/pull/246) | max-lines: **AppShell** 609 → 230. The shared shell, so verified by clicking through a clean build. |
+
+## The selection bar, and why lint could never have found it
+
+Five pages centre a floating action bar with `left: 50%` + `translateX(-50%)`, inside MUI's `<Slide>`. **`Slide` sets
+its own `transform`**, so the centring half is simply overwritten — the bar sat a full half-width to the right on
+every one of them. On a 320px phone that put the primary button past the edge of the screen, unreachable.
+
+Nothing static could catch it: both properties are valid, and they are in different components. The fix is
+`left: 0; right: 0; mx: 'auto'; width: 'fit-content'`, which does not use `transform` at all, and
+`slideCentering.guard.test.js` now fails if `translateX(-50%)` reappears in any file that also uses `<Slide>`.
+
+## Pricing: a full audit of all 34 repair tasks
+
+The owner asked for this in the middle of an 84-prong retip job, saying he felt guilty about his prices. The method
+mattered more than the spreadsheet: every figure below came from **driving the real pricing engine** over the real
+production tasks with the real settings, never from recomputing a price by hand.
+
+**The result was the opposite of the worry.** EFD stores **one price per task for every metal**. A trade shop prices
+metal by metal. So the platinum retip is at about **41% of the trade rate**, while gold retips sit above it — the
+problem is the single-rate structure, not the number. That is **Q14**: price-moving, so nothing was changed.
+
+Also found, and all left alone: **Half-Shank consumes ten portions of sizing stock** against a size-up's one — about
+$206 of 14k metal, $370 of platinum, before any labour (**Q15**); **rhodium plating at $7.06** against a trade
+surcharge near $33; **fourteen services on the trade sheet with no EFD task at all**; and two duplicate "(Copy)"
+tasks in the catalogue.
+
+**A correction worth recording.** The first draft of this audit quoted Geller Blue Book figures taken from an undated
+source, and the owner asked which year. They were stale — the current edition is Release 6.6, November 2025, after
+significant increases. Q14 now carries that warning at the top, and the comparison was rebuilt on a trade sheet that
+publishes its date.
+
+## Numbers
+
+| | Start of the day | After #240 | Now |
+|---|---|---|---|
+| `max-lines` (files over 400) | 42 | 21 | **18** |
+| Lint baseline | 126 | 22 | **19** |
+| Views baseline | 8 | 0 | **0** |
+
+## Needs the owner
+
+| | Question | Recommendation |
+|---|---|---|
+| **Q14** | EFD charges one rate per task for every metal. Platinum work is priced far under the trade rate, gold retips over it. | **Price by metal.** It is the structure, not the number — and it is the only change that fixes the platinum shortfall without raising gold. Read Geller Release 6.6 first if access can be had. |
+| **Q15** | Half-Shank bills ten portions of sizing stock; every size-up bills one. | Set it to what a half shank actually consumes. One or two is the likely answer, but how much stock it eats is a bench question, not something to infer. |
