@@ -55,3 +55,51 @@ describe('route-level states', () => {
     expect(text).not.toMatch(/@\/components\/facelift/);
   });
 });
+
+/**
+ * The second half, added 2026-10-02: a loading state has to be the shape of what is coming.
+ *
+ * `dashboard/loading.js` stopped every route blanking, but it draws the same three soft panels whether the
+ * destination is a table of forty repair tickets or a grid of product cards. The page therefore still
+ * changed shape under the reader at the moment it loaded — a skeleton of the wrong shape is a second
+ * layout shift wearing a disguise, and it is the one nobody counts because the screen was "already doing
+ * something".
+ *
+ * These segments carry the heaviest lists in the app (repairs: 20 files with a hand-placed spinner across
+ * 27 pages; products: 21 across 17). Next picks the nearest ancestor, so a segment file wins over the
+ * dashboard-wide one without either knowing about the other.
+ */
+const SHAPED = {
+  'dashboard/repairs/loading.js': 'table',
+  'dashboard/products/loading.js': 'cards',
+  'dashboard/customs/loading.js': 'cards',
+  'dashboard/users/loading.js': 'table',
+  'dashboard/admin/loading.js': 'table',
+};
+
+describe('a loading state is the shape of what is coming', () => {
+  it.each(Object.entries(SHAPED))('%s loads as "%s"', (rel, shape) => {
+    const file = path.join(APP, rel);
+    expect(fs.existsSync(file), `src/app/${rel} is missing`).toBe(true);
+    const text = fs.readFileSync(file, 'utf8');
+    expect(text, `${rel} should ask for the ${shape} shape`).toMatch(new RegExp(`shape=["']${shape}["']`));
+    // Without the kit root the CSS variables the skeleton is drawn with do not resolve.
+    expect(text, `${rel} needs FaceliftRoot`).toMatch(/FaceliftRoot/);
+  });
+
+  it('the kit can draw both shapes', () => {
+    const kit = fs.readFileSync(path.resolve(APP, '../components/facelift/skeletons.js'), 'utf8');
+    expect(kit).toMatch(/export function SkeletonTable\b/);
+    expect(kit).toMatch(/export function SkeletonCards\b/);
+    // The card skeleton must use the same grid as the real one, or the columns move when data lands.
+    expect(kit).toMatch(/s\.cardGrid/);
+  });
+
+  it('every shaped state announces itself to a screen reader', () => {
+    const kit = fs.readFileSync(path.resolve(APP, '../components/facelift/skeletons.js'), 'utf8');
+    expect(kit).toMatch(/role="status"/);
+    expect(kit).toMatch(/aria-busy="true"/);
+    // The bars themselves are decoration; only the region should be announced.
+    expect(kit).toMatch(/aria-hidden="true"/);
+  });
+});

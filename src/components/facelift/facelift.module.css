@@ -947,3 +947,57 @@
 }
 
 .railIcon svg { width: 16px; height: 16px; }
+
+/* ── Shaped loading — a skeleton the shape of what is coming ─────────────── */
+
+/* The panel state is a narrow column; a table or a grid needs the page. */
+.statePageWide {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 16px;
+}
+
+@media (min-width: 600px) {
+  .statePageWide { padding: 32px 24px; }
+}
+
+.skeletonTable {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--fl-surface-quiet);
+}
+
+.skeletonRow {
+  display: grid;
+  grid-template-columns: repeat(var(--fl-skel-cols, 5), 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--fl-hairline);
+}
+
+.skeletonRow:last-child { border-bottom: 0; }
+
+/* The header is not data, so it reads quieter — the same hierarchy a real table has. */
+.skeletonRowHead { opacity: 0.55; }
+
+/* Below the table breakpoint a row stacks, exactly as the real tables do. */
+@media (max-width: 599px) {
+  .skeletonRow { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--fl-border);
+  border-radius: 18px;
+  background: var(--fl-surface);
+}

@@ -38,6 +38,9 @@ import s from './facelift.module.css';
 
 const cx = (...parts) => parts.filter(Boolean).join(' ');
 
+// Skeletons live next door — adding the table and card shapes pushed this file past max-lines.
+export { Skeleton, SkeletonTable, SkeletonCards, LoadingPage } from './skeletons';
+
 export const facelift = {
   mono: "'IBM Plex Mono', ui-monospace, monospace",
   gold: '#FBBF24',
@@ -119,42 +122,6 @@ export function PageBody({ children, width = 'default', gutter = false, as: Tag 
 /**
  * A bar standing in for text that has not arrived. Holds the shape of the page so the chrome does not
  * vanish and a spinner float in its place.
- */
-export function Skeleton({ width = '100%', height = 16, radius = 8, className, ...rest }) {
-  return (
-    <span
-      {...rest}
-      aria-hidden="true"
-      className={cx(s.skeleton, className)}
-      style={{ width, height, borderRadius: radius }}
-    />
-  );
-}
-
-/**
- * The route-level loading state. efd-admin has never had one: there are no `loading.js` files anywhere
- * under `src/app`, and 130 files place a `<CircularProgress />` by hand instead — usually centred in a
- * 50vh box, so the content area blanks, a spinner floats in the middle of nothing, and the page snaps in.
- *
- * This keeps the page's shape: a title bar and a few rows, in the sizes real content will take.
- */
-export function LoadingPage({ label = 'Loading', rows = 3 }) {
-  return (
-    <div className={s.statePage} role="status" aria-busy="true" aria-label={label}>
-      <Skeleton width="42%" height={30} radius={10} />
-      <Skeleton width="68%" height={14} />
-      <div className={s.stateRows}>
-        {Array.from({ length: rows }, (_, i) => (
-          <Skeleton key={i} height={74} radius={16} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The route-level error state. Plain language, a way out, and the digest — never the stack, which tells a
- * jeweler nothing and tells everyone else too much.
  */
 export function ErrorPage({ title = 'That did not load', message, digest, onRetry, children }) {
   return (
