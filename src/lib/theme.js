@@ -32,6 +32,21 @@ const MONO    = "'IBM Plex Mono', ui-monospace, monospace";
 
 // Mono, uppercase, wide-tracked — the shop's label voice. Used for table
 // heads, overlines, chips, and any metadata that isn't prose.
+/**
+ * Every control a finger lands on is at least 44px on a coarse pointer.
+ *
+ * The bench is used with gloved hands, often one-handed, holding a ring in the other. MUI's own floors are
+ * 40px for a contained button and 34px for `size="small"` — which is why a `size="small"` button measured
+ * 35px and a default one 42.5px, both under the floor this app holds itself to. Rather than inflate every
+ * control on a mouse-driven desktop, the floor is raised only where there is no mouse, the same way
+ * `facelift.module.css` raises `.railTab`.
+ *
+ * `pointer: coarse` is the media query for "the primary input is not precise" — a phone, a tablet, the
+ * shop's touchscreen. A desktop with a trackpad stays at the tighter numbers.
+ */
+const TAP = 44;
+const coarse = (rules) => ({ '@media (pointer: coarse)': rules });
+
 const label = {
   fontFamily: MONO,
   fontWeight: 400,
@@ -115,8 +130,9 @@ const theme = createTheme({
           padding: '9px 18px',
           minHeight: 40,
           transition: 'background-color .15s ease, border-color .15s ease, color .15s ease',
+          ...coarse({ minHeight: TAP }),
         },
-        sizeSmall: { padding: '6px 14px', minHeight: 34, fontSize: '0.8125rem' },
+        sizeSmall: { padding: '6px 14px', minHeight: 34, fontSize: '0.8125rem', ...coarse({ minHeight: TAP }) },
         sizeLarge: { padding: '13px 24px', minHeight: 48, fontSize: '0.9375rem' },
         // Scoped to primary so color="success" / "error" contained buttons
         // keep their semantic fills instead of all going gold.
@@ -143,7 +159,10 @@ const theme = createTheme({
           borderRadius: 10,
           color: 'rgba(255,255,255,0.85)',
           '&:hover': { backgroundColor: 'rgba(255,255,255,0.07)', color: TEXT },
+          // Square, because an icon button is aimed at in both directions.
+          ...coarse({ minWidth: TAP, minHeight: TAP }),
         },
+        sizeSmall: coarse({ minWidth: TAP, minHeight: TAP }),
       },
     },
     MuiFab: {
@@ -269,6 +288,8 @@ const theme = createTheme({
         },
         label: { paddingLeft: 10, paddingRight: 10 },
         sizeSmall: { height: 22, fontSize: '0.625rem' },
+        // A filter chip is tapped; a status chip is read. Only the first gets the floor.
+        clickable: coarse({ height: TAP, borderRadius: 999 }),
         outlined: { backgroundColor: 'transparent', borderColor: BORDER },
         colorWarning: { backgroundColor: GOLD_WASH, color: GOLD, borderColor: GOLD_EDGE },
         colorSuccess: { backgroundColor: 'rgba(52,211,153,0.12)', color: '#34D399', borderColor: 'rgba(52,211,153,0.4)' },
@@ -477,6 +498,7 @@ const theme = createTheme({
           margin: '3px 6px',
           minHeight: 40,
           color: TEXT,
+          ...coarse({ minHeight: TAP }),
           '&:hover': { backgroundColor: 'rgba(255,255,255,0.07)' },
           '&.Mui-selected': { backgroundColor: GOLD_WASH, color: GOLD, '&:hover': { backgroundColor: 'rgba(251,191,36,0.18)' } },
         },
@@ -491,6 +513,7 @@ const theme = createTheme({
             borderRadius: 9,
             margin: '3px 6px',
             minHeight: 40,
+            ...coarse({ minHeight: TAP }),
             '&[aria-selected="true"]': { backgroundColor: GOLD_WASH, color: GOLD },
             '&.Mui-focused': { backgroundColor: 'rgba(255,255,255,0.07)' },
           },
