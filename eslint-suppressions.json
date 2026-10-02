@@ -64,11 +64,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/repairs/my-bench/page.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/repairs/receiving/page.js": {
     "max-lines": {
       "count": 1
