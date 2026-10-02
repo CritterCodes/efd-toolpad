@@ -4,9 +4,9 @@ import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'reac
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Box, Typography, Button, Grid, Card, CardContent, Paper, TextField,
+  Box, Typography, Button, Grid, Paper, TextField,
   InputAdornment, FormControl, InputLabel, Select, MenuItem, Stack, Chip, CircularProgress,
-  Snackbar, Alert, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead,
+  Snackbar, Alert, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, IconButton, Tooltip, Slide, ToggleButton, ToggleButtonGroup, Fab, Menu,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
@@ -15,8 +15,6 @@ import DiamondIcon from '@mui/icons-material/Diamond';
 import SearchIcon from '@mui/icons-material/Search';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
-import EditIcon from '@mui/icons-material/Edit';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import InventoryIcon from '@mui/icons-material/Inventory';
@@ -29,224 +27,9 @@ import PersonIcon from '@mui/icons-material/Person';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
-import { filterCatalog, catalogStats, getProductThumb, formatPrice, formatMargin } from '@/services/products/catalogFilter';
-import { editorFormToPayload, productToEditorForm } from '@/services/products/productEditorPayload';
-
-const STATUS_OPTIONS = ['all', 'published', 'draft', 'approved', 'archived', 'pending'];
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'title', label: 'Title A–Z' },
-  { value: 'price_asc', label: 'Price ↑' },
-  { value: 'price_desc', label: 'Price ↓' },
-];
-
-const TYPE_CHIPS = [
-  { value: 'all', label: 'All' },
-  { value: 'gemstone', label: 'Gemstones' },
-  { value: 'jewelry', label: 'Jewelry' },
-];
-
-const STATUS_COLOR = {
-  active: '#66BB6A',
-  published: '#66BB6A',
-  approved: '#66BB6A',
-  Available: '#66BB6A',
-  draft: REPAIRS_UI.textMuted,
-  archived: REPAIRS_UI.textMuted,
-  pending: '#FFB74D',
-};
-
-function getStatusLabel(s) {
-  if (!s || s === 'draft') return 'Draft';
-  if (s === 'published' || s === 'active') return 'Active';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function getStatusColor(s) {
-  return STATUS_COLOR[s] || REPAIRS_UI.textMuted;
-}
-
-function fmtPrice(product) {
-  const p = formatPrice(product);
-  if (p == null) return '—';
-  return `$${p.toLocaleString()}`;
-}
-
-function fmtMargin(product) {
-  const m = formatMargin(product);
-  if (m == null) return null;
-  return `${Math.round(m)}%`;
-}
-
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function MetricCard({ icon: Icon, label, value, accent }) {
-  return (
-    <Card sx={{ height: '100%', backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '14px !important' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 2, backgroundColor: REPAIRS_UI.bgTertiary, border: `1px solid ${REPAIRS_UI.border}` }}>
-          <Icon sx={{ color: accent || REPAIRS_UI.accent, fontSize: 22 }} />
-        </Box>
-        <Box>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: REPAIRS_UI.textHeader, lineHeight: 1.1 }}>{value}</Typography>
-          <Typography sx={{ fontSize: '0.74rem', color: REPAIRS_UI.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProductThumb({ product, size = 56 }) {
-  const url = getProductThumb(product);
-  return (
-    <Box sx={{ width: size, height: size, flexShrink: 0, borderRadius: 1, overflow: 'hidden', border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {url ? (
-        <Box component="img" src={url} alt={product.title || 'Product'} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      ) : (
-        <DiamondIcon sx={{ color: REPAIRS_UI.border, fontSize: size * 0.4 }} />
-      )}
-    </Box>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <Card sx={{ height: 260, backgroundColor: REPAIRS_UI.bgCard, backgroundImage: 'none', border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 2, boxShadow: 'none' }}>
-      <CardContent>
-        <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 1, mb: 1, bgcolor: REPAIRS_UI.bgTertiary }} />
-        <Skeleton width="60%" height={18} sx={{ bgcolor: REPAIRS_UI.bgTertiary, mb: 0.5 }} />
-        <Skeleton width="40%" height={14} sx={{ bgcolor: REPAIRS_UI.bgTertiary }} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProductCard({ product, selected, onToggle, onEdit, onDuplicate }) {
-  const [hovered, setHovered] = useState(false);
-  const isSelected = selected.has(String(product._id));
-  const margin = fmtMargin(product);
-
-  return (
-    <Card
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      sx={{
-        height: '100%',
-        backgroundColor: REPAIRS_UI.bgCard,
-        backgroundImage: 'none',
-        border: `1px solid ${isSelected ? REPAIRS_UI.accent : REPAIRS_UI.border}`,
-        borderRadius: 2,
-        boxShadow: 'none',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-        position: 'relative',
-        '&:hover': { borderColor: REPAIRS_UI.accent },
-      }}
-      onClick={() => onToggle(String(product._id))}
-    >
-      {/* Thumbnail area */}
-      <Box sx={{ position: 'relative', pt: '100%', overflow: 'hidden', borderRadius: '8px 8px 0 0', backgroundColor: REPAIRS_UI.bgTertiary }}>
-        {(() => {
-          const url = getProductThumb(product);
-          return url ? (
-            <Box component="img" src={url} alt={product.title || 'Product'} sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <DiamondIcon sx={{ color: REPAIRS_UI.border, fontSize: 48 }} />
-            </Box>
-          );
-        })()}
-
-        {/* Type badge TL */}
-        <Box sx={{ position: 'absolute', top: 8, left: 8 }}>
-          <Chip size="small" label={product.productType === 'gemstone' ? 'Gemstone' : 'Jewelry'} sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, backgroundColor: `${REPAIRS_UI.bgPanel}CC`, color: REPAIRS_UI.textSecondary, border: `1px solid ${REPAIRS_UI.border}` }} />
-        </Box>
-
-        {/* Status pill TR */}
-        <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
-          <Box sx={{ height: 20, px: 1, borderRadius: 1, display: 'flex', alignItems: 'center', backgroundColor: `${getStatusColor(product.status)}22`, border: `1px solid ${getStatusColor(product.status)}44` }}>
-            <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: getStatusColor(product.status) }}>{getStatusLabel(product.status)}</Typography>
-          </Box>
-        </Box>
-
-        {/* Hover actions */}
-        {hovered && (
-          <Box sx={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 0.5 }}>
-            <Tooltip title="Edit">
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onEdit(product); }} sx={{ backgroundColor: `${REPAIRS_UI.bgPanel}DD`, color: REPAIRS_UI.accent, '&:hover': { backgroundColor: REPAIRS_UI.bgPanel } }}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Duplicate">
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDuplicate(product); }} sx={{ backgroundColor: `${REPAIRS_UI.bgPanel}DD`, color: REPAIRS_UI.textSecondary, '&:hover': { backgroundColor: REPAIRS_UI.bgPanel } }}>
-                <ContentCopyIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-      </Box>
-
-      <CardContent sx={{ pt: 1.25, pb: '10px !important' }}>
-        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: REPAIRS_UI.textHeader, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4, mb: 0.5 }}>
-          {product.title || 'Untitled'}
-        </Typography>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: REPAIRS_UI.textPrimary }}>{fmtPrice(product)}</Typography>
-          {margin && <Typography sx={{ fontSize: '0.72rem', color: '#66BB6A' }}>{margin}</Typography>}
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProductTableRow({ product, selected, onToggle, onEdit }) {
-  const isSelected = selected.has(String(product._id));
-  const margin = fmtMargin(product);
-
-  return (
-    <TableRow
-      onClick={() => onToggle(String(product._id))}
-      sx={{ cursor: 'pointer', backgroundColor: isSelected ? `${REPAIRS_UI.accent}11` : 'transparent', '&:hover': { backgroundColor: REPAIRS_UI.bgTertiary } }}
-    >
-      <TableCell sx={{ borderColor: REPAIRS_UI.border, py: 1 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <ProductThumb product={product} size={40} />
-          <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: REPAIRS_UI.textHeader }}>{product.title || 'Untitled'}</Typography>
-        </Stack>
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>
-        {product.productType === 'gemstone' ? 'Gemstone' : 'Jewelry'}
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textSecondary, fontSize: '0.8rem' }}>
-        {product.artisanInfo?.businessName || product.artisanId || '—'}
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border }}>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: REPAIRS_UI.textPrimary }}>{fmtPrice(product)}</Typography>
-          {margin && <Typography sx={{ fontSize: '0.72rem', color: '#66BB6A' }}>{margin}</Typography>}
-        </Stack>
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border, color: REPAIRS_UI.textMuted, fontSize: '0.78rem' }}>
-        {fmtDate(product.updatedAt || product.createdAt)}
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border }}>
-        <Box sx={{ display: 'inline-flex', px: 1, py: 0.25, borderRadius: 1, backgroundColor: `${getStatusColor(product.status)}22` }}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: getStatusColor(product.status) }}>{getStatusLabel(product.status)}</Typography>
-        </Box>
-      </TableCell>
-      <TableCell sx={{ borderColor: REPAIRS_UI.border }}>
-        <Tooltip title="Edit">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onEdit(product); }} sx={{ color: REPAIRS_UI.textSecondary, '&:hover': { color: REPAIRS_UI.accent } }}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
-  );
-}
+import { filterCatalog, catalogStats } from '@/services/products/catalogFilter';
+import { MetricCard, ProductCard, ProductTableRow, SORT_OPTIONS, STATUS_OPTIONS, SkeletonCard, TYPE_CHIPS, getStatusLabel } from './catalogParts';
+import { catalogActions } from './catalogActions';
 
 function CatalogInner() {
   const { data: session } = useSession();
@@ -322,90 +105,23 @@ function CatalogInner() {
     router.push(`/dashboard/products/${product._id}`);
   };
 
-  const responseError = async (response, fallback) => {
-    const body = await response.json().catch(() => ({}));
-    const detail = Array.isArray(body.details) ? `: ${body.details.join(', ')}` : '';
-    return `${body.error || fallback}${detail}`;
-  };
-
-  const handleDuplicate = async (product) => {
-    try {
-      const detailResponse = await fetch(`/api/products/${product._id}`);
-      if (!detailResponse.ok) throw new Error(await responseError(detailResponse, 'Failed to load product'));
-      const source = await detailResponse.json();
-      const payload = editorFormToPayload({
-        ...productToEditorForm(source.product || source),
-        title: `${product.title || 'Untitled product'} (copy)`,
-        status: 'draft',
-      });
-      const createResponse = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!createResponse.ok) throw new Error(await responseError(createResponse, 'Duplicate failed'));
-      showSnack('Product duplicated.');
-      await load();
-    } catch (error) {
-      showSnack(error.message, 'error');
-    }
-  };
-
-  const runBulk = async (label, operation, confirmation) => {
-    const ids = [...selected];
-    if (ids.length === 0 || (confirmation && !window.confirm(confirmation))) return;
-    setBulkBusy(true);
-    const failures = [];
-    for (const id of ids) {
-      try {
-        await operation(id);
-      } catch (error) {
-        failures.push(error.message);
-      }
-    }
-    await load();
-    setBulkBusy(false);
-    if (failures.length > 0) {
-      showSnack(`${label}: ${ids.length - failures.length} succeeded, ${failures.length} failed. ${failures[0]}`, 'error');
-      return;
-    }
-    clearSelection();
-    showSnack(`${label}: ${ids.length} product${ids.length === 1 ? '' : 's'} updated.`);
-  };
-
-  const handleBulkPublish = () => runBulk('Publish', async (id) => {
-    const response = await fetch(`/api/products/${id}/publish`, { method: 'POST', body: '{}' });
-    if (!response.ok) throw new Error(await responseError(response, 'Publish failed'));
-  }, `Publish ${selected.size} selected product(s)?`);
-
-  const handleBulkArchive = () => runBulk('Archive', async (id) => {
-    const response = await fetch(`/api/products/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'archived' }),
-    });
-    if (!response.ok) throw new Error(await responseError(response, 'Archive failed'));
-  }, `Archive ${selected.size} selected product(s)?`);
-
-  const handleBulkRemove = () => runBulk('Remove', async (id) => {
-    const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error(await responseError(response, 'Remove failed'));
-  }, `Remove ${selected.size} selected product(s) from the active catalog? They will be archived.`);
-
-  const handleBulkReassign = () => {
-    setReassignTo('');
-    setReassignOpen(true);
-  };
-
-  const confirmBulkReassign = async () => {
-    if (!reassignTo) return;
-    setReassignOpen(false);
-    await runBulk('Reassign', async (id) => {
-      const response = await fetch(`/api/products/${id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artisanId: reassignTo }),
-      });
-      if (!response.ok) throw new Error(await responseError(response, 'Reassign failed'));
-    });
-  };
-
+  const {
+    handleDuplicate,
+    handleBulkPublish,
+    handleBulkArchive,
+    handleBulkRemove,
+    handleBulkReassign,
+    confirmBulkReassign,
+  } = catalogActions({
+    clearSelection,
+    load,
+    reassignTo,
+    selected,
+    setBulkBusy,
+    setReassignOpen,
+    setReassignTo,
+    showSnack,
+  });
   const handleNewProduct = () => router.push('/dashboard/products/new');
 
   return (

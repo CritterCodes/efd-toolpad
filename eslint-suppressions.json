@@ -64,11 +64,6 @@
       "count": 1
     }
   },
-  "src/app/dashboard/products/page.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/dashboard/repairs/[repairID]/page.js": {
     "max-lines": {
       "count": 1
