@@ -10,6 +10,7 @@ import { Refresh as RefreshIcon, Build as BuildIcon } from '@mui/icons-material'
 import { useWholesaleRepairs } from '@/hooks/wholesale/useWholesaleRepairs';
 import { REPAIRS_UI as UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { STATUS_DESCRIPTIONS } from '@/services/repairWorkflow';
+import { storeStatusLabel } from '@/services/repairWorkflow';
 
 const STATUS_COLORS = {
     'SHIPPED TO SHOP': 'info',
@@ -149,10 +150,13 @@ export default function CurrentRepairsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Chip
-                                                label={displayStatus}
+                                                label={storeStatusLabel(displayStatus)}
                                                 color={STATUS_COLORS[displayStatus] || 'default'}
                                                 size="small"
                                                 title={STATUS_DESCRIPTIONS[displayStatus] || displayStatus}
+                                                /* The tooltip stays for staff looking over a shoulder; the
+                                                   chip is the store's. A tooltip is not a label — it does
+                                                   not exist on a touch screen. */
                                             />
                                             {repair.quoteRequest?.status === 'requested' && (
                                                 <Chip label="Quote requested" size="small" sx={{ ml: 0.5, color: '#A855F7', border: '1px solid #A855F7', backgroundColor: 'transparent' }} />

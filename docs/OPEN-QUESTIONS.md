@@ -472,3 +472,43 @@ turns out to matter in practice; C is not really an option, because the failure 
 Nothing has been changed either way.
 
 **Status:** open.
+
+---
+
+## Q17 — the words a store reads for a repair's status (F52)
+
+**Shipped, and reversible line by line.** A store's own repair list showed them our internal state machine
+in capitals — `RECEIVING`, `NEEDS QUOTE`, `QC`, `DELIVERY BATCHED`, `PAID_CLOSED`. The plain sentence for
+each already existed in `STATUS_DESCRIPTIONS`, but only as a `title` tooltip, which **does not exist on a
+touch screen**: the explanation was unreachable on the device a jeweller is most likely holding.
+
+`STORE_STATUS_LABELS` in `src/services/repairs/workflow/statuses.js` now holds what a store reads. Nothing
+internal changed — the bench, the move page and every query still speak the real statuses.
+
+**The wording is yours.** Each line is one string in one map; changing any of them touches no screen.
+
+| They used to read | They now read | Why this word |
+|---|---|---|
+| `RECEIVING` | Received | They want to know it arrived, not that we are "receiving". |
+| `NEEDS QUOTE` | Pricing | "Needs quote" sounds like *they* owe us something. We owe them a price. |
+| `COMMUNICATION REQUIRED` | Needs your input | This one genuinely is them — say so plainly. |
+| `NEEDS PARTS` | Ordering parts | What we are doing, not what the job lacks. |
+| `PARTS ORDERED` | Parts on order | Same fact, their frame. |
+| `READY FOR WORK` | In the queue | "Ready for work" reads like it is finished. |
+| `IN PROGRESS` | At the bench | Concrete, and it is the phrase they already use on the phone. |
+| `QC` | Final check | QC is our step and their wait. |
+| `COMPLETED` | Finished | — |
+| `READY FOR PICKUP` | Ready for pickup | Already plain. |
+| `DELIVERY BATCHED` | Ready to return | Batching is ours; "on its way back" is theirs. |
+| `SHIPPED TO SHOP` | In transit to us | From the store's side, "to shop" is ambiguous — whose shop? |
+| `PAID_CLOSED` | Closed | An underscore reached a customer's screen. |
+| `LEAD` | Estimate | — |
+| `PENDING PICKUP` / `PICKUP REQUESTED` / `PICKED UP` / `CANCELLED` | Awaiting pickup / Pickup requested / Picked up / Cancelled | Already plain. |
+
+**Recommendation: keep these, and tell me any that sound wrong in your voice.** The two I am least sure of
+are **Pricing** (it may read as "we are putting the price up" rather than "we are working one out") and
+**In the queue** (honest, but it tells a store they are waiting, which "Ready for work" hid).
+
+A guard test pins both halves: every status has a store word, and no store-facing screen renders a raw one.
+
+**Status:** open — shipped with these words, waiting on your edits.

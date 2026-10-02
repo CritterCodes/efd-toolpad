@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { storeStatusLabel } from '@/services/repairWorkflow';
 import {
   Box,
   Typography,
@@ -91,7 +92,7 @@ function RepairCard({ repair, onView, isSelected, onToggleSelect }) {
                     #{repair.repairNumber || repair.repairID}
                 </Typography>
                 <Chip
-                    label={repair.status}
+                    label={storeStatusLabel(repair.status)}
                     size="small"
                     sx={{
                         backgroundColor: REPAIRS_UI.bgCard,
