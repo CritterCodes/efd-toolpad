@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Card, CardContent, Stack, Box, Typography, Chip, Button, Alert, Grid, Divider, Checkbox, TextField } from "@mui/material";
-import { REPAIRS_UI } from "@/app/dashboard/repairs/components/repairsUi";
+import { Card, CardContent, Stack, Box, Typography, Chip, Button, Alert, Grid, Divider, Checkbox, TextField, MenuItem } from "@mui/material";
+import { REPAIRS_UI, repairsMenuProps } from "@/app/dashboard/repairs/components/repairsUi";
 import FinalizeFulfillment from "./FinalizeFulfillment";
 import { formatCurrency, getCardPaymentSummary, getCashPaymentSummary, getFullInvoiceCardSummary } from './pickupHelpers';
 import { formatDate, printInvoice } from './invoicePrint';
@@ -152,26 +152,41 @@ export function InvoiceCard({
                 >
                   Remove to Closeout
                 </Button>
+                {/*
+                  F41: this was a free-text box asking you to type `rinv-...` from memory, with the valid
+                  targets printed underneath as a comma-separated caption. The answer was always already on
+                  screen; it just wasn't the control. Picking from the list also means a typo cannot reach
+                  the route, and an invoice from another account cannot be named at all.
+                */}
                 <TextField
-                  label="Merge Into Invoice ID"
+                  select
+                  label={mergeTargets.length ? "Merge into" : "Nothing to merge into"}
                   value={targetInvoiceID}
                   onChange={(event) => setTargetInvoiceID(event.target.value)}
-                  placeholder={mergeTargets[0]?.invoiceID || "rinv-..."}
+                  disabled={mergeTargets.length === 0}
                   size="small"
-                  sx={{ minWidth: 220 }}
-                />
+                  sx={{ minWidth: 260 }}
+                  SelectProps={{ MenuProps: repairsMenuProps }}
+                >
+                  {mergeTargets.map((target) => (
+                    <MenuItem key={target.invoiceID} value={target.invoiceID}>
+                      {target.invoiceID} · {formatCurrency(target.total ?? target.remainingBalance ?? 0)}
+                      {target.repairs?.length ? ` · ${target.repairs.length} repair${target.repairs.length === 1 ? '' : 's'}` : ''}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <Button
                   variant="outlined"
-                  disabled={!targetInvoiceID.trim()}
-                  onClick={() => onMergeInvoice(invoice.invoiceID, targetInvoiceID.trim())}
+                  disabled={!targetInvoiceID}
+                  onClick={() => onMergeInvoice(invoice.invoiceID, targetInvoiceID)}
                   sx={{ color: REPAIRS_UI.textPrimary, borderColor: REPAIRS_UI.border }}
                 >
                   Merge
                 </Button>
               </Stack>
-              {mergeTargets.length > 0 && (
+              {mergeTargets.length === 0 && (
                 <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
-                  Same-account merge targets: {mergeTargets.map((target) => target.invoiceID).join(", ")}
+                  This account has no other open invoice to merge into.
                 </Typography>
               )}
 
