@@ -83,6 +83,28 @@ export function FaceliftRoot({ children, className, ...rest }) {
   );
 }
 
+/**
+ * The page frame — one `<main>` recipe every screen sits in.
+ *
+ * This is the thing efd-admin has never had. `AppShell` rendered a bare `<Box component="main" sx={{flex:1}}>`,
+ * so each of 384 screens decided its own gutter and its own spacing: `p: 3` 32 times, `p: 4` 22, `p: 2` 13,
+ * `p: 1.5` 9, `p: 6` 7, plus `mb: 2`/`mb: 3` on nearly every heading. That is why the left edge and the vertical
+ * rhythm move as you navigate, and it is most of what separates this app from one that feels made by one person.
+ *
+ * The rule that makes it work: **the frame owns the vertical rhythm, and a child never sets its own top margin.**
+ * Sections are separated by this element's `gap`, not by margins they each choose.
+ *
+ * `width` opts out of the reading column for the screens that genuinely need the room — wide tables, the
+ * analytics report — the way `AppShell` already does elsewhere.
+ */
+export function PageBody({ children, width = 'default', className, ...rest }) {
+  return (
+    <main {...rest} className={cx(s.pageBody, width === 'full' && s.pageBodyFull, className)}>
+      {children}
+    </main>
+  );
+}
+
 /** Page header. Badge + title + subtitle, optional actions on the right. */
 export function PageHeader({ badge, badgeIcon, title, subtitle, actions, boxed = true, children }) {
   return (

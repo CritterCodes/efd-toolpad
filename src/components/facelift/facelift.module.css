@@ -715,3 +715,32 @@
   font-variant-numeric: tabular-nums;
   color: var(--fl-text);
 }
+
+/* -- Page body -- the one <main> recipe every screen sits in --------------- */
+
+.pageBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 96px;
+}
+
+@media (min-width: 600px) {
+  .pageBody {
+    gap: 22px;
+    padding: 24px 24px 96px;
+  }
+}
+
+.pageBodyFull { max-width: none; }
+
+/*
+ * The frame owns the vertical rhythm. A section that also sets its own top margin double-spaces itself
+ * against the gap above it, which is the drift this element exists to end.
+ */
+.pageBody > :first-child { margin-top: 0; }

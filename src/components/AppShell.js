@@ -266,8 +266,20 @@ export default function AppShell({ children }) {
           </Toolbar>
         </AppBar>
 
-        {/* Page content */}
-        <Box component="main" sx={{ flex: 1 }}>
+        {/*
+          Page content. The reading column: every screen is centred inside the same maximum width, so the
+          app stops sprawling edge-to-edge on a wide monitor and the eye keeps one left edge as you move
+          between pages.
+
+          Deliberately only the column, not the gutter. Each of 384 screens currently supplies its own
+          padding and they disagree — `p: 3` 32 times, `p: 4` 22, `p: 2` 13, `p: 1.5` 9, `p: 6` 7 — so
+          adding padding here would double it everywhere at once. The gutter and the vertical rhythm come
+          from `PageBody` in the facelift kit, adopted a segment at a time as each screen drops its own.
+        */}
+        <Box
+          component="main"
+          sx={{ flex: 1, width: '100%', maxWidth: 1440, mx: 'auto', minWidth: 0 }}
+        >
           {children}
         </Box>
       </Box>
