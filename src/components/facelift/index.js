@@ -245,6 +245,75 @@ export function CardGrid({ children, min = 300 }) {
   return <div className={s.cardGrid} style={{ '--fl-min': `${min}px` }}>{children}</div>;
 }
 
+/**
+ * One row of tabs or filter pills — a page's views, not navigation.
+ *
+ * Thirty files render MUI `<Tabs>` and **eleven of them hand-patch `& .MuiTabs-scroller`** with the same
+ * `overflowX: 'auto !important'`, each discovering the same phone problem alone. Worse, MUI's scroll
+ * buttons do not appear on a touch screen, so on My Bench and Payment & Pickup three lanes were reachable
+ * only by a swipe with nothing on screen suggesting it.
+ *
+ * So: the track scrolls, the page never does, and the overflow is *visible* — a fade on whichever edge has
+ * more to show. The active pill scrolls itself into view, which matters when a lane is selected from a
+ * scan rather than a tap.
+ *
+ * Items are `{ key, label, count? }`. Counts are tabular so a row of them does not jitter as they change.
+ */
+export function TabRail({ items = [], value, onChange, ariaLabel = 'Views' }) {
+  const trackRef = React.useRef(null);
+  const [edges, setEdges] = React.useState({ start: false, end: false });
+
+  const measure = React.useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const slack = el.scrollWidth - el.clientWidth;
+    setEdges({ start: el.scrollLeft > 2, end: slack > 2 && el.scrollLeft < slack - 2 });
+  }, []);
+
+  React.useEffect(() => {
+    measure();
+    const el = trackRef.current;
+    if (!el) return undefined;
+    el.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [measure, items.length]);
+
+  // A lane chosen by scan, not by tap, still has to be on screen.
+  React.useEffect(() => {
+    const el = trackRef.current?.querySelector('[data-active="true"]');
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    measure();
+  }, [value, measure]);
+
+  return (
+    <div className={cx(s.railWrap, edges.start && s.railFadeStart, edges.end && s.railFadeEnd)}>
+      <div ref={trackRef} className={s.rail} role="tablist" aria-label={ariaLabel}>
+        {items.map((item) => {
+          const active = item.key === value;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-active={active ? 'true' : 'false'}
+              onClick={() => onChange?.(item.key)}
+              className={cx(s.railTab, active && s.railTabActive)}
+            >
+              {item.label}
+              {item.count !== undefined && <span className={s.railCount}>{item.count}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** The mono overline that separates stacked regions. */
 export function SectionLabel({ children, className, ...rest }) {
   return <div {...rest} className={cx(s.sectionLabel, className)}>{children}</div>;

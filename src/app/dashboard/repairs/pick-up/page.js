@@ -7,10 +7,9 @@ import {
   Box,
   CircularProgress,
   Snackbar,
-  Tab,
-  Tabs,
   Typography,
 } from "@mui/material";
+import { TabRail } from "@/components/facelift";
 import {
   Payment as PaymentIcon,
 } from "@mui/icons-material";
@@ -231,24 +230,21 @@ export default function PaymentPickupPage() {
         </Typography>
       </Box>
 
-      <Tabs
-        value={tab}
-        onChange={(event, value) => setTab(value)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{
-          mb: 3,
-          maxWidth: "100%",
-          "& .MuiTabs-scroller": { overflowX: "auto !important" },
-          "& .MuiTab-root": { flexShrink: 0, textTransform: "none" },
-        }}
-      >
-        <Tab label={`Completed / Needs Closeout (${closeoutRepairs.length})`} />
-        <Tab label={`Draft Invoices (${draftInvoices.length})`} />
-        <Tab label={`Open Invoices (${openInvoices.length})`} />
-        <Tab label={`Paid / Closed (${paidInvoices.length})`} />
-      </Tabs>
+      {/* TabRail, not MUI Tabs: MUI's scroll buttons never render on a touch screen, so the last tabs
+          here were reachable only by an undiscoverable swipe. */}
+      <Box sx={{ mb: 3 }}>
+        <TabRail
+          ariaLabel="Closeout and invoices"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { key: 0, label: "Completed / Needs Closeout", count: closeoutRepairs.length },
+            { key: 1, label: "Draft Invoices", count: draftInvoices.length },
+            { key: 2, label: "Open Invoices", count: openInvoices.length },
+            { key: 3, label: "Paid / Closed", count: paidInvoices.length },
+          ]}
+        />
+      </Box>
 
       <InvoiceListToolbar
         activeInvoiceList={activeInvoiceList}
