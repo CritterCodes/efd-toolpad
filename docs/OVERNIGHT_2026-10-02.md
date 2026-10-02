@@ -600,3 +600,80 @@ tapped, and inflating a row of them would wreck it. Measured on `/dashboard/admi
 | Placeholder accounts | Two **stores** share `test@test.com`, so their email notices go nowhere. | Give them real addresses; it also unblocks the unique email index (C2). |
 | efd-shop protection | `gh pr merge` does not wait for CI there — no required check. | Give efd-shop the same protection as efd-toolpad. |
 | **Dev data** | `efd-database-DEV` holds the six `views.check` users and essentially nothing else — no repairs, no customs, no drops, no materials. Four conversions this session shipped on a build plus an identical-shape argument rather than a render, because there was nothing to render. | A seed script writing one row of each kind, run by the views tooling. It is the difference between "115 pages load" and "the card works". |
+
+---
+
+# 10:30 — the browser kept being right
+
+> admin #274–#280, all merged, all reaching Vercel READY with `ship.yml` green. #281 (F52) is open.
+
+| PR | What |
+|---|---|
+| [#274](https://github.com/CritterCodes/efd-toolpad/pull/274) | `TabRail` for the three profile headers — the artisan one's **fourth tab was unreachable**. |
+| [#275](https://github.com/CritterCodes/efd-toolpad/pull/275) | The previous run report. |
+| [#276](https://github.com/CritterCodes/efd-toolpad/pull/276) | **F48** — the bench can look a part up instead of remembering its number. |
+| [#277](https://github.com/CritterCodes/efd-toolpad/pull/277) | `TabRail` for user management and artisan applications; counts out of the label strings. |
+| [#278](https://github.com/CritterCodes/efd-toolpad/pull/278) | Rendering the two `Field` conversions that shipped without being rendered. |
+| [#279](https://github.com/CritterCodes/efd-toolpad/pull/279) | **Gold discipline** on artisan applications: four side-stripes, two of them gold. |
+| [#280](https://github.com/CritterCodes/efd-toolpad/pull/280) | **F41** — merging an invoice no longer means typing its ID from memory. |
+
+## The pattern in this batch: open the page
+
+Every real find came from rendering something, and none of them from reading it.
+
+- **#274.** The `scrollButtons` ratchet could not see the artisan profile header, because that header never
+  passed `scrollButtons` — it was worse. Four `<Tab>`s in MUI's *default* variant, no overflow handling at
+  all: at 375px the track is 271px against 460px of labels, so **"My Bench", the fourth, was clipped
+  mid-word** with nothing saying more existed. "Not flagged" and "not broken" are different claims.
+- **#278** is me correcting my own shortcut. #271 shipped two `Field` conversions on *"the build is clean
+  and the shape is identical"*, and I logged "the dev database is too empty to render it" as friction. The
+  gap was mine: this repo has `@testing-library/react` and a jsdom environment, with five component tests
+  already in it. Eleven cases now, no production code touched. The one worth having: a missing promise date
+  used to render the literal string **"N/A" in the same type as a real date**.
+- **#279.** `primary.main` and `warning.main` are **both `#FBBF24`**, so "one gold stat card" was two.
+  Reading the source would have shown two different token names.
+
+## F-numbers closed
+
+| | |
+|---|---|
+| **F48** | The parts dialog searches the catalogue. Typing a number you know still works and fetches nothing. |
+| **F41** | Merge is a picker over the same targets that were already printed underneath as a caption. |
+| **F19** | **Already fixed, found while checking** — `/dashboard/production/invoices` has had mark-paid and void since the artisan-invoice rail landed. No work needed. |
+
+## Numbers
+
+| | Start of the night | Now |
+|---|---|---|
+| `scrollButtons` | 11 | **0** (a ban) |
+| hand-patched `MuiTabs-scroller` | 2 | **0** (a ban) |
+| rows still rendered with MUI `<Tabs>` | 19 | **14** |
+| `<strong>Label:</strong> {value}` where the kit reaches | 9 | **1** |
+| files under `src/app` importing the kit | 8 | **46** |
+| guard tests | 4 | **19** |
+| component tests that actually render | 5 | **12** |
+| `max-lines` (files over the ceiling) | 42 | **16** |
+| Views baseline | 0 | **0** |
+
+## Parked
+
+- **`PageBody` adoption** — the primitive is in, no screen takes the vertical rhythm yet. Per segment.
+- **14 hand-written `<Tabs>` rows.** The ban covers the broken half; #274 is why "merely hand-written" is
+  not a safe assumption.
+- **133 files still place their own `<CircularProgress>`.** No dashboard route blanks any more, but
+  `/dashboard/loading.js` is one generic panel; a table route deserves a table skeleton.
+- **F24, the subdocument replace** — five incidents, each a silent data loss. Needs a list of subdocument
+  field names rather than a general rule. Designed, not built.
+- **B4 and the rest of B6** — both need a decision, not just code.
+
+## Needs you
+
+**Q17 is new and it is only words:** what a store reads for a repair's status (F52, #281). The table and
+the reasoning are in `docs/OPEN-QUESTIONS.md`. The two I am least sure of: **"Pricing"** for `NEEDS QUOTE`
+may read as *putting the price up* rather than *working one out*, and **"In the queue"** for
+`READY FOR WORK` is honest but tells a store it is waiting, which the old wording hid.
+
+Still open from before: **Q14** (one rate per task for every metal), **Q15** (Half-Shank bills ten portions
+of sizing stock), **Q16** (a scanned "Needs parts" records no part), the two **stores sharing
+`test@test.com`**, **efd-shop branch protection**, and **dev data** — `efd-database-DEV` has the six
+`views.check` users and almost nothing else, which is why #278 exists.
