@@ -1,9 +1,4 @@
 {
-  "src/app/api/repairLaborLogs/model.js": {
-    "max-lines": {
-      "count": 1
-    }
-  },
   "src/app/components/repairs/NewRepairForm.js": {
     "max-lines": {
       "count": 1
