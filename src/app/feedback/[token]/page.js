@@ -134,6 +134,20 @@ export default function FeedbackPage({ params }) {
                 {done.response?.comment && (
                   <p className={styles.quoteBack}>“{done.response.comment}”</p>
                 )}
+
+                {/*
+                  The portal invitation goes HERE and not in front of the form. Putting a sign-in
+                  between a customer and a favour they are doing us trades the testimonial — the thing
+                  we actually came for — against a login we only hope for. By this point we already have
+                  it, so the ask costs nothing and the moment is a warm one.
+                */}
+                {request.hasAccount && (
+                  <p className={styles.portal}>
+                    While you are here — your repairs and invoices are at{' '}
+                    <a href="/auth/signin">your account</a>, under the email this was sent to. If you have
+                    never set a password, <a href="/auth/forgot-password">set one here</a>.
+                  </p>
+                )}
               </div>
             </SurfaceCard>
           </PageBody>

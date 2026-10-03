@@ -160,6 +160,19 @@ describe('the link itself', () => {
     expect(view.recipientEmail).toBeUndefined();
     expect(view.accountName).toBe('Marlen Jewelers');
   });
+
+  it('says WHETHER there is an account, never which one', async () => {
+    // The thank-you screen offers the portal only to someone who has an account to sign in to. It
+    // needs a yes/no for that and nothing more — a user id on a page reachable by a link in an email
+    // is an id in anybody's browser history.
+    const { publicView, createTestimonialRequest } = await mod();
+    const withAccount = publicView(await aRequest());
+    expect(withAccount.hasAccount).toBe(true);
+    expect(JSON.stringify(withAccount)).not.toContain('user-c9f82772');
+
+    const walkIn = await createTestimonialRequest({ recipientEmail: 'walkin@example.com' });
+    expect(publicView(walkIn).hasAccount).toBe(false);
+  });
 });
 
 describe('the rating', () => {

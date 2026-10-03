@@ -104,6 +104,9 @@ export function publicView(request) {
     requestID: request.requestID,
     accountName: request.accountName,
     context: { label: request.context?.label || '', invoiceID: request.context?.invoiceID || null },
+    // Whether there is an account behind this, so the thank-you screen can mention the portal. A
+    // boolean, never the id: the page has no business knowing our user ids.
+    hasAccount: Boolean(request.accountID),
     answered: Boolean(request.response),
     response: request.response
       ? {

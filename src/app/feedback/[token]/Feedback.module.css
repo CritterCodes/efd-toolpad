@@ -98,6 +98,20 @@
   color: var(--fl-dim, #9a9a9a);
 }
 
+/* The portal invitation, after the thank-you. Quiet on purpose: it is an offer, not the point of
+   the page, and it must never look like a condition of what they just did. */
+.portal {
+  margin: 1.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--fl-line, #2a2a2a);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--fl-dim, #9a9a9a);
+  text-align: left;
+}
+
+.portal a { color: var(--fl-gold, #c9a227); }
+
 @media (max-width: 400px) {
   .card { max-width: 100%; }
 }
