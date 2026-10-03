@@ -16,6 +16,7 @@ import { adminBase } from '@/lib/appUrls';
 import { db } from "@/lib/database";
 import { wholesalerBusinessName } from "@/services/wholesale/businessName";
 import { buildQuoteRequest } from "@/services/repairs/quoteRequest";
+import { shouldSendLeadAck } from "@/services/repairs/leadAckPolicy";
 import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
 import { canonicalClientID } from "@/services/repairs/canonicalClientID";
 import { priceRepairForSave, pricingErrorResponseInit, PRICING_INPUT_FIELDS } from "@/services/pricing/repairPricing";
@@ -329,8 +330,32 @@ export const POST = async (request) => {
       const adminUrl = adminBase();
       const customerID = newRepair.userID;
       const customerEmail = newRepair.email || newRepair.clientEmail || newRepair.customerEmail || "";
-      // Customer may be a partial lead (no shop account) — only notify if we have an identifier.
-      if (customerID || customerEmail) {
+
+      // Who is this ack actually for? A store gets one per ticket and has a portal; the shop does not
+      // need emailing about work it just wrote up at the counter. The ROLE decides, not
+      // `repair.isWholesale` — four of five wholesale accounts in production carry that flag on none of
+      // their repairs. See services/repairs/leadAckPolicy.js.
+      let recipientRole = null;
+      if (customerID) {
+        try {
+          const database = await db.connect();
+          const recipient = await database.collection("users").findOne(
+            { userID: customerID },
+            { projection: { _id: 0, role: 1 } },
+          );
+          recipientRole = recipient?.role ?? null;
+        } catch (roleError) {
+          // Unknown role falls through to "send", which is the old behaviour for a retail lead.
+          console.error("lead ack role lookup failed:", roleError.message);
+        }
+      }
+
+      if (shouldSendLeadAck({
+        recipientRole,
+        recipientID: customerID,
+        recipientEmail: customerEmail,
+        createdByID: session.user.userID,
+      })) {
         await NotificationService.createNotification({
           userId: customerID,
           type: "repair-lead-received",
