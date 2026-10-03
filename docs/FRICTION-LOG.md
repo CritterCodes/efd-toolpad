@@ -103,3 +103,11 @@ for a guardrail.
   most of `src/lib`. Fix: lazy-import inside the methods, the same pattern `customsPermissions.js` and
   `customStatus.js` already use for the same reason. **Rule: run the build and the crawl on every PR that
   touches `src/lib` or `src/services`, not only on the ones that touch a component.**
+- **2026-10-02: a local build can fail on `next/font` fetching Google Fonts, and it looks like your change.**
+  `Failed to compile. An error occurred in next/font. TypeError: Cannot read properties of null (reading '1')`
+  — that is `next/font/google` downloading a font at build time and getting something it cannot parse (a
+  wobbly connection, a proxy, or rate limiting). It aborts the whole build, so the views crawl then exits 2
+  with "No production build". Nothing in the diff is involved; the same commit built clean on the retry.
+  **Tell it apart from a real failure:** the stack is entirely inside `next/dist/compiled/@next/font` and
+  names no file of yours. **Workaround:** re-run the build. **Proposed:** self-host the font files so a
+  build never depends on a third-party fetch — it also removes a render-blocking request in production.
