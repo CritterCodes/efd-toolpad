@@ -29,6 +29,29 @@ numbers say exactly why, which is what makes them worth selling on.
 > **invoice**, not a date in `repairs.createdAt` — the same confusion that makes turnaround unmeasurable
 > below. Every per-store count in this file is now taken from `repairInvoices`.
 
+## How the account was actually won
+
+**The first package was a trial, and it was a bake-off.** Andrew sent work to three shops at once to
+compare them. Ours was the September 4 invoice — 6 jobs, $236.94. We won it, and the next package was
+fifteen jobs.
+
+> Owner, 2026-10-03, reporting what Andrew told him: the other two jewelers' work was **"garbage"**
+> — Andrew's exact word, per the owner — and ours was great. The rest of that account is the owner's
+> paraphrase, not a quote.
+
+This is the most useful thing in this document, because it is repeatable:
+
+- **The growth curve is not organic.** 6 → 15 → 26 is a trial, a win, and then the account. Do not describe
+  it as a store that gradually warmed up; describe it as a store that tested us against its incumbents.
+- **The ask is a trial, not an account.** A jeweler will not move their repair work on a pitch. They will
+  send five or six pieces to see. That is a far smaller thing to say yes to, and on this evidence we win it.
+- **The incumbent is beatable and the bar is low.** Two shops lost this on quality alone, on a handful of
+  pieces. We do not need to be cheaper.
+
+**Do not publish the word "garbage" or name the comparison.** It is disparaging about two third parties,
+it was said privately, and it buys nothing a prospect needs. What is publishable, *with Andrew's
+permission*, is that the account began as a three-way trial and we were kept.
+
 ## Why — three things that travel
 
 1. **They batch, on a clock.** Three packages, invoiced 4 Sept, 18 Sept and 2 Oct — **exactly fourteen days
@@ -37,8 +60,8 @@ numbers say exactly why, which is what makes them worth selling on.
    makes the volume pay. The fortnightly rhythm is worth asking a prospect for by name — it is schedulable
    bench work, which single tickets never are.
 
-   **And the packages are growing fast:** 6 jobs → 15 → 26, and $237 → $2,184 → $3,027, inside one month.
-   The account more than quadrupled its package size between its first and third shipment.
+   **And the packages grew fast:** 6 jobs → 15 → 26, and $237 → $2,184 → $3,027, inside one month — because
+   package 1 was a trial we won, not a slow start. See *How the account was actually won* above.
 2. **They send bench work, not one commodity.** The Smith is 365 laser welds — a fast, cheap, low-skill
    operation, and it prices like one at $59.80 a repair. Marlen sends retipping, stone setting and platinum
    sizing: $115.92 a repair. This is the difference between a shop that is busy and a shop that is earning.
@@ -96,10 +119,15 @@ we can put a median on, because the start of each span is a keyboard, not a parc
 2. **Merge Marlen's two accounts.** They exist as both `user-c9f82772` (21 repairs) and `client-35605079`
    (26 repairs). Every per-account report, including the first pass of this one, silently halves them.
    Any store that started as a walk-in client and was later made an account has this problem.
-3. **Add a source/referral field to wholesale accounts.** We have no record of how Marlen found us. If the
-   goal is more Marlens, that is the most valuable field we do not have.
-4. **Ask Andrew for a quote and permission to name them** — on turnaround and on retip/stone-setting
-   quality. Without it the case study has to be anonymous, which costs it most of its force.
+3. **Record how each account arrived, and whether it started as a trial.** Nothing in the database says
+   Marlen's first package was a three-way bake-off — it took the owner saying so. That is the single most
+   decision-relevant fact about the best account on the books, and it exists nowhere but in his head. A
+   source field plus a "first package was a trial" flag would let us answer the only question that matters
+   here: *does winning a trial reliably turn into an account, or did we get lucky once?*
+4. **Ask Andrew for a quote and permission to name them** — on turnaround, on retip/stone-setting quality,
+   and, most valuable of all, **permission to say the account began as a three-way trial that we were kept
+   from.** A prospect being asked for a trial will believe that one. Without any of it the case study has
+   to be anonymous, which costs it most of its force.
 5. **Retention.** Marlen is one month old. By January there will be a repeat-cadence number, which is the
    other half of the pitch.
 
@@ -113,8 +141,12 @@ Not "a jeweler." Specifically:
   call; it predicts the account's value better than anything else.
 - Sells enough **platinum and prong-set goods** that retipping is routine work.
 
-The pitch writes itself from the data: *send us the batch you don't have the bench time for, we turn it in
-under a week, and you'll get it back before the date we promised.*
+**And the ask is Marlen's own ask, handed back.** Not "move your repair work to us" — *send us five or six
+pieces alongside whoever you use now, and compare.* It costs them almost nothing to agree to, it is how the
+best account on the books started, and on the one run of evidence we have, we win it on quality.
+
+Then the pitch the trial earns: *send us the batch you don't have the bench time for, we turn it in under a
+week, and you'll get it back before the date we promised.*
 
 ## Open
 
