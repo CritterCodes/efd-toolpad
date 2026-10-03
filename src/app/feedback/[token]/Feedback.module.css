@@ -1,0 +1,103 @@
+/* The two controls the kit has no primitive for yet: a long answer, and a consent box. */
+
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fl-bg, #0a0a0a);
+}
+
+.card {
+  width: 100%;
+  max-width: 34rem;
+}
+
+.lede {
+  color: var(--fl-dim, #9a9a9a);
+  margin: 0 0 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.label {
+  display: block;
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fl-dim, #9a9a9a);
+}
+
+.group { margin-bottom: 1.75rem; }
+
+.textarea {
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--fl-line, #2a2a2a);
+  background: var(--fl-surface, #141414);
+  color: var(--fl-text, #f5f5f5);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--fl-gold, #c9a227);
+  outline-offset: 1px;
+}
+
+/* The consent control. Deliberately the most prominent thing after the answer itself — it decides
+   whether anybody may ever repeat what they wrote, so it is not a footnote. */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--fl-line, #2a2a2a);
+  background: var(--fl-surface, #141414);
+  cursor: pointer;
+}
+
+.consentOn { border-color: var(--fl-gold, #c9a227); }
+
+.box {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  accent-color: var(--fl-gold, #c9a227);
+  cursor: pointer;
+}
+
+.consentText { font-size: 0.95rem; line-height: 1.5; }
+.consentNote { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--fl-dim, #9a9a9a); }
+
+.error {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #5c2b2b;
+  background: #2a1414;
+  color: #f0c3c3;
+  font-size: 0.9rem;
+}
+
+.done { text-align: center; padding: 1rem 0; }
+.doneMark { font-size: 2.5rem; line-height: 1; color: var(--fl-gold, #c9a227); }
+.quoteBack {
+  margin: 1.25rem 0 0;
+  padding-left: 1rem;
+  border-left: 2px solid var(--fl-gold, #c9a227);
+  text-align: left;
+  font-style: italic;
+  color: var(--fl-dim, #9a9a9a);
+}
+
+@media (max-width: 400px) {
+  .card { max-width: 100%; }
+}
