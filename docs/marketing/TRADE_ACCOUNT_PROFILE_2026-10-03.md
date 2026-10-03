@@ -107,9 +107,19 @@ holds across all three rather than resting on one batch:
 | 2 | 12 Sept | 18 Sept | 6 days | 15 |
 | 3 | 28 Sept | 2 Oct | 4 days | 26 |
 
-**Every package turned inside a week, and the largest turned in four days.** Package 3 carried promise
-dates of 6–8 Oct and went back on the 2nd. That is real, repeated and good — it is just not yet a number
-we can put a median on, because the start of each span is a keyboard, not a parcel.
+**Every package turned inside a week, and the largest turned in four days.** That is real, repeated and
+good — it is just not yet a number we can put a median on, because the start of each span is a keyboard,
+not a parcel.
+
+> **Do not claim we beat the promise date (owner, 2026-10-03).** An earlier draft of this file said package
+> 3 went back four to six days ahead of its 6–8 Oct promise dates. Those dates are generated automatically
+> and **Marlen never saw them.** He is not on the app at all: he mails work in, we key it in, we do it, we
+> mail it back. A promise date he was never given is an internal artifact, like `createdAt` — comparing our
+> delivery against it measures nothing a customer experienced, and saying so to a prospect would be a claim
+> about our own paperwork. The turnaround numbers stand on their own and are better without it.
+>
+> Kuzu has a new promise-date system meant to produce accurate dates. Once an account actually *receives* a
+> date, beating it becomes a real claim. Not before.
 
 ## What to start gathering (ranked)
 
@@ -131,6 +141,36 @@ we can put a median on, because the start of each span is a keyboard, not a parc
 5. **Retention.** Marlen is one month old. By January there will be a repeat-cadence number, which is the
    other half of the pitch.
 
+## What to build next, and in what order
+
+> **The portal is not the channel.** Of ~389 wholesale repairs, **22 were created by a store itself** —
+> Rocky's Corner 17, and three stores with one or two each. **Marlen has created none.** He mails work in,
+> we key it in, we mail it back; 154 of these repairs were entered by the owner and 102 by Vernon. There
+> have been **zero** quote requests, ever. Anything built as a page inside the app is built for Rocky's
+> Corner, a $652 account, and not for the best one on the books.
+>
+> **Reach stores by email with a tokenised link to a public shop page** — the pattern `notifyQuote.js`
+> already uses for `/repair/estimate/<token>`. No login, no app.
+
+Because Kuzu is where this is all heading, the ordering principle is: **data captured now is permanent; UI
+built now is temporary.** Prefer the thing that starts a record over the thing that displays one.
+
+1. **Stamp `receivedAt`.** Unchanged at the top. Turnaround is now the *only* quantitative claim the case
+   study has, and it is still unmeasurable. One field, one button, and the data outlives whatever UI
+   reads it.
+2. **Feedback by email, on ship-back.** Triggered when a package goes out, addressed to the account's own
+   email. Three fields and no more — a jeweler will not fill in a survey: a rating, one free-text box, and
+   **an explicit "may we quote you on this?" checkbox.** That checkbox is the whole point: it is what turns
+   feedback into usable marketing material, and it is the field these systems always leave out. Store it in
+   its own collection so the answers survive the move to Kuzu even if the page does not.
+3. **A public trade page in the shop**, whose call to action is the trial ask — *send five or six pieces
+   alongside whoever you use now*. This can go up before any testimonial exists; it gets better with one.
+4. **Marketing material** is downstream of 2 and 3. Do not start here.
+
+**But do not build anything to get from Andrew what a phone call gets you this week.** The feedback system
+is for accounts three through ten. Marlen's quote, and his permission to describe the trial, are one
+conversation — and they are what unblocks items 3 and 4.
+
 ## The prospect to go looking for
 
 Not "a jeweler." Specifically:
@@ -146,7 +186,7 @@ pieces alongside whoever you use now, and compare.* It costs them almost nothing
 best account on the books started, and on the one run of evidence we have, we win it on quality.
 
 Then the pitch the trial earns: *send us the batch you don't have the bench time for, we turn it in under a
-week, and you'll get it back before the date we promised.*
+week.*
 
 ## Open
 
