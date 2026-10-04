@@ -21,6 +21,7 @@ import { pickEditableRepairFields } from "@/services/repairs/repairEditFields";
 import { canonicalClientID } from "@/services/repairs/canonicalClientID";
 import { priceRepairForSave, pricingErrorResponseInit, PRICING_INPUT_FIELDS } from "@/services/pricing/repairPricing";
 import { parseIntakeLogIDs, recordIntakeOutcomes } from "@/services/ai/smartIntakeLog";
+import { storeFromClient } from '@/services/repairs/storeFromClient';
 
 // Totals the browser sends are never stored — the server computes them (priceRepairForSave).
 const CLIENT_TOTAL_FIELDS = ["totalCost", "subtotal", "rushFee", "deliveryFee", "taxAmount", "taxRate"];
@@ -208,9 +209,22 @@ export const POST = async (request) => {
     // getRepairAccountContext), so the business name is resolved HERE from the store's own record,
     // never trusted from the payload. The admin form once named Greers Pawn "Sam Johnson" (the contact)
     // and 20 repairs + 7 invoices were keyed to a person nobody's portal login matched (2026-09-21).
-    const storeUserID = session.user.role === "wholesaler"
+    let storeUserID = session.user.role === "wholesaler"
       ? session.user.userID
       : (repairData.storeId && repairData.storeId !== "engel-fine-design" ? String(repairData.storeId) : "");
+
+    // AND a repair filed against a STORE'S OWN CUSTOMER is that store's work.
+    //
+    // The block above only learns the store when the form SENDS `storeId`. A store mails in an
+    // envelope, the shop keys it in, and where the piece carries an end customer that customer is
+    // entered — a `clients` record with `parentWholesalerId`. The store is then nowhere on the ticket.
+    //
+    // Measured in production 2026-10-04: **198 of 292 wholesale repairs had no storeName**, every one of
+    // them derivable this way. The Smith accounted for 135. That is the store missing from its own work.
+    if (!storeUserID && repairData.userID) {
+      storeUserID = await storeFromClient(await db.connect(), repairData.userID);
+    }
+
     if (storeUserID) {
       try {
         const dbi = await db.connect();
