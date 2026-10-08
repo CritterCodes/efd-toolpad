@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
+import { aiErrorMessage, userFacingAiError, PHOTO_DESCRIPTION_FALLBACK } from '@/services/ai/aiErrorMessage';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -48,7 +49,7 @@ const callGemini = async ({ apiKey, mimeType, base64Image, prompt }) => {
       continue;
     }
     if (response.status === 429) {
-      throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
+      throw userFacingAiError('AI is temporarily rate limited. Please wait a moment and try again.', { status: 429 });
     }
     throw new Error(payload?.error?.message || 'Gemini request failed');
   }
@@ -67,7 +68,7 @@ export async function POST(request) {
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
       return NextResponse.json(
-        { success: false, error: 'GEMINI_API_KEY is not configured.' },
+        { success: false, error: PHOTO_DESCRIPTION_FALLBACK },
         { status: 500 }
       );
     }
@@ -120,9 +121,11 @@ export async function POST(request) {
         prompt
       });
     } catch (geminiError) {
+      // The provider's own words stay in the log and never reach the person. "Your project has been
+      // denied access" is Google talking about our API key; a store owner reads it as his account.
       console.error('Gemini image describe error:', geminiError.message);
       return NextResponse.json(
-        { success: false, error: geminiError.message || 'Gemini request failed.' },
+        { success: false, error: aiErrorMessage(geminiError, { fallback: PHOTO_DESCRIPTION_FALLBACK }) },
         { status: geminiError.status === 429 ? 429 : 502 }
       );
     }
