@@ -6,6 +6,35 @@ import {
     normalizeRepairWorkflow,
 } from '@/services/repairWorkflow';
 
+/**
+ * Every id a store's work can be filed under.
+ *
+ * A wholesale repair is not always filed against the STORE. The intake flow lets a store's own
+ * customer be the subject — `clients` records carrying `parentWholesalerId: <the store>` — and the
+ * repair then holds that client's id in `userID`. Marlen Jewelers' first 26 repairs were filed against
+ * "Andrew Eilberg", a client of his own shop.
+ *
+ * Matching only the store's own userID therefore hides the store's work FROM THE STORE. In production
+ * that was **220 repairs**: The Smith saw 0 of 162, Greers 1 of 20, Cooper's 2 of 13. A portal that
+ * shows a store nothing is a portal nobody uses, which is exactly what the usage data said — 22 of ~389
+ * wholesale repairs were ever created by a store itself.
+ *
+ * Scoped by `parentWholesalerId`, so a store can only ever reach the clients that belong to it. That is
+ * the whole authorization boundary here and it must not be loosened to "any client".
+ */
+export async function ownedIdentities(dbInstance, storeUserID) {
+    const clients = await dbInstance.collection('clients')
+        .find({ parentWholesalerId: storeUserID }, { projection: { _id: 0, userID: 1, clientID: 1 } })
+        .toArray();
+
+    const ids = new Set([storeUserID]);
+    for (const client of clients) {
+        if (client.userID) ids.add(client.userID);
+        if (client.clientID) ids.add(client.clientID);
+    }
+    return [...ids];
+}
+
 // GET /api/wholesale/repairs - Get repairs for a wholesaler
 export async function GET(request) {
     try {
@@ -26,16 +55,13 @@ export async function GET(request) {
         
         // Query unified repairs collection, filter by wholesaler
         const query = { isWholesale: true };
-        if (session.user.role !== 'admin') {
-            // Match repairs where wholesaler is the owner (userID) OR the creator (createdBy)
+        // The store whose work we are scoping to: themselves, or the one an admin asked about.
+        const scopeTo = session.user.role !== 'admin' ? session.user.userID : wholesalerId;
+        if (scopeTo) {
+            // Owner (the store OR any client belonging to it) OR the creator. See ownedIdentities.
             query.$or = [
-                { userID: session.user.userID },
-                { createdBy: session.user.userID }
-            ];
-        } else if (wholesalerId) {
-            query.$or = [
-                { userID: wholesalerId },
-                { createdBy: wholesalerId }
+                { userID: { $in: await ownedIdentities(dbInstance, scopeTo) } },
+                { createdBy: scopeTo }
             ];
         }
 
