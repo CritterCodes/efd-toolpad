@@ -25,6 +25,7 @@ const EXEMPT = {
   'auth/logout/route.js': 'ends the caller\'s own session',
   'auth/register/route.js': 'public by design; creates a pending account',
   'auth/reset-password/route.js': 'authorized by the emailed reset token',
+  'feedback/[token]/route.js': 'authorized by the emailed feedback token; records one account\'s own answer',
   'policies/[docId]/accept/route.js': 'records the caller\'s own acceptance',
   'push/subscribe/route.js': 'stores the caller\'s own push subscription',
   'guide/route.js': 'the caller\'s own guide checklist',

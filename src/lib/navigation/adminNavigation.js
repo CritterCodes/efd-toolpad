@@ -13,6 +13,7 @@ import ListIcon from "@mui/icons-material/List";
 import PickupIcon from "@mui/icons-material/LocalShipping";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import DiamondIcon from "@mui/icons-material/AutoAwesome";
+import RateReviewIcon from "@mui/icons-material/RateReview";
 import PaymentIcon from "@mui/icons-material/Payment";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
@@ -75,6 +76,11 @@ export const adminNavigation = {
       segment: 'dashboard/clients',
       title: 'Clients',
       icon: <PeopleIcon />
+    },
+    {
+      segment: 'dashboard/feedback',
+      title: 'Feedback',
+      icon: <RateReviewIcon />
     },
     {
       segment: 'dashboard/customs',
