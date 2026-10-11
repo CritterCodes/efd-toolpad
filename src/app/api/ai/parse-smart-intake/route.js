@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
+import { aiErrorMessage, userFacingAiError, SMART_INTAKE_FALLBACK } from '@/services/ai/aiErrorMessage';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -160,7 +161,7 @@ const callGemini = async ({ apiKey, prompt }) => {
       continue;
     }
     if (response.status === 429) {
-      throw Object.assign(new Error('AI is temporarily rate limited. Please wait a moment and try again.'), { status: 429 });
+      throw userFacingAiError('AI is temporarily rate limited. Please wait a moment and try again.', { status: 429 });
     }
     throw new Error(payload?.error?.message || 'Gemini request failed');
   }
@@ -263,9 +264,10 @@ export async function POST(request) {
     try {
       geminiPayload = await callGemini({ apiKey: geminiApiKey, prompt });
     } catch (geminiError) {
+      // Provider text stays in the log. The person is told what failed and that the manual path works.
       console.error('Gemini smart intake parse error:', geminiError.message);
       return NextResponse.json(
-        { success: false, error: geminiError.message || 'Gemini request failed.' },
+        { success: false, error: aiErrorMessage(geminiError, { fallback: SMART_INTAKE_FALLBACK }) },
         { status: geminiError.status === 429 ? 429 : 502 }
       );
     }
