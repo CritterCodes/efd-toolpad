@@ -93,6 +93,24 @@ export default class AuthService {
                 ? 'admin'
                 : (user.role || USER_ROLES.CLIENT);
 
+            /**
+             * Record that this account actually signed in.
+             *
+             * Until this existed there was NO `lastLoginAt` anywhere in the codebase, so "has never
+             * logged in" and "we do not record logins" were indistinguishable. That matters the moment
+             * you try to bring a trade account into the portal: Marlen Jewelers has a verified account
+             * with a password set and, as far as anyone can tell, has never used it — but nobody could
+             * actually tell. Without this you cannot answer whether an invitation worked.
+             *
+             * Best-effort and after every check has passed, so it records real logins only. A failed
+             * stamp must never cost somebody their session.
+             */
+            try {
+                await UserModel.updateById(user.userID, { lastLoginAt: new Date() });
+            } catch (stampError) {
+                console.error('lastLoginAt stamp failed (non-fatal):', stampError.message);
+            }
+
             // ✅ Generate JWT Token for the authenticated user
             // Signs the RESOLVED role — previously this signed the raw `user.role`, so a role-less
             // account got `undefined` in the token while its session said 'admin': two answers to
@@ -150,6 +168,14 @@ export default class AuthService {
                 role: 'client',
                 status: 'verified'
             });
+        }
+
+        // Same stamp as the credentials path — a login is a login however they arrived, and a field
+        // that only some sign-ins update answers the question wrongly rather than not at all.
+        try {
+            await UserModel.updateById(user.userID, { lastLoginAt: new Date() });
+        } catch (stampError) {
+            console.error('lastLoginAt stamp failed (non-fatal):', stampError.message);
         }
 
         // ✅ Return the user object for NextAuth JWT management
