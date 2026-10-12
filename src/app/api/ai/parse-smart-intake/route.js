@@ -49,6 +49,27 @@ export const normalizeKaratValue = (value) => {
   return m ? `${m[1]}k` : '';
 };
 
+/**
+ * Silver and platinum carry their purity in the NAME, so nobody says it out loud.
+ *
+ * "Sterling silver ring, size to 7.5" states no karat, so the model returns `karat: ""` — and an
+ * empty karat is exactly what `metalKey` refuses: for any metal but gold it returns null, which the
+ * engine reports as METAL_REQUIRED. So every silver job parsed by smart intake reached the pricing
+ * step and said "Choose a metal to price this", with the metal already filled in (owner, 2026-10-12).
+ *
+ * A jeweller saying "silver" means sterling, and "platinum" means 950 — which is what intake's own
+ * Select offers, and what the stock is filed under. Filling that in is not a guess about the piece;
+ * it is the trade's default spelled out.
+ *
+ * ONLY when the field came back empty. A stated 999 or 900 is left exactly as stated — the whole
+ * point is to stop refusing to price, never to overwrite what somebody said.
+ */
+const DEFAULT_PURITY = Object.freeze({ silver: '925', platinum: '950' });
+
+export const applyDefaultPurity = (metalType, karat) => (
+  karat ? karat : (DEFAULT_PURITY[metalType] || karat)
+);
+
 export const normalizeParsedPayload = (payload = {}) => {
   const normalizeString = (value) => String(value || '').trim();
   const normalizeEnum = (value, allowed = []) => {
@@ -91,9 +112,11 @@ export const normalizeParsedPayload = (payload = {}) => {
       })).filter((item) => item.type && item.quantity > 0).slice(0, 3)
     : [];
 
+  const metalType = normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']);
+
   return {
-    metalType: normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']),
-    karat: normalizeKaratValue(payload.karat),
+    metalType,
+    karat: applyDefaultPurity(metalType, normalizeKaratValue(payload.karat)),
     goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']),
     isRing: toBool(payload.isRing),
     currentRingSize: normalizeString(payload.currentRingSize),
@@ -240,6 +263,7 @@ export async function POST(request) {
       'Rules:',
       '- CRITICAL: isRing must be true ONLY if the item is explicitly a ring or band. For pendants, necklaces, bracelets, chains, earrings, watches, brooches, or any non-ring item, isRing must be false.',
       '- Jeweler shorthand: yg/wg/rg = yellow/white/rose gold; "14kt"/"14 kt" = karat 14k; sz = size; plat/pt = platinum; ss = sterling silver.',
+      '- PURITY FOR SILVER AND PLATINUM: these carry it in the name, so it is rarely said out loud. Unless a different purity is stated, silver means karat "925" and platinum means karat "950". Fill it in — a blank karat cannot be priced.',
       '- RELATIVE SIZING: "size 7 ... size down 3 sizes" means currentRingSize 7 and desiredRingSize 4 (7 - 3). "size up 2 sizes from 5" means 5 -> 7. Always resolve the arithmetic and fill BOTH sizes when the starting size is stated.',
       '- currentRingSize and desiredRingSize should ONLY be set if the item is a ring.',
       '- promiseDate must be YYYY-MM-DD. Resolve relative dates like "next friday" against the current date. If no due/promise date is stated, use an empty string.',
