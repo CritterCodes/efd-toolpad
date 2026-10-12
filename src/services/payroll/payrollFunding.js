@@ -66,9 +66,30 @@ export function computeFundingNeed({ projected = 0, balance = 0, settings = FUND
   return { projected: round2(projected), target, balance: round2(balance), shortfall, topup, capped: topup > 0 && topup < shortfall };
 }
 
-/** Pure: one top-up per calendar day, however often the check re-runs. */
-export function fundingIdempotencyKey(now = new Date()) {
-  return `payroll-funding-${now.toISOString().slice(0, 10)}`;
+/**
+ * Pure: one top-up per calendar day PER AMOUNT, however often the check re-runs.
+ *
+ * The amount is in the key because Stripe refuses a key it has already seen with different
+ * parameters. Keyed on the day alone, the second run of any day failed outright:
+ *
+ *     Top-up failed: Keys for idempotent requests can only be used with the same parameters they
+ *     were first used with. Try using a key other than 'payroll-funding-2026-10-06'.
+ *
+ * And the amount moves during a day by design — `computeFundingNeed` subtracts the live Stripe
+ * balance, so as money lands the shortfall shrinks. So the guard against paying twice turned into a
+ * guarantee of never paying at all: payroll funding was dead from 2026-10-06 until this, and the
+ * owner moved the last two weeks' wages by hand instead.
+ *
+ * With the amount in the key, a repeat of the SAME request still collapses to one top-up — the
+ * original protection, intact — while a genuinely different one goes through, which is exactly what
+ * Stripe's semantics ask for. The remaining exposure is two different amounts in one day, and that
+ * is bounded by `maxTopup` per run and self-limiting: each top-up raises the balance, which lowers
+ * the next computed shortfall.
+ */
+export function fundingIdempotencyKey(now = new Date(), amountCents = null) {
+  const day = now.toISOString().slice(0, 10);
+  if (amountCents === null || amountCents === undefined) return `payroll-funding-${day}`;
+  return `payroll-funding-${day}-${Math.round(Number(amountCents) || 0)}`;
 }
 
 export async function readFundingSettings() {
@@ -172,11 +193,12 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
     // preview-while-off from pulling anything.
     if (dryRun) return { ...result, wouldTopup: need.topup };
 
+    const amountCents = Math.round(need.topup * 100);
     const topup = await createTopup({
-      amountCents: Math.round(need.topup * 100),
+      amountCents,
       description: `Payroll funding — projected ${money(due.projected)} + ${settings.bufferPct}% buffer + ${money(settings.floor)} floor`,
       metadata: { projected: String(due.projected), target: String(need.target), balance: String(need.balance), runAt: now.toISOString() },
-      idempotencyKey: fundingIdempotencyKey(now),
+      idempotencyKey: fundingIdempotencyKey(now, amountCents),
     });
     result.topup = { id: topup.id, amount: need.topup, status: topup.status, expectedAvailability: topup.expected_availability_date ? new Date(topup.expected_availability_date * 1000) : null };
     if (notify) {

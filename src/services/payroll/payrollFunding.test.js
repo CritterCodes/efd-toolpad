@@ -57,7 +57,34 @@ describe('payroll funding math (pure)', () => {
     expect(normalizeFundingSettings({ enabled: 'yes', floor: -5, bufferPct: 400, minimumTopup: 0, maxTopup: 1 })).toEqual({ enabled: false, floor: 0, bufferPct: 100, minimumTopup: 1, maxTopup: 25 });
   });
 
-  it('one top-up per calendar day', () => {
+  /**
+   * The key carries the AMOUNT, and that is the whole fix.
+   *
+   * Keyed on the day alone, the second run of any day died on Stripe's own rule: "Keys for
+   * idempotent requests can only be used with the same parameters they were first used with."
+   * The amount moves within a day by design — computeFundingNeed subtracts the live balance — so
+   * the guard against paying twice became a guarantee of never paying at all. Funding was dead
+   * from 2026-10-06 and the owner moved two weeks of wages by hand.
+   */
+  it('collapses a repeat of the SAME request to one top-up', () => {
+    expect(fundingIdempotencyKey(MON, 203000)).toBe(fundingIdempotencyKey(MON, 203000));
+    expect(fundingIdempotencyKey(MON, 203000)).toBe('payroll-funding-2026-09-21-203000');
+  });
+
+  it('gives a DIFFERENT amount its own key, instead of failing the run', () => {
+    expect(fundingIdempotencyKey(MON, 203000)).not.toBe(fundingIdempotencyKey(MON, 50000));
+  });
+
+  it('still separates one day from the next', () => {
+    const TUE = new Date('2026-09-22T15:00:00Z');
+    expect(fundingIdempotencyKey(MON, 50000)).not.toBe(fundingIdempotencyKey(TUE, 50000));
+  });
+
+  it('rounds to whole cents, so float drift cannot mint a second key for one amount', () => {
+    expect(fundingIdempotencyKey(MON, 49999.6)).toBe(fundingIdempotencyKey(MON, 50000));
+  });
+
+  it('keeps the old day-only shape when no amount is given', () => {
     expect(fundingIdempotencyKey(MON)).toBe('payroll-funding-2026-09-21');
   });
 });
@@ -174,7 +201,7 @@ describe('the Monday check', () => {
     const r = await runFundingCheck({ now: MON });
     // projected 800 → target 2380; balance 350 → pull 2030
     expect(r.need).toMatchObject({ projected: 800, target: 2380, topup: 2030 });
-    expect(mocks.createTopup).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 203000, idempotencyKey: 'payroll-funding-2026-09-21' }));
+    expect(mocks.createTopup).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 203000, idempotencyKey: 'payroll-funding-2026-09-21-203000' }));
     expect(r.topup).toMatchObject({ id: 'tu_1', amount: 2030 });
     expect(mocks.notifyAllAdmins.mock.calls[0][0].title).toMatch(/Pulled \$2,030\.00/);
   });
