@@ -341,12 +341,41 @@ export default function GuidePage() {
   const [tab, setTab] = useState('paid');
   const [marking, setMarking] = useState(false);
 
+  /**
+   * Opening the guide IS reading it, as far as the checklist can honestly tell.
+   *
+   * The step used to flip only when somebody pressed "I've read this" — a header button at the top of
+   * a long tabbed page. In production, across 21 users and every role, **it had been pressed zero
+   * times**: 8 artisans, 9 wholesalers and 2 affiliates all sat on this one item forever, and a store
+   * owner reported his checklist stuck on its last step after doing the work (2026-10-12).
+   *
+   * A checklist item nobody can complete is worse than no checklist. The item's own call to action is
+   * "Open the guide", so opening it is what it asks for and what we can actually observe. The button
+   * stays for anyone who wants to tick it deliberately; it just is not the only way through any more.
+   */
   useEffect(() => {
+    let live = true;
     fetch('/api/guide').then(async (r) => {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Could not load the guide.');
+      if (!live) return;
       setData(d);
-    }).catch((e) => setError(e.message));
+
+      const unread = d?.checklist?.some((i) => i.id === 'read-guide' && !i.done);
+      if (!unread) return;
+      // Best-effort: failing to record the visit must never break the page the visit was for.
+      fetch('/api/guide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: true }),
+      }).then(() => {
+        if (!live) return;
+        setData((prev) => (prev
+          ? { ...prev, checklist: prev.checklist.map((i) => (i.id === 'read-guide' ? { ...i, done: true } : i)) }
+          : prev));
+      }).catch(() => { /* the chip simply stays unticked until the next visit */ });
+    }).catch((e) => live && setError(e.message));
+    return () => { live = false; };
   }, []);
 
   const markRead = async () => {

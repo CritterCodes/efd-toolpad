@@ -90,9 +90,53 @@ describe('buildChecklist', () => {
   });
 
   it('admin: shop setup items', () => {
-    const items = buildChecklist({ role: 'admin', facts: { stripeConfigured: true, connectLive: false, qcModeSet: true, payoutFeesSet: false, fundingSet: true } });
+    const items = buildChecklist({ role: 'admin', facts: { stripeConfigured: true, connectLive: false, qcModeSet: true, payoutFeesSet: false, fundingSet: false } });
     expect(items.map((i) => i.id)).toEqual(['stripe-configured', 'connect-stripe', 'qc-mode', 'payout-fees']);
     expect(items[3].done).toBe(false);
+  });
+
+  /**
+   * "Review payout fees and funding" turns on FUNDING ALONE — changed deliberately, 2026-10-12.
+   *
+   * Fees have working defaults (readFeeSettings returns FEE_DEFAULTS), so they are already in force
+   * and already published on the guide page; in production `business.payroll.fees` has never been
+   * written by anyone. Funding is the half that needs a decision — off until someone turns it on.
+   * Requiring both meant pressing Save on a form you already agreed with to clear a card that only
+   * said "review", and the owner's card sat unticked for weeks with his funding configured.
+   */
+  it('admin: payout-fees completes once FUNDING is configured, with fees on their defaults', () => {
+    const items = buildChecklist({ role: 'admin', facts: { stripeConfigured: true, connectLive: true, qcModeSet: true, payoutFeesSet: false, fundingSet: true } });
+    expect(items.find((i) => i.id === 'payout-fees').done).toBe(true);
+  });
+
+  it('admin: payout-fees stays open while funding is unset, whatever the fees say', () => {
+    const items = buildChecklist({ role: 'admin', facts: { stripeConfigured: true, connectLive: true, qcModeSet: true, payoutFeesSet: true, fundingSet: false } });
+    expect(items.find((i) => i.id === 'payout-fees').done).toBe(false);
+  });
+
+  /**
+   * The owner's exact production state on 2026-10-12: funding set since 28 September, no fees
+   * document, Stripe configured, QC chosen, his own payout account live. Every item should be done.
+   */
+  it("admin: the owner's real settings finish the checklist", () => {
+    const items = buildChecklist({
+      role: 'admin',
+      facts: { stripeConfigured: true, connectLive: true, qcModeSet: true, payoutFeesSet: false, fundingSet: true },
+    });
+    expect(items.every((i) => i.done)).toBe(true);
+  });
+
+  /**
+   * Rocky's exact production state: store settings done, 28 repairs, guide now marked on open.
+   * Before the guide step could be ticked by opening the page, this list could never complete —
+   * 0 of 21 users in production had ever marked it read.
+   */
+  it("wholesaler: a store that has done the work finishes the checklist", () => {
+    const items = buildChecklist({
+      role: 'wholesaler',
+      facts: { storeSettingsComplete: true, storeRepairsCount: 28, guideRead: true },
+    });
+    expect(items.every((i) => i.done)).toBe(true);
   });
 });
 

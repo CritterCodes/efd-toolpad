@@ -195,7 +195,19 @@ export function buildChecklist({ role = 'artisan', facts = {} } = {}) {
         id: 'payout-fees',
         label: 'Review payout fees and funding',
         detail: 'Weekly payouts are free to payees; daily payouts carry a fee. Funding keeps the Stripe balance above the floor.',
-        done: f.payoutFeesSet === true && f.fundingSet === true,
+        /**
+         * Funding alone, not funding AND fees.
+         *
+         * Fees have working defaults — `readFeeSettings` returns FEE_DEFAULTS when nothing is saved,
+         * so they are already in force and already published on the guide page. Nobody has to save
+         * them for the shop to behave correctly, and in production nobody ever has.
+         *
+         * Funding is the half that needs a decision: it is off until someone turns it on, names a
+         * floor and sets a cap. So that is what "reviewed" can honestly mean here. Requiring a fees
+         * document as well meant pressing Save on a form you agreed with, to clear a card that said
+         * "review" — which is how this item sat completed-but-unticked for weeks.
+         */
+        done: f.fundingSet === true,
         href: '/dashboard/admin/settings',
         cta: 'Settings',
       },
