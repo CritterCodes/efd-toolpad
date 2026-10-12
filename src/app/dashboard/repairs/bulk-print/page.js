@@ -50,7 +50,11 @@ export default function PrintRepairTicketsBulk() {
   }, [searchParams]);
 
   const handlePrint = () => {
-    requestAnimationFrame(() => window.print());
+    // Straight through, inside the tap. iOS Safari honours print() only while the user activation
+    // from the gesture is live, and a requestAnimationFrame hop outlives it — the dialog then never
+    // opens and the page just sits there looking printable. Nothing here re-renders first, so the
+    // hop bought nothing to begin with.
+    window.print();
   };
 
   // Every state says what the page is (the loaded view's title is the same <h1>).
