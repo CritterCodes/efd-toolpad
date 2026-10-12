@@ -51,8 +51,12 @@ export async function GET() {
     if (role === 'admin' || role === 'dev') {
       facts.stripeConfigured = isStripeConfigured();
       facts.qcModeSet = Boolean(settings?.business?.qc?.mode);
-      facts.payoutFeesSet = Boolean(settings?.payoutFees);
-      facts.fundingSet = Boolean(settings?.payrollFunding);
+      // THESE PATHS WERE WRONG, so "Review payout fees and funding" could never complete.
+      // `settings.payoutFees` and `settings.payrollFunding` have never existed on the settings
+      // document; both live under `business.payroll`. The owner set his funding on 2026-09-28 and the
+      // card still told him to go and do it (reported 2026-10-12).
+      facts.payoutFeesSet = Boolean(settings?.business?.payroll?.fees);
+      facts.fundingSet = Boolean(settings?.business?.payroll?.funding);
     }
 
     const ladder = ladderFromSettings(settings);
