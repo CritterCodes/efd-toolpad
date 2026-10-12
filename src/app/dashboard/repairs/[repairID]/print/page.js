@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Box, Typography, Button, ButtonGroup } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
@@ -8,6 +9,31 @@ import RepairTicketComponent from '@/components/print/RepairTicketComponent';
 import RepairReceiptComponent from '@/components/print/RepairReceiptComponent';
 import SideBySideLayout from '@/components/print/SideBySideLayout';
 import { getRepairSummary, validateRepairData } from '@/services/repairDataStructure.service';
+
+/**
+ * Let every ticket image finish loading, or 1.2s, whichever comes first.
+ *
+ * Lives outside the component because it touches nothing but the DOM — which also means the effect
+ * that calls it needs no dependency on it, so there is nothing here to suppress.
+ */
+const waitForPrintImages = async () => {
+    const images = Array.from(document.querySelectorAll('.print-container img'));
+    if (images.length === 0) return;
+
+    await Promise.race([
+        Promise.all(images.map((image) => {
+            if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+            if (typeof image.decode === 'function') {
+                return image.decode().catch(() => {});
+            }
+            return new Promise((resolve) => {
+                image.addEventListener('load', resolve, { once: true });
+                image.addEventListener('error', resolve, { once: true });
+            });
+        })),
+        new Promise((resolve) => setTimeout(resolve, 1200)),
+    ]);
+};
 
 const SLIP_WIDTH = '3.6in';
 const SLIP_HEIGHT = '5.5in';
@@ -132,36 +158,38 @@ const PrintRepairTicket = () => {
         };
     }, []);
 
-    const waitForPrintImages = async () => {
-        const images = Array.from(document.querySelectorAll('.print-container img'));
-        if (images.length === 0) return;
+    /**
+     * Warm the images as soon as the repair is on screen.
+     *
+     * Printing can no longer afford to wait for them (see handlePrint), so the waiting moves to the
+     * moment the page renders — long before anybody reaches for the button.
+     */
+    useEffect(() => {
+        if (repair) waitForPrintImages();
+    }, [repair]);
 
-        await Promise.race([
-            Promise.all(images.map((image) => {
-                if (image.complete && image.naturalWidth > 0) return Promise.resolve();
-                if (typeof image.decode === 'function') {
-                    return image.decode().catch(() => {});
-                }
-                return new Promise((resolve) => {
-                    image.addEventListener('load', resolve, { once: true });
-                    image.addEventListener('error', resolve, { once: true });
-                });
-            })),
-            new Promise((resolve) => setTimeout(resolve, 1200)),
-        ]);
-    };
-
+    /**
+     * Print — and on iOS, print AT ALL.
+     *
+     * `window.print()` used to run inside two nested requestAnimationFrame callbacks, after an
+     * `await`. Safari on iOS only honours print() while the user activation from the tap is still
+     * live, and by then it has lapsed: the call is ignored silently, so the page just sits there
+     * showing the print layout inside the app shell. Which is exactly what a store owner reported on
+     * an iPhone while the same button worked on the owner's desktop (2026-10-12) — desktop browsers
+     * are lax about the same rule, so this looked like a device quirk rather than our bug.
+     *
+     * The rAFs were there for a real reason: `printMode` decides which sections render, so the DOM
+     * has to be updated before the print dialog reads it. `flushSync` buys exactly that — a
+     * synchronous commit — without leaving the gesture. The image wait moved to mount above, because
+     * nothing awaited can survive inside a tap.
+     */
     const handlePrint = (mode) => {
         document.documentElement.classList.add('efd-printing');
-        setPrintMode(mode);
-        setShowControls(false);
-
-        requestAnimationFrame(async () => {
-            requestAnimationFrame(async () => {
-                await waitForPrintImages();
-                window.print();
-            });
+        flushSync(() => {
+            setPrintMode(mode);
+            setShowControls(false);
         });
+        window.print();
     };
 
     if (repairLoading && !repair) {
