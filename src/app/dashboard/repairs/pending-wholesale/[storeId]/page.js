@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import {
     Box, Typography, Button, Paper, Chip, TextField, Alert,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    CircularProgress, Snackbar, InputAdornment
+    CircularProgress, Snackbar, InputAdornment, useMediaQuery
 } from '@mui/material';
 import {
     ArrowBack as BackIcon,
@@ -69,10 +69,44 @@ export default function StorePickupDetailPage() {
         if (session && !canView) router.replace('/dashboard');
     }, [session, router]);
 
-    // Auto-focus scanner input when not loading
+    /**
+     * Auto-focus the scanner, but only where a scanner is plausible.
+     *
+     * A barcode gun types into whatever has focus, so grabbing it on load is right at the bench. On a
+     * phone the same line throws the on-screen keyboard up over the list the moment the page opens,
+     * which is half the reason this screen felt unusable there. `pointer: coarse` is the honest test:
+     * it asks whether this is a touch device rather than guessing from width.
+     */
+    const hasHardwarePointer = useMediaQuery('(pointer: fine)', { noSsr: false, defaultMatches: true });
+
     useEffect(() => {
-        if (!loading && scanInputRef.current) scanInputRef.current.focus();
-    }, [loading]);
+        if (!loading && hasHardwarePointer && scanInputRef.current) scanInputRef.current.focus();
+    }, [loading, hasHardwarePointer]);
+
+    /**
+     * Move ONE repair to ready for work.
+     *
+     * Lifted out of the scan handler so a tap can do what a barcode gun does. On a phone there is no
+     * scanner and, until this, no per-row control either — the only other way through was "Move All",
+     * which sat in a header that ran off the side of the screen. The owner could open the store, see
+     * the three jobs, and have no way to receive one of them (2026-10-12).
+     */
+    const receiveOne = useCallback(async (repairID, { refocus = true } = {}) => {
+        if (!repairID || receivedIds.has(repairID)) return;
+        setReceiving(true);
+        setScanError('');
+        try {
+            await wholesaleRepairsClient.receiveSingle(repairID);
+            setReceivedIds(prev => new Set([...prev, repairID]));
+            setSnackbar({ open: true, message: `Ready for work: ${repairID}`, severity: 'success' });
+        } catch {
+            setScanError(`Failed to move "${repairID}" to ready for work`);
+            setSnackbar({ open: true, message: `Could not move ${repairID}`, severity: 'error' });
+        } finally {
+            setReceiving(false);
+            if (refocus) scanInputRef.current?.focus();
+        }
+    }, [receivedIds]);
 
     const handleScan = async (e) => {
         if (e.key !== 'Enter' || !scanValue.trim()) return;
@@ -92,17 +126,7 @@ export default function StorePickupDetailPage() {
             return;
         }
 
-        setReceiving(true);
-        try {
-            await wholesaleRepairsClient.receiveSingle(scannedId);
-            setReceivedIds(prev => new Set([...prev, scannedId]));
-            setSnackbar({ open: true, message: `Ready for work: ${scannedId}`, severity: 'success' });
-        } catch {
-            setScanError(`Failed to move "${scannedId}" to ready for work`);
-        } finally {
-            setReceiving(false);
-            scanInputRef.current?.focus();
-        }
+        await receiveOne(scannedId);
     };
 
     const handleReceiveAll = async () => {
@@ -142,30 +166,54 @@ export default function StorePickupDetailPage() {
     };
 
     return (
-        <Box sx={{ p: 3 }}>
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Button startIcon={<BackIcon />} onClick={() => router.push('/dashboard/repairs/pending-wholesale')}>
-                    Back
-                </Button>
-                <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h4">{storeName || 'Store Pickup'}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {receivedIds.size} of {repairs.length} ready for work
-                    </Typography>
-                    {/* How this store gets finished work back — drives the automatic Finalize at QC pass. */}
+        <Box sx={{ p: { xs: 2, md: 3 } }}>
+            {/*
+              Header. This was ONE flex row — Back, title, Refresh, Move All — so on a phone the two
+              buttons that do the work were pushed off the right-hand edge and the page became
+              read-only. Stacked below `sm`, with the actions full width and 44px tall.
+            */}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                    <Button
+                        startIcon={<BackIcon />}
+                        onClick={() => router.push('/dashboard/repairs/pending-wholesale')}
+                        sx={{ minHeight: 44, flexShrink: 0 }}
+                    >
+                        Back
+                    </Button>
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="h5" sx={{ overflowWrap: 'anywhere' }}>{storeName || 'Store Pickup'}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {receivedIds.size} of {repairs.length} ready for work
+                        </Typography>
+                    </Box>
+                </Box>
+
+                {/* How this store gets finished work back — drives the automatic Finalize at QC pass. */}
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <StoreFulfillmentSelect storeUserID={decodedStoreId} />
                 </Box>
-                <Button startIcon={<RefreshIcon />} onClick={loadRepairs} disabled={loading}>Refresh</Button>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={receivingAll ? <CircularProgress size={18} color="inherit" /> : <ReceiveAllIcon />}
-                    onClick={handleReceiveAll}
-                    disabled={allReceived || receivingAll || loading}
-                >
-                    Move All ({unreceivedCount})
-                </Button>
+
+                <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                    <Button
+                        startIcon={<RefreshIcon />}
+                        onClick={loadRepairs}
+                        disabled={loading}
+                        sx={{ minHeight: 44, flexGrow: { xs: 1, sm: 0 } }}
+                    >
+                        Refresh
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={receivingAll ? <CircularProgress size={18} color="inherit" /> : <ReceiveAllIcon />}
+                        onClick={handleReceiveAll}
+                        disabled={allReceived || receivingAll || loading}
+                        sx={{ minHeight: 44, flexGrow: { xs: 1, sm: 0 } }}
+                    >
+                        Move All ({unreceivedCount})
+                    </Button>
+                </Box>
             </Box>
 
             {/* Scanner input */}
@@ -189,7 +237,7 @@ export default function StorePickupDetailPage() {
                             onChange={(e) => { setScanValue(e.target.value); setScanError(''); }}
                             onKeyDown={handleScan}
                             disabled={receiving}
-                            autoFocus
+                            autoFocus={hasHardwarePointer}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
@@ -213,7 +261,60 @@ export default function StorePickupDetailPage() {
                     <Typography variant="h6" color="text.secondary">No repairs found for this store</Typography>
                 </Paper>
             ) : (
-                <TableContainer component={Paper}>
+              <>
+                {/*
+                  PHONE: one card per job, each with its own Receive button.
+                  A six-column table on a 390px screen shows Status and half of Repair ID, and the
+                  columns that matter scroll away sideways. More to the point, the table never had a
+                  per-row control at all — receiving meant a barcode gun or Move All, and neither is
+                  available to someone standing in the shop with a phone.
+                */}
+                <Box sx={{ display: { xs: 'grid', md: 'none' }, gap: 1.5 }}>
+                    {repairs.map(repair => {
+                        const isReceived = receivedIds.has(repair.repairID);
+                        const status = repair.normalizedStatus || repair.status;
+                        return (
+                            <Paper key={repair.repairID} sx={{ p: 2, opacity: isReceived ? 0.6 : 1 }}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1 }}>
+                                    {isReceived ? (
+                                        <Chip icon={<ReceivedIcon />} label="Ready for Work" color="success" size="small" />
+                                    ) : (
+                                        <Chip
+                                            label={status}
+                                            color={status === REPAIR_STATUS.PICKUP_REQUESTED ? 'error' : 'warning'}
+                                            size="small"
+                                        />
+                                    )}
+                                    {repair.quoteRequest?.status === 'requested' && (
+                                        <Chip label="Needs quote" size="small" sx={{ color: '#A855F7', border: '1px solid #A855F7', backgroundColor: 'transparent' }} />
+                                    )}
+                                </Box>
+                                <Typography sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                                    {repair.clientName || repair.customerName || '—'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                                    {repair.itemType}{repair.description ? ` — ${repair.description}` : ''}
+                                </Typography>
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace', color: 'text.secondary', overflowWrap: 'anywhere' }}>
+                                    {repair.repairID} · {formatDate(repair.createdAt)}
+                                </Typography>
+                                {!isReceived && (
+                                    <Button
+                                        fullWidth
+                                        variant="contained"
+                                        onClick={() => receiveOne(repair.repairID, { refocus: false })}
+                                        disabled={receiving || receivingAll}
+                                        sx={{ mt: 1.5, minHeight: 44 }}
+                                    >
+                                        Move to ready for work
+                                    </Button>
+                                )}
+                            </Paper>
+                        );
+                    })}
+                </Box>
+
+                <TableContainer component={Paper} sx={{ display: { xs: 'none', md: 'block' } }}>
                     <Table>
                         <TableHead>
                             <TableRow>
@@ -223,6 +324,7 @@ export default function StorePickupDetailPage() {
                                 <TableCell>Item</TableCell>
                                 <TableCell>Description</TableCell>
                                 <TableCell>Submitted</TableCell>
+                                <TableCell align="right">Action</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -260,12 +362,26 @@ export default function StorePickupDetailPage() {
                                             {repair.description}
                                         </TableCell>
                                         <TableCell>{formatDate(repair.createdAt)}</TableCell>
+                                        <TableCell align="right">
+                                            {!isReceived && (
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={() => receiveOne(repair.repairID)}
+                                                    disabled={receiving || receivingAll}
+                                                    sx={{ minHeight: 44, whiteSpace: 'nowrap' }}
+                                                >
+                                                    Receive
+                                                </Button>
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })}
                         </TableBody>
                     </Table>
                 </TableContainer>
+              </>
             )}
 
             <Snackbar
