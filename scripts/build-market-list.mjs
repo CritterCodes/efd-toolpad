@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Regenerate src/lib/wholesaleLeads/markets.data.js from the US Census Bureau's subcounty population
  * estimates.
  *
@@ -45,13 +45,13 @@ const parseRow = (line) => {
 };
 
 /**
- * Census names a place "<Name> <type>" — "Fort Smith city", "Boise City city". Strip only the final
+ * Census names a place "<Name> <type>" â€” "Fort Smith city", "Boise City city". Strip only the final
  * token, and only when it is a government type, so "Boise City" survives intact.
  *
  * Consolidated city-counties are named for the merged government, not the city: "Nashville-Davidson
  * metropolitan government (balance)", "Louisville/Jefferson County metro government (balance)",
  * "Augusta-Richmond County consolidated government (balance)". Nobody searches for those. When one of
- * those governmental phrases is present the city is the part before the first separator — and only
+ * those governmental phrases is present the city is the part before the first separator â€” and only
  * then, so genuinely hyphenated names like Winston-Salem are untouched.
  */
 // CASE-SENSITIVE on purpose. Census writes the government type in lower case ("Carson City city")
@@ -59,7 +59,7 @@ const parseRow = (line) => {
 // "Carson" by eating half its name.
 const TYPE_SUFFIX = /\s+(city|town|village|borough|municipality|township)$/;
 const CONSOLIDATED = /\s+(metropolitan government|metro government|consolidated government|unified government|urban county government|urban county)\b/i;
-// "Macon-Bibb County", "Athens-Clarke County" — a merged city and county, named for both.
+// "Macon-Bibb County", "Athens-Clarke County" â€” a merged city and county, named for both.
 const CITY_COUNTY = /^(.+?)[-/](.+)\s+County$/;
 
 const cleanName = (raw) => {
@@ -81,7 +81,7 @@ const header = parseRow(lines[0]);
 const ix = Object.fromEntries(header.map((h, i) => [h.trim(), i]));
 for (const needed of ['SUMLEV', 'FUNCSTAT', 'NAME', 'STNAME', 'POPESTIMATE2024']) {
   if (ix[needed] === undefined) {
-    console.error(`Column ${needed} not found — the Census layout changed. Columns: ${header.join(',')}`);
+    console.error(`Column ${needed} not found â€” the Census layout changed. Columns: ${header.join(',')}`);
     process.exit(1);
   }
 }
@@ -92,7 +92,7 @@ for (let i = 1; i < lines.length; i += 1) {
   const row = parseRow(lines[i]);
   if (row[ix.SUMLEV] !== '162') continue;
   // A = an ordinary incorporated place.
-  // F = the "(balance)" row of a consolidated city-county — this IS Nashville, Indianapolis,
+  // F = the "(balance)" row of a consolidated city-county â€” this IS Nashville, Indianapolis,
   //     Louisville and Augusta. Filtering to A alone silently dropped four major markets.
   // S = a census-designated place, which is how Honolulu appears at all.
   if (!['A', 'F', 'S'].includes(row[ix.FUNCSTAT])) continue;
@@ -116,22 +116,32 @@ markets.push(...byKey.values());
 
 markets.sort((a, b) => b.pop - a.pop || a.city.localeCompare(b.city));
 
-// Emitted as JSON, not JS: it is data, and a 1,900-line source file is a code-complexity lint
-// failure for no reason. One row per line so a diff after a re-run is readable.
-const out = path.join(process.cwd(), 'src', 'lib', 'wholesaleLeads', 'markets.data.json');
-const body = markets.map((m) => `    ${JSON.stringify([m.city, m.state, m.pop])}`).join(',\n');
-fs.writeFileSync(out, `{
-  "_generated": "node scripts/build-market-list.mjs <sub-est2024.csv> — do not edit by hand",
-  "_source": "${SOURCE_URL}",
-  "_vintage": "${VINTAGE} estimates (POPESTIMATE${VINTAGE})",
-  "_rows": "SUMLEV 162 (place); FUNCSTAT A (incorporated), F (consolidated city-county balance — how Nashville, Indianapolis, Louisville and Augusta appear), S (CDP — how Honolulu appears). Deduped by city+state, larger figure kept.",
-  "_floor": ${FLOOR},
-  "_count": ${markets.length},
-  "_shape": "[city, state, population]",
-  "rows": [
-${body}
-  ]
-}
+// Emitted as a JS module, NOT JSON. A JSON import needs `with { type: 'json' }` under plain Node,
+// which Next and vitest do not require â€” so a .json data file loads in the app and throws
+// ERR_IMPORT_ATTRIBUTE_MISSING in every standalone script and worker. Learned by running one.
+//
+// Several rows per line keeps the file under the 400-line max-lines rule without suppressing it, and
+// still leaves a re-run's diff readable.
+const PER_LINE = 8;
+const out = path.join(process.cwd(), 'src', 'lib', 'wholesaleLeads', 'markets.data.js');
+const cells = markets.map((m) => JSON.stringify([m.city, m.state, m.pop]));
+const outLines = [];
+for (let i = 0; i < cells.length; i += PER_LINE) outLines.push(`  ${cells.slice(i, i + PER_LINE).join(', ')},`);
+
+fs.writeFileSync(out, `/**
+ * GENERATED â€” do not edit by hand. Run \`node scripts/build-market-list.mjs <sub-est2024.csv>\`.
+ *
+ * US places with a population of ${FLOOR.toLocaleString()} or more. [city, state, population]
+ *   Source:  ${SOURCE_URL}
+ *   Vintage: ${VINTAGE} estimates (POPESTIMATE${VINTAGE})
+ *   Rows:    SUMLEV 162 (place); FUNCSTAT A (incorporated), F (consolidated city-county balance â€”
+ *            how Nashville, Indianapolis, Louisville and Augusta appear), S (CDP â€” how Honolulu
+ *            appears). Deduped by city+state, keeping the larger figure.
+ *   Count:   ${markets.length}
+ */
+export const MARKET_ROWS = [
+${outLines.join('\n')}
+];
 `, 'utf8');
 
 console.log(`wrote ${out}`);
