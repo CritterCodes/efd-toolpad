@@ -6,6 +6,7 @@ import { findDuplicateLead } from './shared';
 import { discoverEmailFromWebsite, scrapeWholesaleLeadWebsiteResearch } from './websiteScrape';
 import { evaluateWholesaleLead } from './scoring';
 import { DEFAULT_TARGET_PROFILE, defaultSearchQueries } from './targetProfile';
+import { marketForSearchLocation } from './markets';
 export async function getSearchCenter() {
   const placeId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID;
   if (!placeId) throw new Error('NEXT_PUBLIC_GOOGLE_PLACE_ID is not configured');
@@ -136,6 +137,16 @@ export async function importGoogleWholesaleLeads({
     }
   };
 
+  // "Dallas, Texas" as typed in the dialog resolves to the Census market of the same name, so a lead
+  // carries its city, state and population without the caller having to supply them.
+  const marketCache = new Map();
+  const marketOf = (location) => {
+    const key = normalizeString(location);
+    if (!key) return null;
+    if (!marketCache.has(key)) marketCache.set(key, marketForSearchLocation(key));
+    return marketCache.get(key);
+  };
+
   for (const searchLocation of searchLocationList) {
     if (processedCandidates >= maxCandidates) break;
 
@@ -239,6 +250,13 @@ export async function importGoogleWholesaleLeads({
             normalizedAddress: normalizeLeadKey(leadPayload.address),
             targetProfile: profileName,
             searchLocation: searchLocation || null,
+            // Which city's search produced this lead. The admin groups by it, so a nationwide crawl
+            // reads as a list per market instead of one undifferentiated pile (owner, 2026-10-13).
+            marketKey: marketOf(searchLocation)?.key || null,
+            marketCity: marketOf(searchLocation)?.city || null,
+            marketState: marketOf(searchLocation)?.state || null,
+            marketPopulation: marketOf(searchLocation)?.population ?? null,
+            marketTier: marketOf(searchLocation)?.tier || null,
             activity: [buildActivity({ type: 'imported', message: `Imported from Google Places search: ${effectiveQuery}`, actor })],
             createdAt: new Date(),
             updatedAt: new Date(),
