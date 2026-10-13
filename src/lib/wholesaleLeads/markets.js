@@ -1,9 +1,9 @@
-/**
- * Markets — the cities we search, one at a time.
+﻿/**
+ * Markets â€” the cities we search, one at a time.
  *
  * WHY NOT A RADIUS. Until 2026-10-13 an import was "everything within N miles of Fort Smith". It could
  * never have been anything else: Google caps a text search's location bias at 50,000 m (~31 miles)
- * — see googlePlaces.js, `Math.min(radiusMeters, 50000)` — so a 500-mile run searched 31 miles and
+ * â€” see googlePlaces.js, `Math.min(radiusMeters, 50000)` â€” so a 500-mile run searched 31 miles and
  * then threw away whatever fell outside 500. It returned 130 of its 167 leads from Arkansas, one from
  * Texas and one from Kansas.
  *
@@ -17,9 +17,7 @@
  * Population is the only thing we rank by, because it is the only thing we have that is both
  * published and comparable. It is a proxy for "how many jewellers are there", not a quality score.
  */
-import marketData from './markets.data.json';
-
-const MARKET_ROWS = marketData.rows;
+import { MARKET_ROWS } from './markets.data';
 
 /**
  * Population bands. A band is how you choose what to spend: tier 1 is 88 cities, tier 4 is another
@@ -34,7 +32,7 @@ export const MARKET_TIERS = Object.freeze([
 
 export const tierFor = (pop) => MARKET_TIERS.find((t) => pop >= t.min && pop < t.max) || MARKET_TIERS.at(-1);
 
-/** `dallas-texas` — stable, URL-safe, and what a lead is stamped with. */
+/** `dallas-texas` â€” stable, URL-safe, and what a lead is stamped with. */
 export const marketKey = (city, state) => `${String(city)}-${String(state)}`
   .toLowerCase()
   .replace(/[^a-z0-9]+/g, '-')
@@ -90,7 +88,7 @@ export function marketByKey(key) {
 /**
  * The market a free-typed search location names, or null when it names none.
  *
- * The import dialog takes lines of text, and it always will — a state name, a region, something the
+ * The import dialog takes lines of text, and it always will â€” a state name, a region, something the
  * owner typed. "Dallas, Texas" and "dallas texas" both resolve; "Arkansas" resolves to nothing, which
  * is correct: a whole state is not a market and its leads stay ungrouped rather than being filed
  * under whichever city happens to match.
@@ -106,7 +104,7 @@ export function marketForSearchLocation(location) {
   return allMarkets().find((m) => m.key === key) || null;
 }
 
-/** How many markets each tier holds — for the picker, so the cost of a choice is visible. */
+/** How many markets each tier holds â€” for the picker, so the cost of a choice is visible. */
 export function marketCounts() {
   const all = allMarkets();
   return MARKET_TIERS.map((t) => ({
