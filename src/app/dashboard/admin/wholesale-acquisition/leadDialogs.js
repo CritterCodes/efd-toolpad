@@ -150,11 +150,14 @@ export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
           onChange={(e) => setRadiusMiles(e.target.value)}
           fullWidth
           size="small"
-          // Jacob West, 2026-10-13, asked about 250, 500 and 750+ miles. The old cap of 500 made two of
-          // those impossible to type. The DEFAULT is unchanged at 100 — the number is still an open call.
           inputProps={{ min: 1, max: 1000, step: 1 }}
           disabled={!useLocalRadius}
-          helperText="Miles. Use region/state lines instead for broader state or national searches."
+          // Google caps a text search's location bias at 50,000 m (~31 miles) — see googlePlaces.js,
+          // `Math.min(radiusMeters, 50000)`. A larger number here only widens the post-filter that
+          // throws results away; it does NOT make Google look further. The 2026-10-13 run was set to
+          // 500 miles and returned 130 of 167 leads from Arkansas because of this. Say so, rather
+          // than letting the field imply a national search it cannot perform.
+          helperText="Google only biases its search to about 31 miles, whatever you put here — a bigger number just discards more of what it finds. To reach other metros, list the cities below instead."
         />
         <FormControlLabel
           sx={{ mt: 1 }}
