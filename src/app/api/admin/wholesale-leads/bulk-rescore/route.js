@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/apiAuth';
+﻿import { requireWholesaleAcquisition } from '@/lib/apiAuth';
 import {
   createWholesaleRescoreJob,
   getLatestWholesaleRescoreJob,
@@ -7,7 +7,7 @@ import {
 
 export async function GET() {
   try {
-    const { errorResponse } = await requireRole(['admin', 'dev']);
+    const { errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const job = await getLatestWholesaleRescoreJob();
@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    const { session, errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const body = await request.json().catch(() => ({}));

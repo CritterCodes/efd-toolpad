@@ -1,9 +1,9 @@
-import { requireRole } from '@/lib/apiAuth';
+﻿import { requireWholesaleAcquisition } from '@/lib/apiAuth';
 import { createWholesaleLead, listWholesaleLeads } from '@/lib/wholesaleLeadService';
 
 export async function GET(request) {
   try {
-    const { errorResponse } = await requireRole(['admin', 'dev']);
+    const { errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(request.url);
@@ -25,7 +25,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    const { session, errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const body = await request.json().catch(() => ({}));

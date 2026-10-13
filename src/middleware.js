@@ -26,14 +26,29 @@ const publicRoutes = [
  * the page-level twin of the missing API auth on /api/admin/artisans/*; both halves are needed,
  * since either alone leaves the other reachable.
  *
- * Deliberately a DENYLIST of one unambiguous prefix, not a blanket role matcher: no artisan
- * navigation item resolves under /dashboard/admin (see lib/navigation/artisanNavigation.js), so this
- * cannot lock out a legitimate artisan. Other plausibly-staff-only sections (finance, users, clients,
- * analytics, wholesaler) are NOT gated here — the intended access matrix for them isn't recorded
- * anywhere, and guessing it would lock real people out of work they do today. They need a deliberate
- * pass with the owner.
+ * Deliberately a DENYLIST of one unambiguous prefix, not a blanket role matcher. Other
+ * plausibly-staff-only sections (finance, users, clients, analytics, wholesaler) are NOT gated here —
+ * the intended access matrix for them isn't recorded anywhere, and guessing it would lock real people
+ * out of work they do today. They need a deliberate pass with the owner.
  */
 const STAFF_ONLY_PREFIXES = ["/dashboard/admin"];
+
+/**
+ * Pages under that prefix a NON-staff user may open when they hold a specific scope.
+ *
+ * This used to read "no artisan navigation item resolves under /dashboard/admin, so this cannot lock
+ * out a legitimate artisan". That stopped being true on 2026-10-13, when an artisan was granted
+ * `wholesaleAcquisition` so he could work the leads list without being made an admin. Every API
+ * behind the page admitted him and the page's own guard admitted him — and the middleware bounced him
+ * to /dashboard before either could run. Three gates agreeing and a fourth silently disagreeing is
+ * precisely the shape that wastes an afternoon.
+ *
+ * Narrow on purpose: one exact page, one capability, and the capability still has to be TRUE. The
+ * rest of /dashboard/admin stays staff-only, which is what that denylist is for.
+ */
+const SCOPED_STAFF_PATHS = [
+    { prefix: "/dashboard/admin/wholesale-acquisition", capability: "wholesaleAcquisition" },
+];
 
 export default async function middleware(req) {
     const { pathname } = req.nextUrl;
@@ -93,7 +108,9 @@ export default async function middleware(req) {
     // ✅ Staff-only dashboard sections — authenticated is NOT sufficient (see STAFF_ONLY_PREFIXES).
     // Redirect rather than 403 so a mis-navigated artisan lands somewhere useful instead of a wall.
     if (STAFF_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-        if (!STAFF_ROLES.includes(session.user?.role)) {
+        const scoped = SCOPED_STAFF_PATHS.find(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+        const allowedByScope = scoped ? session.user?.staffCapabilities?.[scoped.capability] === true : false;
+        if (!STAFF_ROLES.includes(session.user?.role) && !allowedByScope) {
             return NextResponse.redirect(new URL("/dashboard", req.url));
         }
     }

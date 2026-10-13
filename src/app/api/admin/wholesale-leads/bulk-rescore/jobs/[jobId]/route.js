@@ -1,9 +1,9 @@
-import { requireRole } from '@/lib/apiAuth';
+﻿import { requireWholesaleAcquisition } from '@/lib/apiAuth';
 import { getWholesaleRescoreJob } from '@/lib/wholesaleLeadService';
 
 export async function GET(request, { params }) {
   try {
-    const { errorResponse } = await requireRole(['admin', 'dev']);
+    const { errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const { jobId } = await params;

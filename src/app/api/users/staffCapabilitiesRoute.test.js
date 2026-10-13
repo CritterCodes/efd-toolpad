@@ -149,9 +149,13 @@ describe('normalizeCapabilities', () => {
   });
 
   it('covers exactly the capabilities the gates read', () => {
-    // If a seventh gate key is ever added, it must be listed here or it can never be granted.
+    // If another gate key is ever added, it must be listed here or it can never be granted.
+    //
+    // `wholesaleAcquisition` joined on 2026-10-13 and is NOT a repair capability: it gates the
+    // wholesale leads list, is read by lib/apiAuth.canAccessWholesaleAcquisition, and deliberately
+    // does not require employment.isOnsite the way the other six do.
     expect([...CAPABILITY_KEYS].sort()).toEqual(
-      ['benchWork', 'closeoutBilling', 'parts', 'qualityControl', 'receiving', 'repairOps']
+      ['benchWork', 'closeoutBilling', 'parts', 'qualityControl', 'receiving', 'repairOps', 'wholesaleAcquisition']
     );
   });
 });

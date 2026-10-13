@@ -56,7 +56,13 @@ export default function WholesaleAcquisitionPage() {
   const [businessFilter, setBusinessFilter] = useState('');
   const [sortBy, setSortBy] = useState('score_desc');
 
-  const canAccess = session?.user && ['admin', 'dev'].includes(session.user.role);
+  // Admin/dev, OR anyone granted the wholesaleAcquisition capability — the same rule the 13 routes
+  // behind this page enforce (lib/apiAuth.canAccessWholesaleAcquisition). Deliberately NOT gated on
+  // employment.isOnsite: this is sales work, not bench work.
+  const canAccess = Boolean(session?.user) && (
+    ['admin', 'dev'].includes(session.user.role)
+    || session.user.staffCapabilities?.wholesaleAcquisition === true
+  );
   const importRunning = ['queued', 'running'].includes(importJob?.status);
   const rescoreRunning = ['queued', 'running'].includes(rescoreJob?.status);
 
