@@ -7,9 +7,18 @@
  * standing between an admin request and the field every repair gate reads.
  */
 
-// The six capabilities the gates actually read. A key outside this list is REJECTED rather than
+// The capabilities the gates actually read. A key outside this list is REJECTED rather than
 // ignored, so a typo surfaces instead of quietly granting nothing — and so the grant route can never
 // be used to write arbitrary keys into a user document.
+//
+// The first six are REPAIR capabilities, and every gate that reads them also requires
+// `employment.isOnsite === true` — they describe what someone may do in the shop.
+//
+// `wholesaleAcquisition` is deliberately NOT one of those. It is sales work: the leads list, scoring
+// and outreach. It does not require being on site, and it grants nothing on the bench. It is here
+// because this map is where a person's scopes live, not because it is a repair permission (owner,
+// 2026-10-13: an artisan needs the acquisition page without becoming an admin and without losing a
+// single artisan page).
 export const CAPABILITY_KEYS = Object.freeze([
   'repairOps',
   'receiving',
@@ -17,6 +26,7 @@ export const CAPABILITY_KEYS = Object.freeze([
   'parts',
   'qualityControl',
   'closeoutBilling',
+  'wholesaleAcquisition',
 ]);
 
 /**

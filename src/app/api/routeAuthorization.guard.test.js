@@ -55,6 +55,9 @@ const AUTHZ = new RegExp([
   // authorization at all". That is the guard working: it failed the two routes that adopted this helper
   // before it was listed, which is exactly the moment to look rather than to exempt.
   String.raw`requireCustomsCadWrite\(`,
+  // Admin/dev OR the `wholesaleAcquisition` capability — `lib/apiAuth.js`. Listed for the same reason
+  // as the helper above: the guard has to know the name, or a real decision reads as no decision.
+  String.raw`requireWholesaleAcquisition\(`,
   String.raw`\w*(?:Id|ID)\s*(?:===|!==)\s*session\??\.user`, 'benchRules', 'claimRefusal', 'CRON_SECRET',
   String.raw`webhooks\.constructEvent`, String.raw`verifyWebhookSignature\(`,
 ].join('|'));

@@ -1,9 +1,9 @@
-import { requireRole } from '@/lib/apiAuth';
+﻿import { requireWholesaleAcquisition } from '@/lib/apiAuth';
 import { getWholesaleLead, updateWholesaleLead } from '@/lib/wholesaleLeadService';
 
 export async function GET(request, { params }) {
   try {
-    const { errorResponse } = await requireRole(['admin', 'dev']);
+    const { errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const { leadId } = await params;
@@ -19,7 +19,7 @@ export async function GET(request, { params }) {
 
 export async function PATCH(request, { params }) {
   try {
-    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    const { session, errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const body = await request.json().catch(() => ({}));

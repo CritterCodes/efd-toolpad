@@ -158,6 +158,25 @@ export function generateArtisanNavigation(artisanTypes = [], staffCapabilities =
     );
   }
 
+  /**
+   * Wholesale acquisition, for an artisan who holds that scope.
+   *
+   * Outside the repair-ops branch below on purpose. That branch needs `isOnsite`, and this does not —
+   * the leads list is sales work done from anywhere. Hanging the link off repair-ops would have left
+   * an off-site holder authorized by every API and unable to reach the page, which is the same "room
+   * with no door" the Move & QC entry was added to fix.
+   */
+  if (staffCapabilities?.wholesaleAcquisition === true) {
+    base.push(
+      { kind: 'header', title: 'Wholesale' },
+      {
+        segment: 'dashboard/admin/wholesale-acquisition',
+        title: 'Wholesale Acquisition',
+        icon: <StorefrontIcon />,
+      },
+    );
+  }
+
   const isOnsiteRepairOps =
     employment?.isOnsite === true &&
     staffCapabilities?.repairOps === true;

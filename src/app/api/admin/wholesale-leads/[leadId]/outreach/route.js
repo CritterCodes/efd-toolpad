@@ -1,9 +1,9 @@
-import { requireRole } from '@/lib/apiAuth';
+﻿import { requireWholesaleAcquisition } from '@/lib/apiAuth';
 import { generateWholesaleLeadOutreach } from '@/lib/wholesaleLeadService';
 
 export async function POST(request, { params }) {
   try {
-    const { session, errorResponse } = await requireRole(['admin', 'dev']);
+    const { session, errorResponse } = await requireWholesaleAcquisition();
     if (errorResponse) return errorResponse;
 
     const actor = session.user.userID || session.user.email;

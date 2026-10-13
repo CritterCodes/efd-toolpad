@@ -9,7 +9,12 @@ import { APPRENTICE_TIER } from '@/services/pay/apprenticeRules';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import WorkIcon from '@mui/icons-material/Work';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 
+/**
+ * Repair capabilities. Every gate that reads one of these ALSO requires `employment.isOnsite` — they
+ * describe what somebody may do in the shop, so they are inert off-site by design.
+ */
 const CAPABILITIES = [
   { key: 'repairOps', label: 'Repair Ops', description: 'Core access to the jeweler repair workflow' },
   { key: 'receiving', label: 'Receiving', description: 'Can receive repairs at intake and move to Ready for Work' },
@@ -17,6 +22,21 @@ const CAPABILITIES = [
   { key: 'parts', label: 'Parts', description: 'Can manage needs-parts and parts-ordered workflow' },
   { key: 'qualityControl', label: 'Quality Control', description: 'Can review jobs in QC and mark them completed or return them to bench work' },
   { key: 'closeoutBilling', label: 'Closeout & Billing', description: 'Can handle after photos, invoice batching, and payment & pickup closeout' },
+];
+
+/**
+ * Scopes that are NOT repair work, and so do not depend on being on site.
+ *
+ * Kept in their own list and their own section because the on-site rule above does not apply to them —
+ * showing them beside the bench switches, under a heading that says "while on site", would promise
+ * something untrue about when they take effect.
+ */
+const BUSINESS_CAPABILITIES = [
+  {
+    key: 'wholesaleAcquisition',
+    label: 'Wholesale Acquisition',
+    description: 'Full access to the wholesale leads list — scoring, outreach, and linking applications. Works on or off site, and grants nothing on the bench.',
+  },
 ];
 
 export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
@@ -238,6 +258,41 @@ export default function ArtisanStaffCapabilities({ artisan, onFieldChange }) {
           </Typography>
         </>
       )}
+
+      {/*
+        OUTSIDE the `isOnsite` block, deliberately. Everything above is bench access and is inert for
+        somebody off site; these scopes are not, so hiding them behind the on-site switch would make
+        them ungrantable to exactly the people who need them.
+      */}
+      <Divider sx={{ my: 2 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <StorefrontIcon fontSize="small" color="action" />
+        <Typography variant="subtitle2" fontWeight={600}>Business access</Typography>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+        Not bench work — these apply whether or not this person is on site, and grant nothing on the shop floor.
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {BUSINESS_CAPABILITIES.map(({ key, label, description }) => (
+          <Card key={key} variant="outlined">
+            <CardContent sx={{ py: '10px !important', px: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>{label}</Typography>
+                  <Typography variant="caption" color="text.secondary">{description}</Typography>
+                </Box>
+                <Switch
+                  size="small"
+                  checked={caps[key] === true}
+                  onChange={(e) => setCap(key, e.target.checked)}
+                  color="primary"
+                />
+              </Box>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
     </Box>
   );
 }

@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 // Pure predicates live in a client-safe module so pages can share them rather
 // than retyping the same role test. See lib/repairAccess.js.
 import { canAccessLeads, isAdminRole, isOnsiteRepairOps } from "@/lib/repairAccess";
+import { canAccessWholesaleAcquisition } from "@/lib/wholesaleAcquisitionAccess";
 
-export { canAccessLeads, isOnsiteRepairOps };
+export { canAccessLeads, isOnsiteRepairOps, canAccessWholesaleAcquisition };
 
 /**
  * Require authentication on an API route.
@@ -123,6 +124,27 @@ export function hasAnyStaffCapability(session, capabilities = []) {
     if (['admin', 'dev'].includes(session?.user?.role)) return true;
     if (!isOnsiteRepairOps(session)) return false;
     return capabilities.some((capability) => session?.user?.staffCapabilities?.[capability] === true);
+}
+
+/**
+ * Wholesale acquisition — the leads list, scoring and outreach. The decision itself is pure and lives
+ * in `lib/wholesaleAcquisitionAccess.js`, so it can be tested without loading next-auth.
+ */
+export async function requireWholesaleAcquisition() {
+    const { session, errorResponse } = await requireAuth();
+    if (errorResponse) return { session: null, errorResponse };
+
+    if (!canAccessWholesaleAcquisition(session)) {
+        return {
+            session: null,
+            errorResponse: NextResponse.json(
+                { error: 'Access denied. Wholesale acquisition is restricted to admins and users granted the wholesale acquisition capability.' },
+                { status: 403 }
+            ),
+        };
+    }
+
+    return { session, errorResponse: null };
 }
 
 export function canAccessSalesPos(session) {
