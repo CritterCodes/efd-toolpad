@@ -7,6 +7,7 @@ import { discoverEmailFromWebsite, scrapeWholesaleLeadWebsiteResearch } from './
 import { evaluateWholesaleLead } from './scoring';
 import { DEFAULT_TARGET_PROFILE, defaultSearchQueries } from './targetProfile';
 import { marketForSearchLocation } from './markets';
+import { gateCandidate } from './candidateGate';
 export async function getSearchCenter() {
   const placeId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID;
   if (!placeId) throw new Error('NEXT_PUBLIC_GOOGLE_PLACE_ID is not configured');
@@ -117,6 +118,7 @@ export async function importGoogleWholesaleLeads({
   const detailErrors = [];
   const emailDiscoveries = [];
   const outOfRadius = [];
+  const skipped = [];
   const seenPlaceIds = new Set();
   let processedCandidates = 0;
   const updateProgress = async (patch = {}) => {
@@ -132,6 +134,7 @@ export async function importGoogleWholesaleLeads({
         detailErrors: detailErrors.length,
         emailDiscoveries: emailDiscoveries.length,
         outOfRadius: outOfRadius.length,
+        skipped: skipped.length,
         ...patch,
       });
     }
@@ -173,6 +176,16 @@ export async function importGoogleWholesaleLeads({
           if (processedCandidates >= maxCandidates) break;
           if (!place.place_id || seenPlaceIds.has(place.place_id)) continue;
           seenPlaceIds.add(place.place_id);
+
+          // Decide whether this is worth paying to look at BEFORE the Place Details call, the website
+          // fetch and the Gemini extraction. The search result already carries the name and Google's
+          // own types, so a rejected candidate costs nothing beyond the page it arrived on.
+          const gate = gateCandidate(place);
+          if (!gate.keep) {
+            skipped.push({ placeId: place.place_id, storeName: place.name || '', reason: gate.reason });
+            await updateProgress({ phase: 'skipped_not_jewelry', currentCandidate: `${place.name || place.place_id} (${gate.reason})` });
+            continue;
+          }
 
           const existingByPlace = await collection.findOne({ googlePlaceId: place.place_id });
           if (existingByPlace) {
@@ -368,6 +381,7 @@ export async function importGoogleWholesaleLeads({
     detailErrors,
     emailDiscoveries,
     outOfRadius,
+    skipped,
     searchedQueries: searchQueries,
     targetProfile: profileName,
     searchLocations: searchLocationList,
