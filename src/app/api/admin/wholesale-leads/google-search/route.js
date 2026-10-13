@@ -4,6 +4,7 @@ import {
   getLatestWholesaleImportJob,
   runWholesaleImportJob,
 } from '@/lib/wholesaleLeadService';
+import { DEFAULT_TARGET_PROFILE, TARGET_PROFILE_KEYS } from '@/lib/wholesaleLeads/targetProfile';
 
 export async function GET() {
   try {
@@ -33,6 +34,7 @@ export async function POST(request) {
       minImportScore: body.minImportScore ? Number(body.minImportScore) : undefined,
       maxCandidates: body.maxCandidates ? Number(body.maxCandidates) : undefined,
       discoverEmails: body.discoverEmails !== false,
+      profileName: TARGET_PROFILE_KEYS.includes(body.profileName) ? body.profileName : DEFAULT_TARGET_PROFILE,
     };
     const job = await createWholesaleImportJob(options, actor);
     if (process.env.WHOLESALE_IMPORT_RUN_IN_API === 'true') {

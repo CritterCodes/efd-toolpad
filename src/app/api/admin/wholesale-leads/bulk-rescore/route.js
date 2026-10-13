@@ -4,6 +4,7 @@ import {
   getLatestWholesaleRescoreJob,
   runWholesaleRescoreJob,
 } from '@/lib/wholesaleLeadService';
+import { TARGET_PROFILE_KEYS } from '@/lib/wholesaleLeads/targetProfile';
 
 export async function GET() {
   try {
@@ -28,6 +29,8 @@ export async function POST(request) {
     const job = await createWholesaleRescoreJob({
       leadIds: Array.isArray(body.leadIds) ? body.leadIds.filter(Boolean) : [],
       scope: body.scope === 'active' ? 'active' : 'selected',
+      // Omitted = each lead keeps the rubric it was scored under. Naming one re-scores against it.
+      profileName: TARGET_PROFILE_KEYS.includes(body.profileName) ? body.profileName : null,
     }, actor);
 
     setTimeout(() => {

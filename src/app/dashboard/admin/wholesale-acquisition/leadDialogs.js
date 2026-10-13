@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, Stack, TextField, Grid, FormControlLabel, Checkbox, DialogActions, Button, Typography, Alert, Paper, Box, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, Stack, TextField, Grid, FormControlLabel, Checkbox, DialogActions, Button, Typography, Alert, Paper, Box, Table, TableHead, TableRow, TableCell, TableBody, MenuItem } from '@mui/material';
+import { DEFAULT_TARGET_PROFILE, TARGET_PROFILES, TARGET_PROFILE_KEYS, defaultSearchQueries } from '@/lib/wholesaleLeads/targetProfile';
 import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { ContentCopy as CopyIcon, Storefront as StoreIcon, Email as EmailIcon, Search as SearchIcon, Send as SendIcon, AutoAwesome as AiIcon } from '@mui/icons-material';
 import { DEFAULT_LOCATIONS, DEFAULT_QUERIES, DEFAULT_WHOLESALE_APPLICATION_URL, EMAIL_TEMPLATES, METERS_PER_MILE, emptyLeadForm, statusLabel } from './leadHelpers';
@@ -62,6 +63,7 @@ export function LeadFormDialog({ open, onClose, onSubmit, loading }) {
 }
 
 export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
+  const [profileName, setProfileName] = useState(DEFAULT_TARGET_PROFILE);
   const [queries, setQueries] = useState(DEFAULT_QUERIES.join('\n'));
   const [locations, setLocations] = useState(DEFAULT_LOCATIONS.join('\n'));
   const [autoScore, setAutoScore] = useState(true);
@@ -71,8 +73,20 @@ export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
   const [useLocalRadius, setUseLocalRadius] = useState(false);
   const [discoverEmails, setDiscoverEmails] = useState(true);
 
+  // Switching target swaps the queries with it. A query line someone typed themselves is theirs, so the
+  // swap only happens on an untouched list — otherwise changing target would silently erase their work.
+  const applyProfile = (next) => {
+    setProfileName(next);
+    setQueries((current) => (
+      TARGET_PROFILE_KEYS.some((key) => current === defaultSearchQueries(key).join('\n'))
+        ? defaultSearchQueries(next).join('\n')
+        : current
+    ));
+  };
+
   useEffect(() => {
     if (open) {
+      setProfileName(DEFAULT_TARGET_PROFILE);
       setQueries(DEFAULT_QUERIES.join('\n'));
       setLocations(DEFAULT_LOCATIONS.join('\n'));
       setAutoScore(true);
@@ -91,6 +105,19 @@ export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
         <Typography sx={{ color: REPAIRS_UI.textSecondary, mb: 2 }}>
           Search by state, region, or city. Every scored candidate is saved; bad fits are archived so future runs skip known stores instead of scoring them again.
         </Typography>
+        <TextField
+          select
+          label="Who are we looking for?"
+          value={profileName}
+          onChange={(e) => applyProfile(e.target.value)}
+          fullWidth
+          sx={{ mb: 2 }}
+          helperText={TARGET_PROFILES[profileName]?.description}
+        >
+          {TARGET_PROFILE_KEYS.map((key) => (
+            <MenuItem key={key} value={key}>{TARGET_PROFILES[key].label}</MenuItem>
+          ))}
+        </TextField>
         <TextField
           label="Search queries"
           value={queries}
@@ -123,7 +150,9 @@ export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
           onChange={(e) => setRadiusMiles(e.target.value)}
           fullWidth
           size="small"
-          inputProps={{ min: 1, max: 500, step: 1 }}
+          // Jacob West, 2026-10-13, asked about 250, 500 and 750+ miles. The old cap of 500 made two of
+          // those impossible to type. The DEFAULT is unchanged at 100 — the number is still an open call.
+          inputProps={{ min: 1, max: 1000, step: 1 }}
           disabled={!useLocalRadius}
           helperText="Miles. Use region/state lines instead for broader state or national searches."
         />
@@ -171,6 +200,7 @@ export function GoogleImportDialog({ open, onClose, onSubmit, loading }) {
             minImportScore,
             maxCandidates,
             discoverEmails,
+            profileName,
           })}
           disabled={loading}
         >
