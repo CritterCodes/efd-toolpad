@@ -16,24 +16,41 @@ const ArtisanHeader = ({ onSave, hasChanges, artisan, activeTab, setActiveTab })
         setAnchorEl(null);
     };
 
+    /*
+     * One row on a desktop, two on a phone.
+     *
+     * This was a single `space-between` row holding a four-tab rail and the actions. At 375px the
+     * rail had nowhere to go: without `minWidth: 0` a flex child refuses to shrink below its content,
+     * so instead of scrolling cleanly it was clipped at both ends and the first tab read "rofile"
+     * (owner, 2026-10-13).
+     */
     return (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            
-            {/* Tabs Section */}
-            <TabRail
-                ariaLabel="Artisan sections"
-                value={activeTab}
-                onChange={setActiveTab}
-                items={[
-                    { key: 0, label: 'Artisan Details' },
-                    { key: 1, label: 'Vendor Profile' },
-                    { key: 2, label: 'Staff / Repair Ops' },
-                    { key: 3, label: 'My Bench' },
-                ]}
-            />
+        <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', md: 'center' },
+            gap: 1.5,
+            mb: 3,
+        }}>
+
+            {/* Tabs Section — minWidth 0 is what lets the rail scroll instead of being cut off. */}
+            <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+                <TabRail
+                    ariaLabel="Artisan sections"
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    items={[
+                        { key: 0, label: 'Artisan Details' },
+                        { key: 1, label: 'Vendor Profile' },
+                        { key: 2, label: 'Staff / Repair Ops' },
+                        { key: 3, label: 'My Bench' },
+                    ]}
+                />
+            </Box>
 
             {/* Actions Section */}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0, justifyContent: { xs: 'flex-end', md: 'flex-start' } }}>
                 {/* Save Button */}
                 {hasChanges && (
                     <Button

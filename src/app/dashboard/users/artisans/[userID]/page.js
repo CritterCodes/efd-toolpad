@@ -258,9 +258,17 @@ const ViewArtisanPage = ({ params }) => {
             {/* Tab Content */}
             <Box sx={{ mt: 3 }}>
                 {activeTab === 0 && (
-                    <Box sx={{ display: 'flex', gap: 3 }}>
+                    /*
+                      Two columns on a desktop, stacked on a phone.
+                      `flex: '0 0 300px'` meant the image column could not shrink, so at 375px it took
+                      300 of them and pushed the details card off the right-hand edge — the half of the
+                      page the owner reported missing (2026-10-13). `minWidth: 0` on the details column
+                      matters too: without it a long email or business name keeps the column wider than
+                      the screen even once they stack.
+                    */
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
                         {/* Left Column - Image */}
-                        <Box sx={{ flex: '0 0 300px' }}>
+                        <Box sx={{ flex: { xs: '1 1 auto', md: '0 0 300px' }, minWidth: 0 }}>
                             <ArtisanImage
                                 artisan={updatedArtisan}
                                 onImageChange={(imageUrl) => handleEditChange('image', imageUrl)}
@@ -268,7 +276,7 @@ const ViewArtisanPage = ({ params }) => {
                         </Box>
 
                         {/* Right Column - Details */}
-                        <Box sx={{ flex: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                             <ArtisanDetailsForm
                                 artisan={updatedArtisan}
                                 onFieldChange={handleEditChange}
