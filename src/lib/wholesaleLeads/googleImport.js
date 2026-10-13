@@ -1,10 +1,11 @@
-import { buildProfiles } from '@/services/lookalike/lookalike.profile.service.js';
+﻿import { buildProfiles } from '@/services/lookalike/lookalike.profile.service.js';
 import { distanceMilesBetween, googleFetch, googlePlacesNewTextSearchPages, parseLatLng } from './googlePlaces';
 import { summarizeGoogleReviews } from './websiteResearch';
-import { DEFAULT_DISCOVER_EMAILS, DEFAULT_IMPORT_MAX_CANDIDATES, DEFAULT_IMPORT_MIN_SCORE, DEFAULT_RADIUS_METERS, DEFAULT_SEARCH_LOCATIONS, DEFAULT_SEARCH_QUERIES, GEMINI_MODEL, METERS_PER_MILE, buildActivity, getLeadsCollection, normalizeLeadKey, normalizeString, serializeLead } from './shared';
+import { DEFAULT_DISCOVER_EMAILS, DEFAULT_IMPORT_MAX_CANDIDATES, DEFAULT_IMPORT_MIN_SCORE, DEFAULT_RADIUS_METERS, DEFAULT_SEARCH_LOCATIONS, GEMINI_MODEL, METERS_PER_MILE, buildActivity, getLeadsCollection, normalizeLeadKey, normalizeString, serializeLead } from './shared';
 import { findDuplicateLead } from './shared';
 import { discoverEmailFromWebsite, scrapeWholesaleLeadWebsiteResearch } from './websiteScrape';
 import { evaluateWholesaleLead } from './scoring';
+import { DEFAULT_TARGET_PROFILE, defaultSearchQueries } from './targetProfile';
 export async function getSearchCenter() {
   const placeId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID;
   if (!placeId) throw new Error('NEXT_PUBLIC_GOOGLE_PLACE_ID is not configured');
@@ -76,15 +77,19 @@ export const mapGoogleLead = (place, details = {}, efdCoordinates = null) => {
 };
 
 export async function importGoogleWholesaleLeads({
-  queries = DEFAULT_SEARCH_QUERIES,
+  queries = null,
   searchLocations = DEFAULT_SEARCH_LOCATIONS,
   radiusMeters = DEFAULT_RADIUS_METERS,
   autoScore = true,
   minImportScore = DEFAULT_IMPORT_MIN_SCORE,
   maxCandidates = DEFAULT_IMPORT_MAX_CANDIDATES,
   discoverEmails = DEFAULT_DISCOVER_EMAILS,
+  profileName = DEFAULT_TARGET_PROFILE,
   onProgress = null,
 } = {}, actor) {
+  // Search and score have to agree on who we are hunting: searching "pawn shop jewelry" and then
+  // scoring for fine jewelry fills the pool with leads the rubric will reject.
+  const searchQueries = Array.isArray(queries) && queries.length ? queries : defaultSearchQueries(profileName);
   const collection = await getLeadsCollection();
   const normalizedLocations = Array.isArray(searchLocations)
     ? searchLocations.map(normalizeString).filter(Boolean)
@@ -134,7 +139,7 @@ export async function importGoogleWholesaleLeads({
   for (const searchLocation of searchLocationList) {
     if (processedCandidates >= maxCandidates) break;
 
-    for (const query of queries.length ? queries : DEFAULT_SEARCH_QUERIES) {
+    for (const query of searchQueries) {
       if (processedCandidates >= maxCandidates) break;
       const effectiveQuery = searchLocation ? `${query} ${searchLocation}` : query;
       await updateProgress({ phase: 'searching', currentQuery: effectiveQuery });
@@ -232,6 +237,7 @@ export async function importGoogleWholesaleLeads({
             linkedWholesalerUserId: null,
             normalizedName: normalizeLeadKey(leadPayload.storeName),
             normalizedAddress: normalizeLeadKey(leadPayload.address),
+            targetProfile: profileName,
             searchLocation: searchLocation || null,
             activity: [buildActivity({ type: 'imported', message: `Imported from Google Places search: ${effectiveQuery}`, actor })],
             createdAt: new Date(),
@@ -269,7 +275,7 @@ export async function importGoogleWholesaleLeads({
           if (autoScore) {
             try {
               await updateProgress({ phase: 'scoring', currentCandidate: lead.storeName });
-              const scoreUpdate = await evaluateWholesaleLead(lead);
+              const scoreUpdate = await evaluateWholesaleLead(lead, { profileName });
               const isNotFit = Number(scoreUpdate.fitScore) < Number(minImportScore);
               Object.assign(lead, {
                 ...scoreUpdate,
@@ -344,7 +350,8 @@ export async function importGoogleWholesaleLeads({
     detailErrors,
     emailDiscoveries,
     outOfRadius,
-    searchedQueries: queries,
+    searchedQueries: searchQueries,
+    targetProfile: profileName,
     searchLocations: searchLocationList,
     radiusMeters,
     autoScore,

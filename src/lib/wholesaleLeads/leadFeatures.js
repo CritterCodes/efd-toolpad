@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { extractReviewSignals } from '@/services/reviews/review-signals.service.js';
 import { detectInHouseStrength } from '@/services/signals/inhouse-detection.service.js';
 import { inferLeadBusinessHints, normalizeString } from './shared';
+import { isFineJewelryType, targetProfile } from './targetProfile';
 import { summarizeGoogleReviews } from './websiteResearch';
 export const getSmtpConfig = () => {
   const host = process.env.SMTP_HOST || process.env.EMAIL_SERVER_HOST;
@@ -224,7 +225,8 @@ export const deterministicFeatureExtraction = (lead = {}, error = null) => {
   });
 };
 
-export const scoreWholesaleLeadFeatures = (features) => {
+export const scoreWholesaleLeadFeatures = (features, profileName) => {
+  const profile = targetProfile(profileName);
   const reasons = [];
   const penalties = [];
   const truthSignals = features.truthSignals || {};
@@ -234,14 +236,19 @@ export const scoreWholesaleLeadFeatures = (features) => {
   opportunity += boolScore(features.has_jewelry) * 10;
   if (features.has_jewelry) reasons.push('Jewelry relevance found');
 
-  opportunity += boolScore(features.pawn_signals) * 18;
-  if (features.pawn_signals) reasons.push('Pawn shop or pawn-style business signal');
+  // A signal the active profile scores at 0 earns no points AND no reason line: a lead sheet that says
+  // "pawn shop signal" beside a score the pawn signal did not move reads as a lie about why it ranked.
+  opportunity += boolScore(isFineJewelryType(features.business_type)) * profile.fineJewelryTypeBonus;
+  if (isFineJewelryType(features.business_type) && profile.fineJewelryTypeBonus > 0) reasons.push('Fine jewelry or bridal store');
 
-  opportunity += boolScore(features.used_inventory_signals) * 12;
-  if (features.used_inventory_signals) reasons.push('Used, estate, resale, or pawn inventory signal');
+  opportunity += boolScore(features.pawn_signals) * profile.pawnSignalBonus;
+  if (features.pawn_signals && profile.pawnSignalBonus > 0) reasons.push('Pawn shop or pawn-style business signal');
 
-  opportunity += boolScore(features.refurbishment_opportunity) * 16;
-  if (features.refurbishment_opportunity) reasons.push('Strong refurbishment opportunity');
+  opportunity += boolScore(features.used_inventory_signals) * profile.usedInventoryBonus;
+  if (features.used_inventory_signals && profile.usedInventoryBonus > 0) reasons.push('Used, estate, resale, or pawn inventory signal');
+
+  opportunity += boolScore(features.refurbishment_opportunity) * profile.refurbishmentBonus;
+  if (features.refurbishment_opportunity && profile.refurbishmentBonus > 0) reasons.push('Strong refurbishment opportunity');
 
   if (!features.offers_repair && features.has_jewelry) {
     opportunity += 14;
@@ -270,12 +277,14 @@ export const scoreWholesaleLeadFeatures = (features) => {
     reasons.push('Semi-manual process may benefit from better tracking');
   }
 
+  // The two signals that actually predicted Marlen: they already send work out, and somebody is unhappy
+  // about how long it takes. Under the fine-jewelry profile these outweigh every inventory signal.
   if (features.outsourcing_evidence) {
-    opportunity += 12;
+    opportunity += profile.outsourcingBonus;
     reasons.push('Evidence they outsource or send repair work elsewhere');
   }
   if (features.turnaround_complaints) {
-    opportunity += 12;
+    opportunity += profile.turnaroundBonus;
     reasons.push('Turnaround complaint or delay signal');
   }
   if (features.repeat_issues) {
@@ -283,7 +292,7 @@ export const scoreWholesaleLeadFeatures = (features) => {
     reasons.push('Repeat repair issue signal');
   }
   if (features.review_repair_evidence) {
-    opportunity += 10;
+    opportunity += profile.reviewRepairBonus;
     reasons.push('Google reviews mention jewelry/watch repair work');
   }
   if (features.review_owner_jeweler_evidence) {
@@ -297,19 +306,21 @@ export const scoreWholesaleLeadFeatures = (features) => {
 
   let friction = features.sales_friction * 20;
   if (features.in_house_repair) {
-    friction += 8 + features.repair_capability * 12;
+    friction += profile.inHouseBaseFriction + features.repair_capability * profile.inHouseCapabilityFriction;
     penalties.push('Already advertises repair capability');
   }
   if (features.mature_in_house_repair) {
-    friction += 25;
+    friction += profile.matureInHouseFriction;
     penalties.push('Mature in-house repair department signal');
   }
+  // A bench is friction, not disqualification. Under `pawn` this is 40 points and a hard cap at 40,
+  // which is what rejected thirteen real jewelry stores outright; under `fine_jewelry` it is 6.
   if (truthSignals.strongInHouse && !truthSignals.outsourcingEvidence && !truthSignals.turnaroundComplaints) {
-    friction += 40;
+    friction += profile.strongInHouseFriction;
     penalties.unshift('Strong in-house jeweler signal without outsourcing or delay evidence');
   }
   if (features.luxury_brand) {
-    friction += 18;
+    friction += profile.luxuryFriction;
     penalties.push('Luxury or polished brand friction');
   }
   if (features.chain_or_multi_location || ['large', 'chain'].includes(features.estimated_scale)) {
@@ -322,10 +333,16 @@ export const scoreWholesaleLeadFeatures = (features) => {
   }
 
   const hardNotFit = !features.has_jewelry
-    || (features.mature_in_house_repair && (features.luxury_brand || features.chain_or_multi_location))
-    || (features.luxury_brand && features.repair_capability >= 0.85);
+    || (features.mature_in_house_repair && features.chain_or_multi_location)
+    || (profile.matureInHouseIsHardNotFitWhenLuxury && features.mature_in_house_repair && features.luxury_brand)
+    || (profile.luxuryCapabilityIsHardNotFit && features.luxury_brand && features.repair_capability >= 0.85);
 
-  const forceScoreCap = truthSignals.strongInHouse && !truthSignals.outsourcingEvidence && !truthSignals.turnaroundComplaints ? 40 : null;
+  const forceScoreCap = profile.capStrongInHouseAt !== null
+    && truthSignals.strongInHouse
+    && !truthSignals.outsourcingEvidence
+    && !truthSignals.turnaroundComplaints
+    ? profile.capStrongInHouseAt
+    : null;
   const rawScore = hardNotFit ? Math.min(34, opportunity - friction) : opportunity - friction + 18;
   const cappedRawScore = forceScoreCap === null ? rawScore : Math.min(forceScoreCap, rawScore);
   const fitScore = clampScore(cappedRawScore);
@@ -333,6 +350,9 @@ export const scoreWholesaleLeadFeatures = (features) => {
   let tier = 'tier_3_educate';
   if (hardNotFit || fitScore < 40) tier = 'not_fit';
   else if (features.outsourcing_evidence || features.turnaround_complaints) tier = 'tier_1_replace_current_vendor';
+  // The pawn rubric only calls a lead tier 1 when its repair intake looks manual. A fine jewelry store
+  // runs a tidy process and would never clear that bar, so under `fine_jewelry` a high score is enough.
+  else if (fitScore >= 75 && !profile.tier1NeedsManualProcess) tier = 'tier_1_immediate_outreach';
   else if (fitScore >= 75 && !features.mature_in_house_repair && features.manual_process_likelihood >= 0.5) tier = 'tier_1_immediate_outreach';
   else if (!features.offers_repair && features.has_jewelry) tier = 'tier_2_add_repair_revenue';
   else if (features.refurbishment_opportunity) tier = 'tier_2_refurbishment';

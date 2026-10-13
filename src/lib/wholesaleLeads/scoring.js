@@ -4,15 +4,19 @@ import { calculateLookalikeScoreFromProfiles } from '@/services/lookalike/lookal
 import { calculateBlendedLookalikeScore } from '@/services/lookalike/lookalike.score.util.js';
 import { GEMINI_FEATURE_SCHEMA, callGemini, leadPromptContext } from './gemini';
 import { buildLeadTruthSignals, deterministicFeatureExtraction, leadIdsQuery, normalizeFeatureExtraction, normalizeLeadIds, reviewFeaturesFromLead, scoreWholesaleLeadFeatures } from './leadFeatures';
+import { DEFAULT_TARGET_PROFILE, targetProfile } from './targetProfile';
 import { GEMINI_MODEL, buildActivity, getImportJobsCollection, getLeadsCollection, objectIdFilter, serializeJob, serializeLead } from './shared';
 import { hydrateLeadGoogleReviewResearch, hydrateLeadWebsiteResearch } from './websiteScrape';
-export async function evaluateWholesaleLead(lead) {
+export async function evaluateWholesaleLead(lead, { profileName } = {}) {
+  // A lead keeps the rubric that scored it, so a mixed pool stays readable. A lead scored before
+  // profiles existed has none and falls back to the default.
+  const profileKey = profileName || lead.targetProfile || DEFAULT_TARGET_PROFILE;
+  const profile = targetProfile(profileKey);
   const prompt = [
     'Extract structured lead qualification features for Engel Fine Design wholesale repair outreach.',
     'Do NOT produce a final score. Be conservative and only mark a signal true when supported by the provided Google/site/notes data.',
     'Treat Google review snippets as evidence. If reviews mention the owner is a jeweler, chain repair, ring sizing, stone setting, polishing, watch battery, or similar work, reflect that in the repair/revenue features even when the website is silent.',
-    'EFD is strongest for pawn shops, smaller operators, jewelry sellers without repair infrastructure, businesses with used jewelry/refurbishment opportunity, and stores likely using manual repair intake.',
-    'Mature in-house repair, luxury positioning, big chains, and polished full-service repair departments increase sales friction.',
+    ...profile.extractionGuidance,
     '',
     'Return ONLY valid JSON with this exact shape:',
     '{ "has_jewelry": false, "business_type": "pawn_shop|jewelry_store|watch_business|bridal_jewelry|gold_buyer|luxury_retailer|unclear", "pawn_signals": false, "used_inventory_signals": false, "refurbishment_opportunity": false, "offers_repair": false, "repair_capability": 0.0, "in_house_repair": false, "mature_in_house_repair": false, "manual_process_likelihood": 0.0, "process_maturity": "manual|semi|digital|unknown", "estimated_scale": "micro|small|medium|large|chain|unknown", "repair_volume_signal": 0.0, "revenue_opportunity": 0.0, "sales_friction": 0.0, "luxury_brand": false, "chain_or_multi_location": false, "outsourcing_evidence": false, "turnaround_complaints": false, "review_repair_evidence": false, "review_owner_jeweler_evidence": false, "review_service_mentions": [], "contact_quality": 0.0, "confidence": 0.0, "summary": "", "likely_repair_need": "", "concerns": [], "recommended_outreach_angle": "" }',
@@ -58,7 +62,7 @@ export async function evaluateWholesaleLead(lead) {
   if (truthSignals.outsourcingEvidence) features.outsourcing_evidence = true;
   if (truthSignals.turnaroundComplaints) features.turnaround_complaints = true;
   features.repair_volume_signal = Math.max(Number(features.repair_volume_signal || 0), Number(truthSignals.repairVolume || 0));
-  const scoring = scoreWholesaleLeadFeatures(features);
+  const scoring = scoreWholesaleLeadFeatures(features, profileKey);
   const leadVector = buildFeatureVector({ ...lead, scoreFeatures: features });
   const profiles = await getLookalikeProfiles();
   const lookalike = calculateLookalikeScoreFromProfiles(leadVector, profiles);
@@ -81,6 +85,7 @@ export async function evaluateWholesaleLead(lead) {
   return {
     fitScore: adjustedFitScore,
     baseScore: scoring.fitScore,
+    targetProfile: profileKey,
     scoreSource: 'rules_v1',
     aiScore: adjustedFitScore,
     aiConfidence: features.confidence,
@@ -132,7 +137,7 @@ export async function evaluateWholesaleLead(lead) {
   };
 }
 
-export async function scoreWholesaleLead(leadId, actor) {
+export async function scoreWholesaleLead(leadId, actor, { profileName } = {}) {
   const collection = await getLeadsCollection();
   let lead = await collection.findOne(objectIdFilter(leadId));
   if (!lead) return null;
@@ -140,7 +145,7 @@ export async function scoreWholesaleLead(leadId, actor) {
   lead = await hydrateLeadGoogleReviewResearch(collection, lead, actor);
 
   const update = {
-    ...(await evaluateWholesaleLead(lead)),
+    ...(await evaluateWholesaleLead(lead, { profileName })),
     updatedBy: actor || null,
   };
 
@@ -155,7 +160,7 @@ export async function scoreWholesaleLead(leadId, actor) {
   return serializeLead(result);
 }
 
-export async function bulkRescoreWholesaleLeads({ leadIds = [], scope = 'selected', onProgress = null } = {}, actor) {
+export async function bulkRescoreWholesaleLeads({ leadIds = [], scope = 'selected', profileName = null, onProgress = null } = {}, actor) {
   const collection = await getLeadsCollection();
   const ids = normalizeLeadIds(leadIds);
   const query = scope === 'active'
@@ -187,7 +192,7 @@ export async function bulkRescoreWholesaleLeads({ leadIds = [], scope = 'selecte
       const reviewResearchedLead = await hydrateLeadGoogleReviewResearch(collection, researchedLead, actor);
       await updateProgress({ phase: 'scoring', currentCandidate: lead.storeName });
       const update = {
-        ...(await evaluateWholesaleLead(reviewResearchedLead)),
+        ...(await evaluateWholesaleLead(reviewResearchedLead, { profileName })),
         updatedBy: actor || null,
       };
       await collection.updateOne(

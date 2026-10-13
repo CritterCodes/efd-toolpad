@@ -1,3 +1,5 @@
+﻿import { DEFAULT_TARGET_PROFILE, defaultSearchQueries } from '@/lib/wholesaleLeads/targetProfile';
+
 export const STATUSES = [
   'new',
   'researching',
@@ -12,14 +14,8 @@ export const STATUSES = [
   'no_response',
 ];
 
-export const DEFAULT_QUERIES = [
-  'independent jeweler',
-  'jewelry repair',
-  'watch repair',
-  'pawn shop jewelry',
-  'bridal jewelry store',
-  'local jewelry store',
-];
+// The query list follows the chosen target, so the search and the scoring rubric cannot disagree.
+export const DEFAULT_QUERIES = defaultSearchQueries(DEFAULT_TARGET_PROFILE);
 
 export const DEFAULT_LOCATIONS = [
   'Arkansas',

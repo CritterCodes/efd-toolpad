@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { db } from '@/lib/database';
+import { DEFAULT_TARGET_PROFILE, defaultSearchQueries } from './targetProfile';
 export const WHOLESALE_LEAD_STATUSES = [
   'new',
   'researching',
@@ -26,14 +27,9 @@ export const DEFAULT_IMPORT_MIN_SCORE = 40;
 export const DEFAULT_IMPORT_MAX_CANDIDATES = 150;
 export const DEFAULT_DISCOVER_EMAILS = true;
 export const DEFAULT_SEARCH_LOCATIONS = [''];
-export const DEFAULT_SEARCH_QUERIES = [
-  'independent jeweler',
-  'jewelry repair',
-  'watch repair',
-  'pawn shop jewelry',
-  'bridal jewelry store',
-  'local jewelry store',
-];
+// The queries now belong to the target profile, so search and scoring cannot drift apart. Kept as an
+// export because it was one; it reads from the one source of truth rather than repeating a second list.
+export const DEFAULT_SEARCH_QUERIES = defaultSearchQueries(DEFAULT_TARGET_PROFILE);
 
 export const normalizeString = (value) => String(value || '').trim();
 export const normalizeNullableString = (value) => {
