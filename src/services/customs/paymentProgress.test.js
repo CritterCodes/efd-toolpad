@@ -27,6 +27,33 @@ describe('computePaymentProgress', () => {
     expect(r.paymentProgress).toBe(0);
     expect(r.totalPending).toBe(0);
   });
+
+  /**
+   * CO-mud0wv65-947821, 2026-10-13: the 50% gate of $959.61 was charged twice and the duplicate was
+   * refunded in Stripe. efd-shop#96 now reverses the credit to `refunded`, and this is the other half
+   * of that fix — without it the reversed invoice falls through to `pending` and the project reports
+   * $1,919.22 outstanding on a $1,919.22 ring that is half paid.
+   */
+  it('a refunded invoice is neither paid nor owed', () => {
+    const r = computePaymentProgress(1919.22, [
+      { status: 'paid', amount: 959.61 },
+      { status: 'refunded', amount: 0, refundedAmount: 959.61 },
+    ]);
+    expect(r.totalPaid).toBe(959.61);
+    expect(r.totalPending).toBe(0);
+    expect(r.totalInvoiced).toBe(959.61);
+    expect(r.remainingAmount).toBe(959.61);
+    expect(r.hasReached50).toBe(true);
+    expect(r.isFullyPaid).toBe(false);
+    expect(r.canStartProduction).toBe(true);
+  });
+
+  it('a refunded invoice that kept its amount still does not count as owed', () => {
+    // Belt and braces: the reversal zeroes the amount, but a hand-corrected row might not.
+    const r = computePaymentProgress(1000, [{ status: 'refunded', amount: 400 }]);
+    expect(r.totalPending).toBe(0);
+    expect(r.totalPaid).toBe(0);
+  });
 });
 
 /**
