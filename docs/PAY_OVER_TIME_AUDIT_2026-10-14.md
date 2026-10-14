@@ -265,3 +265,20 @@ Shop tests 180/180 (`npm test`); `next build` passes locally (Vercel skips shop 
 - Admin stamps gate wording in British spelling ("Centre stone", "Labour") which the client sees on the Quote tab; cosmetic.
 - **Before the new client's quote is published:** price the mounting with **Estimate** (Quote tab) or it won't follow the metal market.
 - **The owner's own test order** `CO-msq5n116-1a2523` is pay-over-time and unpaid since August: the first `custom-payment-clock` run (15:00 UTC) will mark it overdue, email its client account once and alert the admins. Cancel it first if that isn't wanted.
+
+## 9. The deposit must not reveal cost (2026-10-14, evening)
+
+Owner, on reading that the deposit is COG × 1.25 on stone-heavy quotes: *"they shouldn't be able to figure out
+what the cost is."* The exact figure could be divided back to EFD's cost, and the copy ("more on pieces where
+materials are most of the cost") told a reader how. Options were put to the owner; the owner chose *"option 2"*:
+a whole 5% of the total, rounded UP past the floor.
+
+| | Change | Where |
+|---|---|---|
+| admin #332 | `computeQuote` stamps `depositPercent` (50, or the floor's share rounded up to the next 5%, max 100) and `depositRequired = total × percent` | `customQuote.js`, `model.js` |
+| admin #332 | New Invoice dialog's "Use X%" applies the same whole-5% `suggestPct`; the exact `floorPct` stays staff-only context | `customInvoicePolicy.js`, `[customID]/page.js` |
+| shop #102 | `depositTarget` returns the whole-5% share (a percent-less stamp from the few hours between #330 and #332 is rounded up too); `toClientView` sends only that | `lib/customPayments.js`, `lib/customOrderService.js` |
+| shop #102 | Portal says "85% deposit"; no client-facing text says the deposit relates to materials or cost | portal, Payment Options page, Custom card, policy §7 |
+
+**Rule for future work:** never show a client a number that is a fixed multiple of cost, and never describe what
+sets a price. Contract §2 updated.
