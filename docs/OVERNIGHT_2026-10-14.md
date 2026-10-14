@@ -133,6 +133,70 @@ known fixed without naming an id, so absence of a citation is weak evidence. Che
    inflated `amountPaid` totalling $754.32. No money is owed — the completed payment covered each total.
    **Recommendation:** let me correct them the same way I corrected Dylan's, dry run first. One word.
 
+---
+
+# Second half of the run — #316 onward
+
+Written when stopping. Eighteen admin PRs merged after this report was first written, plus efd-shop
+#96/#97 before it. Every deploy confirmed READY by hand; `ship.yml` still cannot run.
+
+| PR | What |
+|---|---|
+| #310 | **The home page said 721 active repairs. There are ten.** Open since the night before and never merged — the owner's own ask. `ACTIVE REPAIRS` was `repairs.length`; the missing 20% of "volume completed" was 146 records, 136 of them spam; the activity feed read `repair.customerName`, a field that does not exist. |
+| #317 · #321 | **Nothing could serve the app locally, in any worktree.** `next start`/`next dev` 500 on the first request: the output is junctioned to `%LOCALAPPDATA%`, which has no `node_modules` above it, so anything in `.next/server` requiring a bare name throws. `next build` survives it, which is why it had been logged on 2026-10-01 as a *build* problem with a build-shaped workaround. **#317 shipped broken** — `next build` cleans its output and deletes the junction, so fixing it on `prebuild` alone fixed `next dev` and nothing else. #321 adds `postbuild` + `prestart`, verified the right way: full build, then start, then all five public routes at 200. |
+| #319 | **A second repair pricer, in the schema file.** `calculateTotalCost` summed tasks + materials + custom and called it a TOTAL — no rush, no delivery, no tax — took an `isWholesale` it never read, and named its own result `subtotal`. Unreachable in practice (one create path, always priced), so a loaded gun rather than a fire. Production check: of 78 fee-bearing repairs, one matches the bare line sum, closed and paid. |
+| #320 | **The tasks screen showed labour hours the engine does not bill.** 14 of 34 tasks: seven read `0` for work billed at up to half an hour, seven read exactly half. That screen is where the shop reasons about price against a trade sheet. No price moved — only the display was wrong. |
+| #322 | **23px tap targets on three auth pages**, against the 44px floor. The links a locked-out person taps on a phone. |
+| #325 | **The 404 put its message in the top-left corner** — `max-width: 640px` with no margin and no vertical placement, ~380px of empty black beside it. |
+| #311 · #312 | The cash route counted abandoned card attempts as money ($754.32 across three invoices); a refunded invoice read as money still owed. |
+| #313 · #314 · #315 | Q19, Q20, and a numbering collision I had just created. |
+| #318 · #323 · #324 | Friction and a stale comment corrected with measurements. |
+| #326 · #327 | **Floors under the two metrics that were rising.** |
+
+## Scoreboard, final
+
+| | critique 2026-10-02 | now |
+|---|---|---|
+| `<strong>Label:</strong>` strict | 82 | **1** (ratchet) |
+| MUI `<Tabs>` | 30 | **1** |
+| route state files | 0 | **9** |
+| kit importers | 18 | **70** |
+| `<PageBody>` adopters | 0 | **2** of 146 (+9 parked) |
+| inline `sx` | 4,778 | **5,286** — now ratcheted |
+| `<CircularProgress>` | 162 | **166** — now ratcheted |
+| median `page.js` | 128 | **166** |
+| lint ratchet | — | **17** (0 console · 1 unused · 16 max-lines) |
+
+**The two worst rows were rising, not static.** `sx` +508 and spinners +4 *through* the 26-PR run meant
+to bring them down — because nothing counted them. Every number here that ever fell (`no-console`
+368→0, `max-lines` 42→16, labels 82→1, `<Tabs>` 30→1) fell because something refused to let it rise.
+#326/#327 are that refusal. They convert nothing; they make the next addition pay for itself.
+
+## The brief is stale, and that cost most of a night
+
+Checked each item against the code rather than its wording:
+
+- **AppShell is already wired** (`AppShell.js:279`) — deliberately the reading column and *not* the
+  gutter, because `RoleAwareLayout` supplies that. Adoption is the gap, not wiring.
+- **TabRail is already 44px**, in `@media (pointer: coarse)`; 38px on a mouse is a decision with a
+  comment ("gloved hands") and a guard. I nearly "fixed" it.
+- **Gold on `/dashboard` was already worked** — `IconTile` and `OpenLink` are neutral with DESIGN.md
+  citations in their headers, and no gold side-stripe remains.
+- **EFD-DEFECTS: 36 of its 51 ids already carry a fix citing them**, including all of §4d.
+
+Four stale documents sent me at finished code tonight. Recorded in `memory/ui-direction-kuzu-parity.md`
+so the next session starts from measurements instead.
+
+## What is genuinely left, and why it stopped
+
+**PageBody adoption and the 166 spinners — the same blocker.** Every screen is behind the sign-in. The
+six `<role>@views.check` accounts exist on `efd-database-DEV` and are verified, but their hashes do not
+match the repo's fixture password: only `E2E_PREVIEW_PASSWORD` opens them, and resetting one breaks
+`ship.yml`. Nine converted screens sit on `claude/pagebody-repairs-ring`, lint/build/test clean.
+
+Merging them unseen would undo the standard that makes #322 and #325 worth trusting — those were found
+*by looking*, on the one surface the crawl structurally cannot reach.
+
 ## Mistakes worth recording
 
 - I added a Q17 and a Q18 without checking the file already had both (different heading levels hid it
@@ -142,4 +206,16 @@ known fixed without naming an id, so absence of a citation is weak evidence. Che
   em dash in the document into mojibake. Restored from a copy and verified clean. **Regexes and
   rewrites go through Write/Edit** — already the standing rule, and I broke it.
 - I used `git checkout <branch> -- <paths>` to move work between branches and silently discarded an
-  uncommitted fix. Caught it immediately and reapplied, but commit first next time.
+  uncommitted fix. Caught it immediately and reapplied, but commit first next time. **Did it twice** —
+  the second time on `scripts/prepare-next-dir.js`.
+- **I said #317 fixed local serving. It did not.** I verified against a dev server, declared it fixed,
+  and the next `npm run build` silently undid it — `next build` cleans the output directory the junction
+  lives in. Found an hour later by trying to serve the app again. Fixed in #321 and verified through a
+  real build that time. Verify a fix through the path that broke it, not the path that happens to work.
+- **I nearly reported twelve contrast failures that did not exist.** My first measurement read
+  `rgba(255,255,255,0.04)` as near-white instead of compositing it over the dark page. With alpha
+  composited the real count on every public page is zero. Checked the measuring tool before believing it.
+- **I nearly shipped a guard that cried wolf, twice.** A JSX-walking check flagged `my-bench` for a
+  margin that is inside `PageHeader` (a regex cannot tell a child from JSX passed in a prop), and a
+  totals check flagged `utils/processes/data.helpers.js` for averaging prices. Both narrowed to something
+  that cannot be wrong about what it checks. A guard that is ignored is worse than none.
