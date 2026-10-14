@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Box, Button, Typography, Alert, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Typography, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import NewRepairForm from '@/app/components/repairs/NewRepairForm';
 import NewRepairFlow from '@/app/components/repairs/NewRepairFlow';
 import { canCreateRepair } from '@/lib/repairAccess';
 import { intakeExitPath } from '@/lib/repairs/intakeExit';
 import UsersService from '@/services/users';
-import { PageHeader, facelift } from '@/components/facelift';
+import { PageBody, PageHeader, facelift } from '@/components/facelift';
 
 function getProductImageUrl(product) {
   const image = product?.images?.[0]
@@ -230,19 +230,18 @@ const NewRepairPage = () => {
   };
 
   return (
-    <Box sx={{ pb: 10 }}>
-      <Stack spacing={2.5}>
-        {useNextUi ? (
-          /* The stepped flow renders its own per-step header (✕/‹ + title +
-             dots). The page adds only linked-sale / preset context if any. */
-          (linkedSaleContext || (scannedWholesaleStoreId && session?.user?.role !== 'wholesaler')) && (
-            <Typography variant="caption" sx={{ color: facelift.gold, fontWeight: 600 }}>
-              {linkedSaleContext
-                ? `Linked sale: ${linkedSaleContext.invoice.invoiceID}`
-                : `Store preset: ${wholesalerStoreName || scannedWholesaleStoreId}`}
-            </Typography>
-          )
-        ) : (
+    <PageBody>
+      {useNextUi ? (
+        /* The stepped flow renders its own per-step header (✕/‹ + title +
+           dots). The page adds only linked-sale / preset context if any. */
+        (linkedSaleContext || (scannedWholesaleStoreId && session?.user?.role !== 'wholesaler')) && (
+          <Typography variant="caption" sx={{ color: facelift.gold, fontWeight: 600 }}>
+            {linkedSaleContext
+              ? `Linked sale: ${linkedSaleContext.invoice.invoiceID}`
+              : `Store preset: ${wholesalerStoreName || scannedWholesaleStoreId}`}
+          </Typography>
+        )
+      ) : (
         <PageHeader
           badge={linkedSaleContext ? 'Sales-linked repair' : isWholesaler ? 'Wholesale intake' : 'Repair intake'}
           title="Create a new repair"
@@ -271,39 +270,38 @@ const NewRepairPage = () => {
             </Typography>
           )}
         </PageHeader>
-        )}
+      )}
 
-        <Box>
-          {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}
-          {useNextUi ? (
-            <NewRepairFlow
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              onPrintChoice={(print) => { printAfterSaveRef.current = print; }}
-              storePreset={!isWholesalerRole && !!scannedWholesaleStoreId}
-              onClearStorePreset={() => router.replace(`/dashboard/repairs/new${uiQuery}`)}
-              initialData={linkedSaleContext?.initialData || null}
-              clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
-              isWholesale={isWholesaler}
-              // `isWholesaler` is true for an admin who arrived with a store preset, so it cannot
-              // stand in for the session role — the client-optional rule needs the role itself.
-              viewerIsWholesaler={isWholesalerRole}
-              wholesalerStoreId={wholesalerStoreId}
-              wholesalerStoreName={wholesalerStoreName}
-            />
-          ) : (
-            <NewRepairForm
-              onSubmit={handleSubmit}
-              initialData={linkedSaleContext?.initialData || null}
-              clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
-              // The classic form has no "no client" row, so it keeps the old rule: a client is required.
-              isWholesale={isWholesaler}
-              wholesalerStoreId={wholesalerStoreId}
-              wholesalerStoreName={wholesalerStoreName}
-            />
-          )}
-        </Box>
-      </Stack>
+      <Box>
+        {linkedSaleError && <Alert severity="error" sx={{ mb: 2 }}>{linkedSaleError}</Alert>}
+        {useNextUi ? (
+          <NewRepairFlow
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            onPrintChoice={(print) => { printAfterSaveRef.current = print; }}
+            storePreset={!isWholesalerRole && !!scannedWholesaleStoreId}
+            onClearStorePreset={() => router.replace(`/dashboard/repairs/new${uiQuery}`)}
+            initialData={linkedSaleContext?.initialData || null}
+            clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
+            isWholesale={isWholesaler}
+            // `isWholesaler` is true for an admin who arrived with a store preset, so it cannot
+            // stand in for the session role — the client-optional rule needs the role itself.
+            viewerIsWholesaler={isWholesalerRole}
+            wholesalerStoreId={wholesalerStoreId}
+            wholesalerStoreName={wholesalerStoreName}
+          />
+        ) : (
+          <NewRepairForm
+            onSubmit={handleSubmit}
+            initialData={linkedSaleContext?.initialData || null}
+            clientInfo={linkedSaleContext?.clientInfo || presetClient || null}
+            // The classic form has no "no client" row, so it keeps the old rule: a client is required.
+            isWholesale={isWholesaler}
+            wholesalerStoreId={wholesalerStoreId}
+            wholesalerStoreName={wholesalerStoreName}
+          />
+        )}
+      </Box>
 
       <Snackbar
         open={notification.open}
@@ -320,7 +318,7 @@ const NewRepairPage = () => {
           {notification.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageBody>
   );
 };
 

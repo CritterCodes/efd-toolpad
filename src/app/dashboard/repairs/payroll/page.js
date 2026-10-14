@@ -22,7 +22,7 @@ import { PayrollLists } from './PayrollLists';
 import { PayrollStats } from './PayrollStats';
 import { PayrollDiagnostics } from './PayrollDiagnostics';
 import { payrollActions } from './payrollActions';
-import { TabRail } from '@/components/facelift';
+import { PageBody, TabRail } from '@/components/facelift';
 import {
   ANALYTICS_BASELINE_NOTE,
   DEFAULT_LABOR_ANALYTICS_START_DATE,
@@ -159,8 +159,8 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
   };
 
   return (
-    <Box sx={{ pb: 8 }}>
-      <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 }, mb: 3 }}>
+    <PageBody>
+      <Box sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, p: { xs: 2, md: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <PaymentIcon sx={{ color: REPAIRS_UI.accent, fontSize: 28 }} />
           <Box>
@@ -174,12 +174,12 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Alert severity="info" sx={{ mb: 2 }}>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Alert severity="info">
         {ANALYTICS_BASELINE_NOTE} Labor analytics start on {new Date(DEFAULT_LABOR_ANALYTICS_START_DATE).toLocaleDateString()}.
       </Alert>
       {hasNoLogs && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning">
           No repair labor logs exist for the current week in the live ledger. Payroll can be correct and still empty until send-to-QC is generating labor logs in production.
         </Alert>
       )}
@@ -190,17 +190,20 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
 
       {/* The admin is a payee too (owner-operator): connect YOUR Stripe account here. Stripe Connect is
           the only way anyone — you included — is paid. */}
-      <Box sx={{ mb: 3 }}>
+      {/* One group, so the frame's gap does not split the three cards that belong together. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* Running payroll by hand creates and pays batches, so the lists below are stale the moment
             it finishes — reload them with it. */}
         <PayrollHealthCard onRan={fetchData} />
         {/* Hourly work entered by hand becomes a labor log, so it shows up in the candidates below. */}
-        <AddHoursCard sx={{ mb: 3 }} onAdded={fetchData} />
-        <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
-        <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
+        <AddHoursCard onAdded={fetchData} />
+        <Box>
+          <Typography variant="overline" sx={{ color: REPAIRS_UI.textMuted, display: 'block', mb: 1 }}>Your payouts</Typography>
+          <ConnectPayoutCard sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}` }} />
+        </Box>
       </Box>
 
-      <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}`, mb: 2 }}>
+      <Box sx={{ borderBottom: `1px solid ${REPAIRS_UI.border}` }}>
         <TabRail
           ariaLabel="Payroll views"
           value={tab}
@@ -216,6 +219,6 @@ export default function RepairPayrollPage({ initialTab = 'queue' }) {
       <PayrollLists {...payroll} />
 
       <PayrollDialog {...payroll} />
-    </Box>
+    </PageBody>
   );
 }

@@ -17,7 +17,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { TabRail } from '@/components/facelift';
+import { PageBody, TabRail } from '@/components/facelift';
 import {
   Add as AddIcon,
   Person as PersonIcon,
@@ -226,7 +226,7 @@ export default function MyRepairsPage() {
   const filtered = getFilteredRepairs();
 
   return (
-    <Box sx={{ pb: 10, position: 'relative' }}>
+    <PageBody>
         <Box
             sx={{
                 backgroundColor: { xs: 'transparent', sm: REPAIRS_UI.bgPanel },
@@ -234,7 +234,6 @@ export default function MyRepairsPage() {
                 borderRadius: { xs: 0, sm: 3 },
                 boxShadow: { xs: 'none', sm: REPAIRS_UI.shadow },
                 p: { xs: 0.5, sm: 2.5, md: 3 },
-                mb: 3
             }}
         >
             <Box sx={{ maxWidth: 920 }}>
@@ -281,7 +280,7 @@ export default function MyRepairsPage() {
         </Box>
 
         {error && (
-            <Alert severity="error" sx={{ mb: 3, backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>
+            <Alert severity="error" sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>
                 {error}
             </Alert>
         )}
@@ -291,7 +290,6 @@ export default function MyRepairsPage() {
                 backgroundColor: REPAIRS_UI.bgPanel,
                 border: `1px solid ${REPAIRS_UI.border}`,
                 borderRadius: 3,
-                mb: 3,
                 '& .MuiTabs-indicator': { backgroundColor: REPAIRS_UI.accent },
                 '& .MuiTab-root': { color: REPAIRS_UI.textSecondary, textTransform: 'none', fontWeight: 600 },
                 '& .MuiTab-root.Mui-selected': { color: REPAIRS_UI.textPrimary },
@@ -419,6 +417,6 @@ export default function MyRepairsPage() {
             repairIDs={Array.from(selected)}
             onSuccess={() => { clearSelection(); fetchMyRepairs(); }}
         />
-    </Box>
+    </PageBody>
   );
 }

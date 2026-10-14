@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useRepairs } from '@/app/context/repairs.context';
 import { Box, Snackbar, Typography, Button, Alert } from '@mui/material';
-import { FaceliftRoot } from '@/components/facelift';
+import { FaceliftRoot, PageBody } from '@/components/facelift';
 import RepairsService from '@/services/repairs';
 import UsersService from '@/services/users';
 import { isWholesalerViewer } from '@/lib/repairAccess';
@@ -200,33 +200,37 @@ const ViewRepairPage = ({ params }) => {
 
     if (accessDenied) {
         return (
-            <Box sx={{ p: 3 }}>
-                <Alert severity="error" sx={{ mb: 3 }}>
+            <PageBody>
+                <Alert severity="error">
                     Access Denied: You can only view repairs that you created.
                 </Alert>
-                <Button 
-                    variant="contained" 
-                    onClick={() => router.push('/dashboard/repairs/my-repairs')}
-                >
-                    Back to My Repairs
-                </Button>
-            </Box>
+                <Box>
+                    <Button
+                        variant="contained"
+                        onClick={() => router.push('/dashboard/repairs/my-repairs')}
+                    >
+                        Back to My Repairs
+                    </Button>
+                </Box>
+            </PageBody>
         );
     }
 
     if (!repair) {
         return (
-            <Box sx={{ p: 3 }}>
-                <Alert severity="warning" sx={{ mb: 3 }}>
+            <PageBody>
+                <Alert severity="warning">
                     Repair not found.
                 </Alert>
-                <Button 
-                    variant="contained" 
-                    onClick={() => router.push('/dashboard/repairs/my-repairs')}
-                >
-                    Back to My Repairs
-                </Button>
-            </Box>
+                <Box>
+                    <Button
+                        variant="contained"
+                        onClick={() => router.push('/dashboard/repairs/my-repairs')}
+                    >
+                        Back to My Repairs
+                    </Button>
+                </Box>
+            </PageBody>
         );
     }
 
@@ -268,7 +272,7 @@ const ViewRepairPage = ({ params }) => {
 
     return (
         <FaceliftRoot>
-            <Box sx={{ pb: 10, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+            <PageBody>
 
                 <QuoteRequestAlerts repair={repair} session={session} />
 
@@ -298,7 +302,7 @@ const ViewRepairPage = ({ params }) => {
                         {snackbarMessage}
                     </Alert>
                 </Snackbar>
-            </Box>
+            </PageBody>
         </FaceliftRoot>
     );
 };

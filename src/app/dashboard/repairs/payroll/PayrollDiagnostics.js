@@ -6,7 +6,7 @@ export function PayrollDiagnostics({ diagnostics }) {
   return (
     <>
       {diagnostics && (
-        <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3, mb: 3 }}>
+        <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
           <CardContent>
             <Typography sx={{ color: REPAIRS_UI.textHeader, fontWeight: 700, mb: 1.5 }}>
               Payroll Diagnostics

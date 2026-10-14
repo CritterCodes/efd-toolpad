@@ -5,7 +5,7 @@ import { formatMoney } from './payrollParts';
 export function PayrollStats({ ownerDrawSummary, ownerLaborPaid, ownerLaborUnpaid }) {
   return (
     <>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <Card sx={{ bgcolor: REPAIRS_UI.bgPanel, border: `1px solid ${REPAIRS_UI.border}`, borderRadius: 3 }}>
             <CardContent>

@@ -4,7 +4,7 @@ import {
   Box, Typography, Card, CardContent, Chip, Button, Stack,
   CircularProgress, Alert, AlertTitle,
 } from '@mui/material';
-import { TabRail } from '@/components/facelift';
+import { PageBody, PageHeader, TabRail } from '@/components/facelift';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
@@ -63,19 +63,18 @@ export default function MyInvoicesPage() {
   }), [invoices]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
-        <ReceiptLongIcon color="primary" />
-        <Typography component="h1" variant="h5" fontWeight={600}>My Invoices</Typography>
-      </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        What you owe Engel Fine Design for facilitated work — casting, and work orders where EFD paid
-        someone else to work on your piece. Your own labour on your own pieces is never billed here.
-      </Typography>
+    <PageBody>
+      <PageHeader
+        boxed={false}
+        badge="Billing"
+        badgeIcon={<ReceiptLongIcon fontSize="inherit" />}
+        title="My Invoices"
+        subtitle="What you owe Engel Fine Design for facilitated work — casting, and work orders where EFD paid someone else to work on your piece. Your own labour on your own pieces is never billed here."
+      />
 
       {/* The freeze is the reason this page matters — say plainly what it is and how to clear it. */}
       {overdueCount > 0 && status === 'pending_payment' && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning">
           <AlertTitle>New work is paused</AlertTitle>
           {overdueCount === 1 ? 'An invoice is' : `${overdueCount} invoices are`} past due. Until
           {overdueCount === 1 ? ' it is' : ' they are'} paid you can&apos;t start new production runs,
@@ -83,16 +82,14 @@ export default function MyInvoicesPage() {
         </Alert>
       )}
 
-      <Box sx={{ mb: 2 }}>
-        <TabRail
-          ariaLabel="Invoice states"
-          value={tab}
-          onChange={setTab}
-          items={TABS.map((t, i) => ({ key: i, label: t.label }))}
-        />
-      </Box>
+      <TabRail
+        ariaLabel="Invoice states"
+        value={tab}
+        onChange={setTab}
+        items={TABS.map((t, i) => ({ key: i, label: t.label }))}
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error">{error}</Alert>}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
@@ -103,59 +100,57 @@ export default function MyInvoicesPage() {
           </Typography>
         </CardContent></Card>
       ) : (
-        <>
+        <Stack spacing={1.5}>
           {status === 'pending_payment' && (
-            <Typography variant="body2" sx={{ mb: 1.5 }}>
+            <Typography variant="body2">
               {invoices.length} outstanding · {money(outstandingTotal)}
             </Typography>
           )}
-          <Stack spacing={1.5}>
-            {invoices.map((inv) => (
-              <Card key={inv.invoiceID} variant="outlined">
-                <CardContent>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'center' }}>
-                    <Box>
-                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap' }}>
-                        <Typography fontWeight={600}>{money(inv.amount)}</Typography>
-                        <Chip size="small" label={inv.kind === 'casting_charge' ? 'Casting' : 'Work order'} />
-                        {isOverdue(inv) && <Chip size="small" color="error" label="Past due" />}
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {inv.description || '—'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {inv.status === 'paid' ? `Paid ${when(inv.paidAt)}` : `Due ${when(inv.dueAt)}`}
-                        {' · '}{inv.invoiceID}
-                      </Typography>
-                    </Box>
+          {invoices.map((inv) => (
+            <Card key={inv.invoiceID} variant="outlined">
+              <CardContent>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'center' }}>
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+                      <Typography fontWeight={600}>{money(inv.amount)}</Typography>
+                      <Chip size="small" label={inv.kind === 'casting_charge' ? 'Casting' : 'Work order'} />
+                      {isOverdue(inv) && <Chip size="small" color="error" label="Past due" />}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {inv.description || '—'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {inv.status === 'paid' ? `Paid ${when(inv.paidAt)}` : `Due ${when(inv.dueAt)}`}
+                      {' · '}{inv.invoiceID}
+                    </Typography>
+                  </Box>
 
-                    {inv.status === 'pending_payment' && (
-                      inv.checkoutUrl ? (
-                        <Button
-                          variant="contained"
-                          endIcon={<OpenInNewIcon />}
-                          href={inv.checkoutUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ flexShrink: 0 }}
-                        >
-                          Pay {money(inv.amount)}
-                        </Button>
-                      ) : (
-                        // No hosted invoice yet — usually no billing email on file. Say what to do
-                        // rather than showing a dead button.
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, maxWidth: 220 }}>
-                          No payment link yet — contact EFD to settle this one.
-                        </Typography>
-                      )
-                    )}
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Stack>
-        </>
+                  {inv.status === 'pending_payment' && (
+                    inv.checkoutUrl ? (
+                      <Button
+                        variant="contained"
+                        endIcon={<OpenInNewIcon />}
+                        href={inv.checkoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ flexShrink: 0 }}
+                      >
+                        Pay {money(inv.amount)}
+                      </Button>
+                    ) : (
+                      // No hosted invoice yet — usually no billing email on file. Say what to do
+                      // rather than showing a dead button.
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, maxWidth: 220 }}>
+                        No payment link yet — contact EFD to settle this one.
+                      </Typography>
+                    )
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
       )}
-    </Box>
+    </PageBody>
   );
 }

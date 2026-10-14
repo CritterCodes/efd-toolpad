@@ -24,7 +24,7 @@ import { uploadSizeError } from '@/lib/uploadLimits';
 import { directUpload, postFileWithProgress } from '@/lib/directUpload';
 import BenchWorkCard from './components/BenchWorkCard';
 import { isAdminRole, isOnsiteRepairOps } from '@/lib/repairAccess';
-import { PageHeader, SurfaceCard, SectionLabel, TabRail, facelift } from '@/components/facelift';
+import { PageBody, PageHeader, SurfaceCard, SectionLabel, TabRail, facelift } from '@/components/facelift';
 import { NeedsPartsDialog } from './components/NeedsPartsDialog';
 import { BenchScanPanel } from './components/BenchScanPanel';
 
@@ -280,7 +280,7 @@ export default function BenchPage() {
   const selectedShownQc = shownQcIDs.filter((id) => selectedQcIDs.includes(id));
 
   return (
-    <Box sx={{ pb: 8 }}>
+    <PageBody>
       {/* Header panel */}
       <PageHeader
         badge="Bench work"
@@ -327,18 +327,16 @@ export default function BenchPage() {
 
       {/* The lanes. TabRail, not MUI Tabs: MUI's scroll buttons never render on a touch screen, so the
           last lanes were reachable only by an undiscoverable swipe. */}
-      <Box sx={{ mt: 2.5, mb: 2 }}>
-        <TabRail
-          ariaLabel="Bench lanes"
-          value={BENCH_TABS[tab].key}
-          onChange={(key) => setTab(BENCH_TABS.findIndex((t) => t.key === key))}
-          items={BENCH_TABS.map(({ label, key }) => ({ key, label, count: byTab[key]?.length ?? 0 }))}
-        />
-      </Box>
+      <TabRail
+        ariaLabel="Bench lanes"
+        value={BENCH_TABS[tab].key}
+        onChange={(key) => setTab(BENCH_TABS.findIndex((t) => t.key === key))}
+        items={BENCH_TABS.map(({ label, key }) => ({ key, label, count: byTab[key]?.length ?? 0 }))}
+      />
 
       {/* QC bulk bar */}
       {activeKey === BENCH_QUEUE.QC && shown.length > 0 && (
-        <SurfaceCard accent="#34D399" sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap', py: 1.5, mb: 2 }}>
+        <SurfaceCard accent="#34D399" sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap', py: 1.5 }}>
           <Box>
             <Typography sx={{ fontWeight: 600 }}>QC Selection</Typography>
             <Typography variant="caption" sx={{ color: facelift.text3 }}>{selectedShownQc.length} selected on this tab</Typography>
@@ -393,7 +391,7 @@ export default function BenchPage() {
         </Box>
       )}
       {pageCount > 1 && (
-        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-between" spacing={1}>
           <Typography variant="caption" sx={{ color: facelift.text3 }}>
             {(currentPage - 1) * BENCH_PAGE_SIZE + 1}–{Math.min(currentPage * BENCH_PAGE_SIZE, shown.length)} of {shown.length}
           </Typography>
@@ -450,6 +448,6 @@ export default function BenchPage() {
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity}>{snack.message}</Alert>
       </Snackbar>
-    </Box>
+    </PageBody>
   );
 }

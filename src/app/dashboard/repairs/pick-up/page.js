@@ -9,7 +9,7 @@ import {
   Snackbar,
   Typography,
 } from "@mui/material";
-import { TabRail } from "@/components/facelift";
+import { PageBody, TabRail } from "@/components/facelift";
 import {
   Payment as PaymentIcon,
 } from "@mui/icons-material";
@@ -189,7 +189,7 @@ export default function PaymentPickupPage() {
   if (!canAccessCloseout(session)) return null;
 
   return (
-    <Box sx={{ pb: 10, position: "relative" }}>
+    <PageBody>
       <Box
         sx={{
           backgroundColor: { xs: "transparent", sm: REPAIRS_UI.bgPanel },
@@ -197,7 +197,6 @@ export default function PaymentPickupPage() {
           borderRadius: { xs: 0, sm: 3 },
           boxShadow: { xs: "none", sm: REPAIRS_UI.shadow },
           p: { xs: 0.5, sm: 2.5, md: 3 },
-          mb: 3,
         }}
       >
         <Typography
@@ -232,19 +231,17 @@ export default function PaymentPickupPage() {
 
       {/* TabRail, not MUI Tabs: MUI's scroll buttons never render on a touch screen, so the last tabs
           here were reachable only by an undiscoverable swipe. */}
-      <Box sx={{ mb: 3 }}>
-        <TabRail
-          ariaLabel="Closeout and invoices"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { key: 0, label: "Completed / Needs Closeout", count: closeoutRepairs.length },
-            { key: 1, label: "Draft Invoices", count: draftInvoices.length },
-            { key: 2, label: "Open Invoices", count: openInvoices.length },
-            { key: 3, label: "Paid / Closed", count: paidInvoices.length },
-          ]}
-        />
-      </Box>
+      <TabRail
+        ariaLabel="Closeout and invoices"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { key: 0, label: "Completed / Needs Closeout", count: closeoutRepairs.length },
+          { key: 1, label: "Draft Invoices", count: draftInvoices.length },
+          { key: 2, label: "Open Invoices", count: openInvoices.length },
+          { key: 3, label: "Paid / Closed", count: paidInvoices.length },
+        ]}
+      />
 
       <InvoiceListToolbar
         activeInvoiceList={activeInvoiceList}
@@ -353,6 +350,6 @@ export default function PaymentPickupPage() {
           Scan the QR code at the bottom of a printed invoice to jump to that invoice.
         </Alert>
       </ContinuousBarcodeScanner>
-    </Box>
+    </PageBody>
   );
 }
