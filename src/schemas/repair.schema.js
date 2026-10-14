@@ -435,20 +435,25 @@ export const validateRepairData = (data) => {
   };
 };
 
-// Helper function to calculate total cost
-export const calculateTotalCost = (repair, isWholesale = false) => {
-  const tasksCost = (repair.tasks || []).reduce((sum, item) => 
-    sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-    
-  const materialsCost = (repair.materials || []).reduce((sum, item) => 
-    sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-    
-  const customCost = (repair.customLineItems || []).reduce((sum, item) => 
-    sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-  
-  const subtotal = tasksCost + materialsCost + customCost;
-  return subtotal;
-};
+/*
+ * THERE IS NO `calculateTotalCost` HERE ANY MORE, AND THERE MUST NOT BE ONE AGAIN.
+ *
+ * It summed tasks + materials + custom line items and returned that as a repair's TOTAL. Three things
+ * were wrong with it at once: it dropped the rush fee, the delivery fee and the tax; it took an
+ * `isWholesale` argument it never read, so wholesale and retail priced identically; and its own body
+ * named the result `subtotal` while its callers assigned it to `totalCost`.
+ *
+ * It was reachable from one place — `new Repair(data)`, as `data.totalCost ?? calculateTotalCost(...)`
+ * — and unreachable in practice, because the only route that creates a repair runs
+ * `priceRepairForSave` first (`POST /api/repairs`; `/api/wholesale/repairs` says in its own comment
+ * that it does not create). Read-only against production 2026-10-14: of 78 repairs carrying a fee,
+ * exactly one has a total equal to the bare line sum, and it is closed and paid.
+ *
+ * So it was a loaded gun rather than a live bug: the next person to add a create path would have got a
+ * silently wrong total with no error and no clue. Owner, 2026-09-30: one engine, no fallbacks, no
+ * stored prices. The engine is `src/services/pricing/`, and it is the only thing that may price a
+ * repair. `repairTotalIsEngineOnly.guard.test.js` keeps a second one from growing back.
+ */
 
 // Default repair object
 export const defaultRepairData = {
