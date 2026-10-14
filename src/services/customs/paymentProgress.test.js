@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computePaymentProgress, amountForOrder, invoicesForOrder, withProductionGate } from '@/services/customs/paymentProgress';
+import { computePaymentProgress, amountForOrder, invoicesForOrder, withProductionGate, addMonths, paymentClock, gateLadder } from '@/services/customs/paymentProgress';
 
 describe('computePaymentProgress', () => {
   it('tracks % paid and the 50% production threshold', () => {
@@ -232,5 +232,104 @@ describe('withProductionGate', () => {
       expect(p.canStartProduction).toBe(true);
       expect(progressAt({ quote, payment }, 2149.99).readyForProduction).toBe(false);
     }
+  });
+});
+
+describe('withProductionGate — deposit path uses depositRequired', () => {
+  it('a stone-heavy quote starts production at the raised deposit, not at 50%', () => {
+    const order = { payment: { path: 'deposit' }, quote: { total: 7117.56, depositRequired: 5696 } };
+    const at50 = withProductionGate(order, computePaymentProgress(7117.56, [{ status: 'paid', amount: 3558.78 }]));
+    expect(at50.hasReached50).toBe(true);
+    expect(at50.readyForProduction).toBe(false);
+    expect(at50.amountForProduction).toBe(2137.22);
+    const atDeposit = withProductionGate(order, computePaymentProgress(7117.56, [{ status: 'paid', amount: 5696 }]));
+    expect(atDeposit.readyForProduction).toBe(true);
+  });
+
+  it('an admin-invoiced order with no chosen path keeps the 50% rule even with depositRequired stamped', () => {
+    const order = { quote: { total: 1000, depositRequired: 800 } };
+    expect(withProductionGate(order, computePaymentProgress(1000, [{ status: 'paid', amount: 500 }])).readyForProduction).toBe(true);
+  });
+});
+
+describe('addMonths', () => {
+  it('adds a calendar month and clamps to the end of a shorter month', () => {
+    expect(addMonths('2026-03-15T12:00:00Z', 1).toISOString()).toBe('2026-04-15T12:00:00.000Z');
+    expect(addMonths('2026-01-31T12:00:00Z', 1).toISOString()).toBe('2026-02-28T12:00:00.000Z');
+    expect(addMonths('2028-01-31T12:00:00Z', 1).toISOString()).toBe('2028-02-29T12:00:00.000Z');
+    expect(addMonths('2026-12-31T12:00:00Z', 1).toISOString()).toBe('2027-01-31T12:00:00.000Z');
+    expect(addMonths('not a date', 1)).toBe(null);
+  });
+});
+
+/**
+ * The monthly clock decides when reminder emails go out and when an order is overdue, and the shop
+ * shows the same date to the customer (efd-shop lib/customPayments.js paymentClock — keep in step).
+ */
+describe('paymentClock', () => {
+  const order = { payment: { path: 'over-time', pathChosenAt: '2026-10-14T15:00:00Z' } };
+
+  it('before any payment, the first one is due a month after the path was chosen', () => {
+    const c = paymentClock(order, [], { now: new Date('2026-10-20T00:00:00Z'), remaining: 4000 });
+    expect(c.lastPaymentAt).toBe(null);
+    expect(c.dueBy.toISOString()).toBe('2026-11-14T15:00:00.000Z');
+    expect(c.overdue).toBe(false);
+    expect(c.minimumDue).toBe(10);
+  });
+
+  it('each payment moves the due date to a month after it; refunded and unpaid invoices do not count', () => {
+    const invoices = [
+      { status: 'paid', paidAt: '2026-10-20T10:00:00Z' },
+      { status: 'paid', paidAt: '2026-11-03T10:00:00Z' },
+      { status: 'refunded', paidAt: '2026-11-30T10:00:00Z' },
+      { status: 'pending_payment', paidAt: null },
+    ];
+    const c = paymentClock(order, invoices, { now: new Date('2026-11-10T00:00:00Z'), remaining: 3000 });
+    expect(c.lastPaymentAt.toISOString()).toBe('2026-11-03T10:00:00.000Z');
+    expect(c.dueBy.toISOString()).toBe('2026-12-03T10:00:00.000Z');
+  });
+
+  it('is overdue the moment the due date passes', () => {
+    const c = paymentClock(order, [], { now: new Date('2026-11-14T15:00:01Z'), remaining: 4000 });
+    expect(c.overdue).toBe(true);
+  });
+
+  it('the minimum is the balance when less than $10 is left', () => {
+    expect(paymentClock(order, [], { remaining: 6.5 }).minimumDue).toBe(6.5);
+  });
+
+  it('has nothing to say for other paths or a paid-off order', () => {
+    expect(paymentClock({ payment: { path: 'deposit', pathChosenAt: '2026-10-14' } }, [], { remaining: 100 }).dueBy).toBe(null);
+    expect(paymentClock(order, [], { remaining: 0 }).dueBy).toBe(null);
+  });
+});
+
+describe('gateLadder', () => {
+  const order = {
+    quote: {
+      centerstone: { item: '1ct sapphire', cost: 900 },
+      gates: [
+        { n: 1, name: 'Stone', amount: 1300 },
+        { n: 2, name: 'Mounting', amount: 900 },
+        { n: 3, name: 'Production', amount: 500 },
+        { n: 4, name: 'Balance', amount: 200 },
+      ],
+    },
+  };
+
+  it('payments fill the stages in order', () => {
+    const l = gateLadder(order, 1500);
+    expect(l.gates.map((g) => g.covered)).toEqual([true, false, false, false]);
+    expect(l.gates[1].toCover).toBe(700);
+    expect(l.gates[2].toCover).toBe(500); // never more than the stage itself
+    expect(l.stoneGatePaid).toBe(true);
+    expect(l.mountingGatePaid).toBe(false);
+  });
+
+  it('flags, for staff only, when payments have covered the stone COST before the stone stage', () => {
+    expect(gateLadder(order, 899.99).stoneBuyable).toBe(false);
+    const l = gateLadder(order, 900);
+    expect(l.stoneBuyable).toBe(true);
+    expect(l.stoneGatePaid).toBe(false);
   });
 });

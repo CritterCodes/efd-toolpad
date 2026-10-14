@@ -6,6 +6,7 @@ import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
 import { sendShopAccountInvite } from '@/lib/shopInvite';
+import { paidGateConflict, recordPrice, totalPaidFor } from '@/services/customs/payOverTime';
 
 // Deep-linked per order below — a quote-ready notice must open the quote, not a list.
 
@@ -23,6 +24,28 @@ export const PUT = async (req, { params }) => {
   const existing = await CustomOrdersModel.findById(customID);
   if (!existing) return NextResponse.json({ error: 'Custom order not found.' }, { status: 404 });
 
+  // THE PAID-GATE LOCK (docs/manufacturing/PAY_OVER_TIME_CONTRACT.md §6). Once payments cover a stage,
+  // its price is the price the customer paid; an edit that would move it is refused rather than
+  // silently re-pricing something already bought. Edits that leave paid stages alone go through.
+  if (existing.quote?.quotePublished && Array.isArray(existing.quote?.gates) && existing.quote.gates.length) {
+    const paid = await totalPaidFor(customID);
+    if (paid > 0) {
+      let preview;
+      try {
+        preview = await CustomOrdersModel.normalizeQuote({ ...existing.quote, ...quote });
+      } catch (e) {
+        if (/markup/i.test(e?.message || '')) return NextResponse.json({ error: e.message }, { status: 400 });
+        throw e;
+      }
+      const conflict = paidGateConflict(existing.quote.gates, preview.gates, paid);
+      if (conflict) {
+        return NextResponse.json({
+          error: `The client has already paid for the ${conflict.name} stage ($${Number(conflict.amount).toFixed(2)}). This edit would change it, so it wasn't saved. Paid stages are locked.`,
+        }, { status: 409 });
+      }
+    }
+  }
+
   // A rejected markup is the quoter's typo, not a server fault — it has to come back as a message they
   // can read and fix, or a mistyped decimal point turns into an opaque 500.
   let updated;
@@ -31,6 +54,16 @@ export const PUT = async (req, { params }) => {
   } catch (e) {
     if (/markup/i.test(e?.message || '')) return NextResponse.json({ error: e.message }, { status: 400 });
     throw e;
+  }
+
+  // PRICE HISTORY: the first entry on publish, then one whenever a published quote's total changes,
+  // so the customer's "prices as of" date and the record of what moved are always true.
+  const publishedNow = !existing.quote?.quotePublished && updated.quote?.quotePublished;
+  const editedLive = existing.quote?.quotePublished && updated.quote?.quotePublished
+    && Math.round((Number(existing.quote?.total) || 0) * 100) !== Math.round((Number(updated.quote?.total) || 0) * 100);
+  if (publishedNow || editedLive) {
+    await recordPrice(customID, updated.quote, publishedNow ? 'published' : 'quote-edit');
+    updated = await CustomOrdersModel.findById(customID);
   }
 
   // This is the route used by QuoteTab. Fire only on the unpublished -> published edge.

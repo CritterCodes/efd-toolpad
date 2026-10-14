@@ -164,7 +164,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
   );
 }
 
-function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total, effectiveMarkup }) {
+function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total, effectiveMarkup, deposit = 0 }) {
   // Once the centre stone or any material line carries its own markup, "× 2.5" is no longer what the
   // customer is actually paying per dollar of cost. Show the blend whenever it differs from the
   // headline, so a quote stays explainable weeks later.
@@ -186,6 +186,8 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxA
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
         {taxRate > 0 ? 'Sales tax (admin-settings rate) is added to the subtotal and billed on invoices.' : 'Tax-exempt — no sales tax applied.'}
       </Typography>
+      {/* What the shop's deposit path charges: half, or COG × 1.25 when higher (rules §1). */}
+      <Row label={deposit > total * 0.5 + 0.005 ? 'Deposit (raised to cover materials)' : 'Deposit (half)'} value={money(deposit)} />
     </Paper>
   );
 }
@@ -246,7 +248,9 @@ const blankForm = (q = {}) => ({
   centerstone: { item: q.centerstone?.item || q.centerstone?.description || '', cost: q.centerstone?.cost ?? 0 },
   // '' = no override; falls back to the settings centre-stone default, then to the COG markup.
   centerstoneMarkup: n(q.centerstoneMarkup) > 0 ? q.centerstoneMarkup : '',
-  mounting: { item: q.mounting?.item || q.mounting?.description || '', cost: q.mounting?.cost ?? 0 },
+  // `metal` is the Estimate snapshot that lets an unpaid mounting follow the metal market
+  // (PAY_OVER_TIME_CONTRACT §3). It rides in the form because the PUT replaces `mounting` whole.
+  mounting: { item: q.mounting?.item || q.mounting?.description || '', cost: q.mounting?.cost ?? 0, metal: q.mounting?.metal || null },
   accentStones: Array.isArray(q.accentStones) ? q.accentStones : [],
   additionalMaterials: Array.isArray(q.additionalMaterials) ? q.additionalMaterials : [],
   laborTasks: Array.isArray(q.laborTasks) ? q.laborTasks : [],
@@ -304,8 +308,19 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Estimate failed');
-      const metalCost = n(data.estimate?.metal?.metalCost);
-      setNested('mounting', 'cost', metalCost);
+      const est = data.estimate?.metal || {};
+      const metalCost = n(est.metalCost);
+      setForm((f) => ({
+        ...f,
+        mounting: {
+          ...f.mounting,
+          cost: metalCost,
+          metal: {
+            metalKey: estMetal, volumeCm3: stlVolumeCm3, metalWeightG: n(est.metalWeightG),
+            pricePerGram: n(est.pricePerGram), metalCost, pricedAt: new Date().toISOString(),
+          },
+        },
+      }));
       const label = METAL_OPTS.find((m) => m.value === estMetal)?.label || estMetal;
       if (!form.mounting.item) setNested('mounting', 'item', `${label} mounting (cast)`);
       notify(`Estimated ${label} metal: ${money(metalCost)} (${data.estimate.metal.metalWeightG} g from ${stlVolumeCm3} cm³)`, 'success');
@@ -445,7 +460,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
             />
           </Grid>
           <Grid item xs={12} sm={8}><TextField fullWidth size="small" label="Mounting" value={form.mounting.item} disabled={busy} onChange={(e) => setNested('mounting', 'item', e.target.value)} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={busy} onChange={(e) => setNested('mounting', 'cost', e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Cost" type="number" value={form.mounting.cost} disabled={busy} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, mounting: { ...f.mounting, cost: v, metal: null } })); }} helperText={form.mounting.metal ? `Follows the metal market (${form.mounting.metal.metalKey}, ${money(form.mounting.metal.pricePerGram)}/g)` : (n(form.mounting.cost) > 0 ? 'Typed by hand: won’t follow the metal market' : '')} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
           <Grid item xs={12}>
             <Stack spacing={1} sx={{ p: 1.25, borderRadius: 1, border: `1px dashed ${stlVolumeCm3 > 0 ? REPAIRS_UI.accent : REPAIRS_UI.border}`, bgcolor: REPAIRS_UI.bgTertiary }}>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -521,7 +536,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
 
       {/* Two-panel summary */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} /></Grid>
+        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} deposit={Math.round(Math.min(total, Math.max(total * 0.5, cog * 1.25)) * 100) / 100} /></Grid>
         <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} workRevenue={rushable * rush} workCog={cogExStone - shipTotal - designTotal} /></Grid>
       </Grid>
     </Stack>

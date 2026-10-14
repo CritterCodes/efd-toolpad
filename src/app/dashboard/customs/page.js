@@ -17,7 +17,8 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { useRouter } from 'next/navigation';
 
 import { REPAIRS_UI, repairsMenuProps } from '@/app/dashboard/repairs/components/repairsUi';
-import { TabRail } from '@/components/facelift';
+import { TabRail, QuietButton } from '@/components/facelift';
+import Link from 'next/link';
 import CustomOrderCard from './components/CustomOrderCard';
 import NewCustomStepper from './components/NewCustomStepper';
 
@@ -174,7 +175,11 @@ export default function CustomsPage() {
               Bespoke pieces from consultation to delivery. Legacy tickets live under &ldquo;Custom Tickets (Legacy)&rdquo;.
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Custom</Button>
+          <Stack direction="row" spacing={1}>
+            {/* Every pay-over-time order + this week's chores (owner, 2026-10-14). */}
+            <QuietButton as={Link} href="/dashboard/customs/pay-over-time">Pay over time</QuietButton>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ backgroundColor: REPAIRS_UI.accent, color: '#1A1A1A', fontWeight: 600, '&:hover': { backgroundColor: '#C19B2E' } }}>New Custom</Button>
+          </Stack>
         </Stack>
       </Box>
 

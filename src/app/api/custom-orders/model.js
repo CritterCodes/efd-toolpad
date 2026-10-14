@@ -286,6 +286,9 @@ export default class CustomOrdersModel {
       // Stamped on every save, like the other computed snapshots, so the ladder a
       // customer sees always matches the quote they were priced with.
       gates: computed.gates,
+      // What the shop's deposit path charges and when a deposit/full order goes to production
+      // (paymentProgress withProductionGate). docs/manufacturing/PAY_OVER_TIME_CONTRACT.md §2.
+      depositRequired: computed.depositRequired,
     };
   }
 

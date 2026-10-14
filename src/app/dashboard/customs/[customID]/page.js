@@ -20,6 +20,7 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
 import { customOrderLabel } from '@/constants/customRequest.constants';
 import { depositFloor } from '@/services/customs/customInvoicePolicy';
 import StatusTimeline from '../components/StatusTimeline';
+import PayOverTimePanel from '../components/PayOverTimePanel';
 import OverviewTab from '../components/tabs/OverviewTab';
 import QuoteTab from '../components/tabs/QuoteTab';
 import AssignmentTab from '../components/tabs/AssignmentTab';
@@ -101,10 +102,24 @@ export default function CustomDetailPage() {
     try { await fn(); if (okMsg) notify(okMsg, 'success'); await load(); }
     catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
   };
-  const changeStatus = (status) => call(async () => {
-    const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, statusReason: 'manual update' }) });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Status update failed');
-  }, 'Status updated');
+  // A pay-over-time order moved into production before its production stage is paid needs a recorded
+  // reason (rules §4): the server answers 409 { needsOverride } and this asks for one.
+  const [override, setOverride] = useState(null); // { status, message, reason }
+  const changeStatus = async (status, overrideReason = '') => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/custom-orders/${customID}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, statusReason: overrideReason ? `override: ${overrideReason}` : 'manual update', ...(overrideReason ? { overrideReason } : {}) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.needsOverride) { setOverride({ status, message: data.error, reason: '' }); return; }
+      if (!res.ok) throw new Error(data.error || 'Status update failed');
+      setOverride(null);
+      notify(overrideReason ? 'Status updated. Override recorded.' : 'Status updated', 'success');
+      await load();
+    } catch (e) { notify(e.message, 'error'); } finally { setBusy(false); }
+  };
   const saveDetails = (fields) => call(async () => {
     const res = await fetch(`/api/custom-orders/${customID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
@@ -293,13 +308,8 @@ export default function CustomDetailPage() {
               <LinearProgress variant="determinate" value={Math.min(100, progress.paymentProgress)} sx={{ height: 8, borderRadius: 4, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: REPAIRS_UI.accent } }} />
             </Box>
           )}
-          {progress?.paymentPath === 'over-time' && !progress.readyForProduction && !progress.isFullyPaid && (
-            <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
-              <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 700, mb: 0.5 }}>Pay over time</Typography>
-              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
-                The client is paying stage by stage (stone, mounting, production). Production starts once the production stage is paid: {money(progress.amountForProduction)} to go.
-              </Typography>
-            </Box>
+          {order?.payment?.path === 'over-time' && (
+            <PayOverTimePanel customID={customID} order={order} reloadKey={billing} onChanged={load} notify={notify} />
           )}
           {progress?.readyForProduction && (() => {
             const q = order.quote || {};
@@ -483,6 +493,20 @@ export default function CustomDetailPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={!!override} onClose={() => setOverride(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Start production early?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" gutterBottom>{override?.message}</Typography>
+          <TextField
+            autoFocus fullWidth multiline minRows={2} margin="dense" label="Reason (kept on the order)"
+            value={override?.reason || ''} onChange={(e) => setOverride((o) => ({ ...o, reason: e.target.value }))}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOverride(null)} disabled={busy}>Cancel</Button>
+          <Button variant="contained" disabled={busy || (override?.reason || '').trim().length < 3} onClick={() => changeStatus(override.status, override.reason.trim())}>Override and start</Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={snack.open} autoHideDuration={5000} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={closeSnack} severity={snack.severity} sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}>{snack.message}</Alert>
       </Snackbar>
