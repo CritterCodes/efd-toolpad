@@ -136,3 +136,13 @@ for a guardrail.
   `efd-database-DEV` (OPEN-QUESTIONS Q1) and holds the password as the `E2E_PREVIEW_PASSWORD` secret. With
   that password, a local server pointed at `efd-database-DEV` signs in and every screen becomes checkable,
   writing nothing.
+  **Confirmed read-only, 2026-10-14** — all six exist on `efd-database-DEV` and are `verified`:
+  `admin@`, `artisan-onsite@`, `artisan-offsite@`, `wholesaler@`, `applicant@`, `affiliate@views.check`.
+  Their hashes do **not** match the `PASSWORD` fixture in `e2e/views/seed.mjs` (that constant is only
+  ever used for the throwaway in-memory database), so the secret is genuinely the only way in. Do not
+  reset one of these to get past it: `ship.yml`'s signed-in preview check authenticates with the same
+  secret, so changing a password here breaks CI for everyone.
+  **Also fixed the same night (#317, #321): the local server would not start at all.** That was the
+  larger half of this blocker and it is gone — `/auth/signin` serves, and the five public routes were
+  audited by hand at 375px and desktop, which found three pages of 23px tap targets nobody had ever
+  seen (#322). Everything behind the sign-in is still waiting on the password.
