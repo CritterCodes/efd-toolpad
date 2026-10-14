@@ -542,3 +542,39 @@ putting an artisan inside it means deciding what "internal" means when the artis
 used by comms and the design model.
 
 **Status:** open — controls hidden, nothing opened up.
+
+---
+
+### Q17 — Does Stripe actually send `charge.refunded` to the shop? (opened 2026-10-14)
+
+**Context.** A refund now reverses the money in the database: efd-shop#96 + #97 wire
+`reversePaymentCredits` into the shop's `charge.refunded` / `refund.created` handler, covering custom
+orders, repair invoices (both field spellings, so counter payments included) and the order record.
+Owner, 2026-10-14: *"We need to have an avenue so that it all happens in one transaction: I refund and
+our database gets corrected as well."*
+
+That code is only reached **if Stripe is configured to deliver the event to the shop's endpoint.**
+I listed the webhook endpoints with the test key, which is what `.env.local` holds, and found:
+
+| Endpoint | Subscribed events |
+|---|---|
+| `…/api/stripe/webhook` (admin) | `invoice.paid`, `invoice.payment_failed`, `invoice.voided`, `invoice.sent`, `invoice.finalized`, `checkout.session.completed` — **no refund events** |
+| `pokaimon.vercel.app` (not ours) | `checkout.session.completed` |
+
+The shop's endpoint does not exist in test mode at all. **I cannot see the live configuration from
+here**, and I did not go looking for the live key.
+
+So the reversal is written and tested, and whether it ever runs is a dashboard setting I have not
+verified. The admin endpoint, as configured in test, would not fire it.
+
+**Recommendation.** Open Stripe → Developers → Webhooks on the **live** account and confirm the shop
+endpoint (`https://engelfinedesign.com/api/stripe/webhooks`, note the plural) is enabled and subscribed
+to `charge.refunded` and `refund.created`. If it is not, add them — that is the whole fix, no code
+needed. Then test it for real: refund $1 of something in the dashboard and check the invoice moves.
+
+Worth considering at the same time: admin's endpoint handles hosted Stripe invoices (artisan bills,
+emailed custom invoices) and subscribes to no refund event either. Refunding one of those reverses
+nothing anywhere. Smaller blast radius — it is EFD billing an artisan, not a customer paying us — but
+it is the same hole.
+
+**Status:** open — needs 30 seconds in the Stripe dashboard that only you can do.
