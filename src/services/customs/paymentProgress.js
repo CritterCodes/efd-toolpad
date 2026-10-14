@@ -58,13 +58,26 @@ export function invoicesForOrder(invoices = [], customID) {
     .filter((i) => i.amount > 0);
 }
 
+/**
+ * Statuses that are neither money received nor money still expected.
+ *
+ * `cancelled` is a bill withdrawn before it was ever collected. `refunded` is money that WAS collected
+ * and has since gone back to the customer — added 2026-10-14, when a duplicate charge on
+ * CO-mud0wv65-947821 was refunded in Stripe and the shop began reversing the credit (efd-shop#96).
+ * Without this the reversed invoice falls through to `pending` and the project reports the refunded
+ * amount as still outstanding on top of the balance genuinely owed, double-counting it.
+ *
+ * Both leave the project owing what it owed before the invoice existed, which is the truth.
+ */
+const NOT_MONEY = Object.freeze(['cancelled', 'refunded']);
+
 export function computePaymentProgress(projectTotal, invoices = []) {
   const total = Number(projectTotal) || 0;
   const paid = (invoices || [])
     .filter((i) => i.status === 'paid')
     .reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const pending = (invoices || [])
-    .filter((i) => i.status !== 'paid' && i.status !== 'cancelled')
+    .filter((i) => i.status !== 'paid' && !NOT_MONEY.includes(i.status))
     .reduce((s, i) => s + (Number(i.amount) || 0), 0);
 
   const paymentProgress = total > 0 ? Math.round((paid / total) * 1000) / 10 : 0;
