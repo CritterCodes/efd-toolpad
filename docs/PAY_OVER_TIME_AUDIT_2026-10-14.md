@@ -234,3 +234,34 @@ production files can't load `mongodb-memory-server` in a worktree whose node_mod
 
 **Not done, on purpose:** status never moves backward after a refund (rules make status forward-only; the order
 page and the owner's list show the real paid figure). Forfeiture on default stays a human decision.
+
+### efd-shop (CritterCodes/efd-shop#101, merged and live 2026-10-14)
+
+Built by a delegated session against the contract, then reviewed by a second, independent session before merge.
+
+| Area | Change | Files |
+|---|---|---|
+| **Cost leak** | `toClientView` is an allow-list: item names, retail stages (`quote.gates`, or the legacy fallback computed server-side), `depositRequired`, `pricedAt`, `priceHistory` (no metal prices), `mounting.followsMarket`, `stoneCheck {status, checkedAt}`, `payment.overdueSince`. Run read-only over all 12 published production quotes: no cost keys, no errors. Quote tab shows retail per stage + "Prices as of" + the last metal change | `lib/customOrderService.js`, `app/custom-work/portal/page.js` |
+| Double charge | One custom-payment cart line per order (client store, server cart, healed on load); checkout validates the per-order SUM and allocates once per order | `lib/cartLines.js`, `context/CartContext.js`, `app/api/cart/route.js`, `lib/checkoutPricing.js`, `app/api/checkout/route.js` |
+| Clock | `paymentClock` / `addCalendarMonth` — same dates as admin (reviewed line by line); no clock on closed orders in either app | `lib/customPayments.js` |
+| What the client sees | "Next payment $10 by <date>", live overdue notice with a pay button, stone status, "Pay off now", path-aware status words ("Paying over time"), % paid never 100% while owed, suggested amount ≥ the minimum | portal, `app/account/DashboardClient.js`, `lib/customOrderStatus.js` |
+| Terms | Shared module, version `pot-2026-10-14`, full rules §14 list; server accepts only the current version; old-terms clients re-accept before paying | `lib/payOverTimeTerms.js`, `lib/customOrderService.js setPaymentPath` |
+| Deposit | Charges `quote.depositRequired` | `lib/customPayments.js depositTarget` |
+| Guard | A custom payment needs a published + accepted quote and an order that isn't cancelled (completed/delivered may still pay a balance) | `lib/customPayments.js customPaymentBlock` |
+| Checkout | Payment-only carts: no shipping address, no product copy, own success page and email; "$$" fixed in every order email | `lib/checkoutCopy.js`, checkout + success clients, `public/email-templates/order_confirmed.html`, webhook |
+| Refunds | `refund.created` uses `refund.amount`; reversals recorded once per refund in a new `refundLedger` collection (per PaymentIntent); one-way; a late success event can't un-refund; tiebreak so a partial refund splits deterministically | `lib/paymentReversal.js`, `lib/cartFulfillment.js`, webhook |
+| Copy | Payment Options page, Custom page card, policy §7 match what is built | `app/custom-work/**` |
+
+Shop tests 180/180 (`npm test`); `next build` passes locally (Vercel skips shop preview builds).
+
+### Known, left open (from the review)
+
+- **`refundLedger` has no unique index on `paymentIntentId`.** Two simultaneous first events could create two ledger docs; bounded (both hold true lower bounds, reversal is one-way). Creating the index is a production write — ask the owner.
+- **A partial refund on a cart order whose payment was never processed** stops it being credited later (`cartFulfillment.js`, the refunded early-return). Very rare; fixing it needs the ledger re-applied after a late credit.
+- **A replayed success event skips the confirmation email** even if the first attempt threw before sending it.
+- **The deposit reveals cost when the floor applies** (deposit ÷ 1.25 = COG). Inherent in charging it; an owner note, not a bug.
+- **Legacy refunds:** before this, every partial `refund.created` voided the whole credit. Credits with `refundedAt` and no `originalAmount` should be reconciled by hand (production had 1 refunded credit on 2026-10-14 — CO-mud0wv65's duplicate charge, a full refund, so correct).
+- **The real payment method** (Klarna, Link) is recorded only when Stripe's success event carries the charge; otherwise `card`. A `charge.succeeded` handler would make it exact.
+- Admin stamps gate wording in British spelling ("Centre stone", "Labour") which the client sees on the Quote tab; cosmetic.
+- **Before the new client's quote is published:** price the mounting with **Estimate** (Quote tab) or it won't follow the metal market.
+- **The owner's own test order** `CO-msq5n116-1a2523` is pay-over-time and unpaid since August: the first `custom-payment-clock` run (15:00 UTC) will mark it overdue, email its client account once and alert the admins. Cancel it first if that isn't wanted.
