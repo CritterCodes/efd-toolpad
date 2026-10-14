@@ -39,7 +39,19 @@ export const POST = async (req, { params }) => {
       status: 'completed',
     });
 
-    const amountPaid = payments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
+    // ONLY COMPLETED MONEY COUNTS. Every other payment route on this invoice filters on status; this
+    // one did not, so an abandoned terminal intent sitting at `pending` was added to the cash the
+    // customer actually handed over. Measured in production 2026-10-13: three invoices overstated by
+    // $754.32 between them, each one a cash payment taken after a terminal attempt was given up on
+    // (rinv-bca435de +$566.99, rinv-498455fe +$146.13, rinv-96c7c681 +$41.20).
+    //
+    // It inflated reported collections, and it could have done worse: amountPaid feeds
+    // computePaymentStatus, so a large enough pending intent would mark an invoice PAID while the
+    // customer still owed the difference. In the three real cases the completed payment happened to
+    // cover the total, so nothing was written off — that was luck, not design.
+    const amountPaid = payments
+      .filter((payment) => payment.status === 'completed')
+      .reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
     const { paymentStatus, remainingBalance } = computePaymentStatus(invoiceTotal, amountPaid);
 
     let updated = await RepairInvoicesModel.updateByInvoiceID(invoice.invoiceID, {
