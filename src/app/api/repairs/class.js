@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { defaultRepairData, calculateTotalCost } from '@/schemas/repair.schema';
+import { defaultRepairData } from '@/schemas/repair.schema';
 import { buildRepairAnalyticsFields } from '@/services/analyticsBaseline';
 import { REPAIR_STATUS } from '@/services/repairWorkflow';
 
@@ -47,9 +47,12 @@ export default class Repair {
         
         // Pricing - detailed breakdown
         this.isWholesale = data.isWholesale || false;
-        this.totalCost = (data.compRepair || data.includedWithSale)
-            ? 0
-            : (data.totalCost ?? calculateTotalCost(data, data.isWholesale));
+        // The engine has already priced this (services/pricing; POST /api/repairs runs
+        // priceRepairForSave before it gets here, and refuses the save if it cannot price). `?? 0` is a
+        // default for an absent field, NOT a fallback price: until 2026-10-14 it fell back to a second
+        // calculator in the schema that dropped rush, delivery and tax and ignored wholesale entirely,
+        // so an unpriced repair got a plausible wrong number instead of an obvious zero.
+        this.totalCost = (data.compRepair || data.includedWithSale) ? 0 : (data.totalCost ?? 0);
         this.subtotal = (data.compRepair || data.includedWithSale) ? 0 : (data.subtotal ?? 0);
         this.rushFee = (data.compRepair || data.includedWithSale) ? 0 : (data.rushFee ?? 0);
         this.deliveryFee = (data.compRepair || data.includedWithSale) ? 0 : (data.deliveryFee ?? 0);
@@ -141,16 +144,11 @@ export default class Repair {
         });
         
         this.updatedAt = new Date();
-        
-        // Recalculate total cost if work items were updated
-        if (updateData.tasks || updateData.materials || updateData.customLineItems) {
-            this.totalCost = calculateTotalCost(this, this.isWholesale);
-        }
-        
-        // Update pricing breakdown if wholesale status changes
-        if (updateData.hasOwnProperty('isWholesale')) {
-            this.totalCost = calculateTotalCost(this, this.isWholesale);
-        }
+
+        // NOTHING RE-PRICES HERE. This used to recalculate `totalCost` from the schema's own line-sum
+        // whenever tasks, materials or `isWholesale` changed — a second pricing implementation, and a
+        // wrong one. Editing a repair goes through PUT /api/repairs/[repairID], which re-prices through
+        // the engine; this method has no caller in either app and must not grow one that prices.
     }
     
     /**
