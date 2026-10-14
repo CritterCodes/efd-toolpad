@@ -111,3 +111,14 @@ for a guardrail.
   **Tell it apart from a real failure:** the stack is entirely inside `next/dist/compiled/@next/font` and
   names no file of yours. **Workaround:** re-run the build. **Proposed:** self-host the font files so a
   build never depends on a third-party fetch — it also removes a render-blocking request in production.
+- **2026-10-14: `npm run views` cannot run locally, and with Actions billing-blocked it cannot run at all.**
+  The crawl needs `playwright`, which is not in `node_modules` (nor in the workspace root, nor the pnpm
+  store); `mongodb-memory-server` is in the store but not linked, which is also why 3 admin test suites fail
+  locally with `Failed to load url mongodb-memory-server`. Adding either is forbidden outside
+  `.github/workflows/deps.yml`, and that workflow needs GitHub Actions, which is blocked on billing
+  ("recent account payments have failed"). So the one tool that verifies a visual change at desktop AND
+  375px is unavailable from both ends at once. **Consequence:** `claude/pagebody-repairs-ring` (9 screens
+  converted to the page frame) is lint-clean, build-clean and test-clean, and is parked unmerged because
+  nothing can put it in front of a browser. **Proposed:** either settle the Actions billing, or link
+  `playwright` + `mongodb-memory-server` into the worktree through `deps.yml` once it can run again — and
+  until one of those happens, treat every visual PR as unshippable rather than merging on a green build.
