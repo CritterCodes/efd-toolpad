@@ -414,8 +414,8 @@ export default function CustomDetailPage() {
                 severity="warning"
                 sx={{ backgroundColor: REPAIRS_UI.bgCard, color: REPAIRS_UI.textPrimary, border: `1px solid ${REPAIRS_UI.border}` }}
                 action={(
-                  <Button size="small" onClick={() => setInvoiceForm({ ...invoiceForm, depositPct: floor.floorPct })} sx={{ color: REPAIRS_UI.accent, whiteSpace: 'nowrap' }}>
-                    Use {floor.floorPct}%
+                  <Button size="small" onClick={() => setInvoiceForm({ ...invoiceForm, depositPct: floor.suggestPct })} sx={{ color: REPAIRS_UI.accent, whiteSpace: 'nowrap' }}>
+                    Use {floor.suggestPct}%
                   </Button>
                 )}
               >

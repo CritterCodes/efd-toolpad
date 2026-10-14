@@ -45,6 +45,10 @@ export function depositFloor({ cog, total, requestedPct = 50 } = {}) {
     // clears the floor when typed in. Rounding to nearest gave 87.6% on Bryce — $2 short. A suggestion
     // that fails when you follow it is worse than no suggestion.
     floorPct: t > 0 ? Math.ceil((floor / t) * 1000) / 10 : 0,
+    // What the "Use X%" button APPLIES — the number the customer will see on the invoice. A whole 5%,
+    // rounded up past the floor, so it can't be divided back to EFD's cost the way 87.7% could (owner,
+    // 2026-10-14). Same step as computeQuote's depositPercent. floorPct above stays staff-only context.
+    suggestPct: t > 0 ? Math.min(100, Math.max(50, Math.ceil((floor / t) * 20 - 1e-9) * 5)) : 0,
     breakEven: c,                                // covers cost, no margin banked
     cushioned10: round(c * 1.1),
     requested,

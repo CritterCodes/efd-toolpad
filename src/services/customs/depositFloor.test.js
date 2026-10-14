@@ -36,6 +36,9 @@ describe('depositFloor', () => {
   it('reports the floor as a percentage of retail, because on a thin job it is most of the price', () => {
     expect(depositFloor(TYPICAL).floorPct).toBe(49.3);   // ~50% — the rule and the habit agree
     expect(depositFloor(BRYCE).floorPct).toBe(87.7);     // 88% — the honest consequence
+    // …but the button applies a whole 5%, so the invoice the client sees can't be divided back to cost.
+    expect(depositFloor(BRYCE).suggestPct).toBe(90);
+    expect(depositFloor(TYPICAL).suggestPct).toBe(50);
   });
 
   it('what the owner actually charged Bryce was already almost exactly the rule', () => {

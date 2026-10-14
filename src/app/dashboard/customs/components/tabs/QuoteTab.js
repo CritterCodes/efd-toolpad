@@ -164,7 +164,7 @@ function LineEditor({ rows, onChange, withQty, withDiscipline, withHours, withMa
   );
 }
 
-function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total, effectiveMarkup, deposit = 0 }) {
+function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxAmount, total, effectiveMarkup, depositPercent = 50 }) {
   // Once the centre stone or any material line carries its own markup, "× 2.5" is no longer what the
   // customer is actually paying per dollar of cost. Show the blend whenever it differs from the
   // headline, so a quote stays explainable weeks later.
@@ -186,8 +186,9 @@ function QuoteSummaryCard({ lines, cog, cogMarkup, rush, subtotal, taxRate, taxA
       <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>
         {taxRate > 0 ? 'Sales tax (admin-settings rate) is added to the subtotal and billed on invoices.' : 'Tax-exempt — no sales tax applied.'}
       </Typography>
-      {/* What the shop's deposit path charges: half, or COG × 1.25 when higher (rules §1). */}
-      <Row label={deposit > total * 0.5 + 0.005 ? 'Deposit (raised to cover materials)' : 'Deposit (half)'} value={money(deposit)} />
+      {/* What the shop's deposit path charges — mirrors computeQuote: a whole 5% of the total, at least
+          50%, raised to clear COG × 1.25 (rules §1). The client sees only the percent and amount. */}
+      <Row label={depositPercent > 50 ? `Deposit (${depositPercent}%, raised to cover materials)` : 'Deposit (50%)'} value={money(total * depositPercent / 100)} />
     </Paper>
   );
 }
@@ -536,7 +537,7 @@ export default function QuoteTab({ customID, order, margin, onChanged, notify })
 
       {/* Two-panel summary */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} deposit={Math.round(Math.min(total, Math.max(total * 0.5, cog * 1.25)) * 100) / 100} /></Grid>
+        <Grid item xs={12} md={6}><QuoteSummaryCard lines={summaryLines} cog={cog} cogMarkup={cogMarkup} rush={rush} subtotal={subtotal} taxRate={effTaxRate} taxAmount={taxAmount} total={total} effectiveMarkup={effectiveMarkup} depositPercent={total > 0 ? Math.min(100, Math.max(50, Math.ceil(((cog * 1.25) / total) * 20 - 1e-9) * 5)) : 50} /></Grid>
         <Grid item xs={12} md={6}><AnalyticsCard cog={cog} total={subtotal} designerPayout={designTotal} margin={margin} bonus={n(order.clientMgmtBonus)} floorPct={floorPct} workRevenue={rushable * rush} workCog={cogExStone - shipTotal - designTotal} /></Grid>
       </Grid>
     </Stack>
