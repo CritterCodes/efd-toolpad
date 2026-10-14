@@ -578,3 +578,44 @@ nothing anywhere. Smaller blast radius — it is EFD billing an artisan, not a c
 it is the same hole.
 
 **Status:** open — needs 30 seconds in the Stripe dashboard that only you can do.
+
+---
+
+### Q18 — A lead's quoted total comes from the browser, not the engine (opened 2026-10-14)
+
+**Context.** EFD-DEFECTS Q3, confirmed still live on `main`. `saveQuote`
+(`src/services/repairs/leadQuote.js:153`) sets the quote's total like this:
+
+```js
+total: Number(submission?.totalCost) > 0 ? round2(submission.totalCost) : quoteTotal(clean),
+```
+
+`submission` is the request body. So the number emailed to the customer is whatever the page posted,
+and the server never prices it. It gets worse at drop-off: `convertLeadToRepair` (line 327-335) takes
+that same browser submission and writes it onto the repair with `Object.assign(set, priced)` +
+`RepairsModel.updateById` — a raw write that skips `priceRepairForSave`, the engine that prices every
+ticket created through `POST /api/repairs`. The quoted number becomes the invoiced number without the
+engine ever seeing it.
+
+This is not an attack surface — the route is admin-authenticated, it is a jeweler quoting a job. The
+realistic failure is **drift**: a stale page, a task price changed since the tab was opened, a metal
+price moved overnight. The customer is emailed a figure the shop can no longer reproduce, and that
+figure carries onto the repair.
+
+The existing comment defends it — *"Trust the form's own total: it is what the jeweler saw, and it
+accounts for rounding the flattened lines cannot reproduce exactly."* That is a real concern and it is
+why I have not just changed it.
+
+**Recommendation: price the quote on the server, and show the jeweler the server's number before it
+is sent.** `priceRepairForSave` already exists and already refuses a ticket it cannot price. Running
+the quote through it means the emailed total, the repair, and the invoice are one number from one
+engine — your 2026-09-30 ruling, applied to the one path that still escapes it. Where the server and
+the browser disagree, the server wins and the jeweler sees the corrected figure before sending.
+
+**This is a price-moving change**, which is why it is here and not in a PR: quotes would start showing
+engine prices instead of page prices, and on a stale page those differ. I would not ship it without
+your yes, and it wants a read-only comparison first — run both numbers over recent quotes and see how
+far apart they actually are. If the answer is "always identical", this is a cheap tidy-up. If it is
+not, the gap is money you have been quoting wrong and should see before anything changes.
+
+**Status:** open — say the word and I will run the comparison first, read-only, and bring you the numbers.
