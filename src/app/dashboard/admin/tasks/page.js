@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { laborHoursFor } from '@/services/pricing/engine';
 import Box from '@mui/material/Box';
 import Pagination from '@mui/material/Pagination';
 import Alert from '@mui/material/Alert';
@@ -183,7 +184,8 @@ export default function TasksPage() {
                     </Box>
                     <Typography variant="subtitle2" sx={{ color: TASKS_UI.textHeader, mb: 1 }}>Task Details</Typography>
                     <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary }}>Metal Type: {selectedTask.metalType || selectedTask.baseMetal || 'Universal'}</Typography>
-                    <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary }}>Labor Hours: {selectedTask.laborHours || 0}</Typography>
+                    {/* From the task's processes, which is what the engine bills. See TasksGrid.js. */}
+                    <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary }}>Labor Hours: {laborHoursFor(selectedTask)}</Typography>
                     <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary }}>Updated: {selectedTask.updatedAt ? new Date(selectedTask.updatedAt).toLocaleDateString() : 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={5}>

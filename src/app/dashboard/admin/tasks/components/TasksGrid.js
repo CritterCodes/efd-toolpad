@@ -19,6 +19,7 @@ import {
   DeleteForever as DeleteForeverIcon,
   ContentCopy as DuplicateIcon
 } from '@mui/icons-material';
+import { laborHoursFor } from '@/services/pricing/engine';
 import { TASKS_UI } from './tasksUi';
 
 export default function TasksGrid({
@@ -110,11 +111,15 @@ export default function TasksGrid({
                       {typeof price === 'number' ? `$${price.toFixed(2)}` : (task.pricingMessage || 'Priced by metal')}
                     </Typography>
                   </Box>
-                  {task.laborHours > 0 && (
+                  {/* The hours THIS TASK IS CHARGED AT, from its processes — the same figure the engine
+                      multiplies by the wage. The stored `task.laborHours` is not read by pricing and had
+                      drifted from it on 14 of 34 tasks (2026-10-14): seven showed 0 for work billed at up
+                      to half an hour, seven showed exactly half what was charged. */}
+                  {laborHoursFor(task) > 0 && (
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <TimeIcon sx={{ color: TASKS_UI.textMuted, fontSize: 16 }} />
                       <Typography variant="body2" sx={{ color: TASKS_UI.textSecondary }}>
-                        {task.laborHours}h
+                        {laborHoursFor(task)}h
                       </Typography>
                     </Box>
                   )}
