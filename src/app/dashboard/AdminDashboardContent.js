@@ -31,6 +31,7 @@ import { PageHeader, SurfaceCard, SectionLabel, StatusChip, facelift, tint } fro
 import GettingStartedCard from '@/components/guide/GettingStartedCard';
 import { IconTile, OpenLink, PanelHeader, PriorityNotice, QueuePanel, StatCard, formatCurrency, formatDate, rowDividerSx, statusHue } from './adminDashboardParts';
 import { RepairLookupPanel } from './RepairLookupPanel';
+import { buildBenchSummary, recentRepairActivity } from './dashboardMetrics';
 
 export default function AdminDashboardContent() {
   const { data: session } = useSession();
@@ -46,8 +47,14 @@ export default function AdminDashboardContent() {
     const loadSnapshots = async () => {
       try {
         const [analyticsResponse, reportsResponse] = await Promise.all([
-          fetch('/api/analytics/summary?dateRange=last_month&includeLegacy=false'),
-          fetch('/api/analytics/reports?dateRange=last_week'),
+          // THIS month and THIS week, not the finished ones. A figure that cannot change until the
+          // 1st is not worth opening the page for (owner, 2026-10-13: "I don't need to see that
+          // every morning because that number doesn't change").
+          //
+          // includeLegacy is now true: "go-live" was a cutover-era distinction, and filtering it out
+          // silently hid every repair that predates the clean system from the home page.
+          fetch('/api/analytics/summary?dateRange=this_month&includeLegacy=true'),
+          fetch('/api/analytics/reports?dateRange=this_week'),
         ]);
         const [analyticsData, reportsData] = await Promise.all([
           analyticsResponse.json(),
@@ -102,30 +109,24 @@ export default function AdminDashboardContent() {
     };
   }, [repairs, loading]);
 
-  const recentActivity = React.useMemo(() => {
-    if (!repairs || loading) return [];
+  // `repair.customerName` has never existed — the field is `clientName`, so all 721 rows rendered as
+  // "Unknown Customer" (owner, 2026-10-13: "all of them say unknown customer").
+  const recentActivity = React.useMemo(
+    () => (!repairs || loading ? [] : recentRepairActivity(repairs)),
+    [repairs, loading],
+  );
 
-    return repairs
-      .slice()
-      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-      .slice(0, 5)
-      .map((repair) => ({
-        id: repair.repairID || repair._id,
-        customerName: repair.customerName || 'Unknown Customer',
-        status: repair.status,
-        updatedAt: repair.updatedAt,
-        type: repair.repairType || 'General Repair',
-      }));
-  }, [repairs, loading]);
-
-  const completionRate = dashboardMetrics.totalRepairs > 0
-    ? Math.round((dashboardMetrics.completed.length / dashboardMetrics.totalRepairs) * 100)
-    : 0;
+  // What is on the bench right now, with spam and finished work taken out. See dashboardMetrics.js
+  // for why the old "721 active / 80% complete" was wrong in both directions at once.
+  const bench = React.useMemo(
+    () => (!repairs || loading ? null : buildBenchSummary(repairs)),
+    [repairs, loading],
+  );
 
   const dashboardFinance = {
-    lastMonthRevenue: analyticsSnapshot?.revenue?.totalRevenue || 0,
-    lastMonthGoLiveRepairs: analyticsSnapshot?.repairOverview?.goLiveRepairCount || 0,
-    lastWeekCashCollected: reportSnapshot?.cashCollected?.summary?.totalCollected || 0,
+    monthRevenue: analyticsSnapshot?.revenue?.totalRevenue || 0,
+    monthRepairCount: analyticsSnapshot?.repairOverview?.totalRepairs || 0,
+    weekCashCollected: reportSnapshot?.cashCollected?.summary?.totalCollected || 0,
     outstandingReceivables: reportSnapshot?.accountsReceivable?.summary?.outstandingBalance || 0,
     closeoutBottlenecks:
       (reportSnapshot?.closeoutBottlenecks?.summary?.completedUninvoicedCount || 0)
@@ -235,23 +236,26 @@ export default function AdminDashboardContent() {
             }}
           >
             <StatCard
-              label="Active repairs"
-              value={dashboardMetrics.totalRepairs}
-              subtext="Total repairs currently in the system"
+              label="On the bench"
+              value={bench?.openCount ?? 0}
+              subtext={bench?.openSummary || 'Nothing open right now'}
               icon={<BuildIcon fontSize="small" />}
-              progress={completionRate}
             />
             <StatCard
-              label="Last month revenue"
-              value={formatCurrency(dashboardFinance.lastMonthRevenue)}
-              subtext={`${dashboardFinance.lastMonthGoLiveRepairs} go-live repair(s) invoiced`}
+              label="Past promise date"
+              value={bench?.overdueCount ?? 0}
+              subtext={
+                bench?.awaitingPickupCount
+                  ? `${bench.awaitingPickupCount} finished and waiting to be collected`
+                  : 'Nothing waiting to be collected'
+              }
+              icon={<AssignmentIcon fontSize="small" />}
+            />
+            <StatCard
+              label="This month"
+              value={formatCurrency(dashboardFinance.monthRevenue)}
+              subtext={`${formatCurrency(dashboardFinance.weekCashCollected)} collected this week`}
               icon={<MonetizationOnIcon fontSize="small" />}
-            />
-            <StatCard
-              label="Last week cash"
-              value={formatCurrency(dashboardFinance.lastWeekCashCollected)}
-              subtext={`${formatCurrency(dashboardFinance.outstandingReceivables)} still sitting in receivables`}
-              icon={<TrendingUpIcon fontSize="small" />}
             />
           </Box>
         </Box>
@@ -298,9 +302,9 @@ export default function AdminDashboardContent() {
             icon={<TrendingUpIcon fontSize="small" />}
           />
           <StatCard
-            label="Go-live repairs"
-            value={dashboardFinance.lastMonthGoLiveRepairs}
-            subtext="Repairs entered in the clean system last month"
+            label="Taken in this month"
+            value={dashboardFinance.monthRepairCount}
+            subtext="Repairs booked since the 1st"
             icon={<BuildIcon fontSize="small" />}
           />
         </Box>
