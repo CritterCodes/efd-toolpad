@@ -28,6 +28,12 @@ function removePath(targetPath) {
  *
  * One junction beside the output fixes it: resolution finds `<output>/node_modules` on the first hop up.
  * Found 2026-10-14, when a UI change could not be checked locally because nothing would serve at all.
+ *
+ * **IT HAS TO BE RE-MADE AFTER EVERY BUILD.** `next build` cleans its output directory, which deletes
+ * this junction along with the previous build — so creating it on `prebuild` alone fixes `next dev` and
+ * leaves `next start` throwing exactly as before. That is how the first attempt at this shipped broken
+ * (#317): verified against a dev server, then the next `npm run build` silently undid it. Hence
+ * `postbuild` and `prestart` in package.json as well, and why this function is idempotent and cheap.
  */
 function ensureModulesBesideOutput(targetPath, projectRoot) {
   const modules = path.join(projectRoot, 'node_modules');
