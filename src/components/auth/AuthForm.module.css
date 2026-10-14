@@ -48,10 +48,26 @@
   color: rgba(255, 255, 255, 0.82);
 }
 
+/*
+ * A TAPPABLE TARGET, NOT JUST A WORD.
+ *
+ * These were the height of their own text — 23px for "Back to sign in" and "Need support?", 24px for
+ * "Forgot?" — against the 44px minimum the rest of the app holds to. They are also the links a person
+ * who cannot get in has to hit, on a phone, usually in a hurry.
+ *
+ * The views crawl signs in before it crawls, so it has never seen any of these pages and never will
+ * (docs/FRICTION-LOG.md, 2026-10-02). Measured by hand in a browser at 375px, 2026-10-14.
+ *
+ * `inline-flex` + `min-height` grows the hit area without moving the text: the box gets taller around
+ * a centred label, so the layout reads the same and the thumb has somewhere to land.
+ */
 .helperLink,
 .textLink {
   color: #ffffff;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 .input {
