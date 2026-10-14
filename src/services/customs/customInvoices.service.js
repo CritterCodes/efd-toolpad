@@ -9,7 +9,7 @@
  */
 import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/model';
 import CustomInvoicesModel, { CUSTOM_INVOICE_STATUS, CUSTOM_INVOICE_TYPE, invoiceCovers } from '@/app/api/custom-orders/invoices/model';
-import { computePaymentProgress, invoicesForOrder } from '@/services/customs/paymentProgress';
+import { computePaymentProgress, invoicesForOrder, withProductionGate } from '@/services/customs/paymentProgress';
 import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
 import { calculateCustomInvoice, isBillableEmail } from '@/services/customs/customInvoicePolicy';
 import { portalLink } from '@/lib/appUrls';
@@ -31,7 +31,9 @@ async function progressFor(order) {
   // the other piece and start bench work on the wrong ring.
   return {
     invoices,
-    progress: computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID)),
+    // The production threshold depends on the payment path (50%, or the pre-tax gates for
+    // pay-over-time) — withProductionGate is the one place that decides it.
+    progress: withProductionGate(order, computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID))),
   };
 }
 
@@ -63,15 +65,17 @@ function notifyPayment(order, invoice, progress) {
     data: {
       customID: order.customID, invoiceNumber: invoice.invoiceNumber,
       progressPercentage: progress.paymentProgress, remainingAmount: progress.remainingAmount,
-      productionReady: progress.hasReached50,
+      productionReady: progress.readyForProduction,
     },
   }).catch((e) => console.error('⚠️ payment-received notification failed:', e.message));
 
-  if (progress.hasReached50) {
+  if (progress.readyForProduction) {
     NotificationService.createNotification({
       type: NOTIFICATION_TYPES.PAYMENT_THRESHOLD_REACHED,
       title: 'Payment Threshold Reached',
-      message: `Custom ${order.customID} reached 50% — production ready.`,
+      message: progress.paymentPath === 'over-time'
+        ? `Custom ${order.customID} (pay over time) has its production stage paid — production ready.`
+        : `Custom ${order.customID} reached 50% — production ready.`,
       channels: ['inApp', 'email'],
       templateName: 'payment-threshold-reached',
       recipientEmail: process.env.EMAIL_USER,
@@ -316,11 +320,12 @@ export async function setCustomInvoiceStatus(customID, invoiceID, status, paymen
       const o = id === customID ? order : await CustomOrdersModel.findById(id); // eslint-disable-line no-await-in-loop
       if (!o) continue;
       const { progress: p } = await progressFor(o); // eslint-disable-line no-await-in-loop
-      // Forward-only (first paid → deposit; 50% → in_production) via the shared advance
-      // path, which also sends the in_production milestone notification on crossing 50%.
+      // Forward-only (first paid → deposit; production threshold → in_production) via the shared
+      // advance path, which also sends the in_production milestone notification. The threshold is
+      // 50% for full/deposit orders and the pre-tax gates for pay-over-time (withProductionGate).
       // Note: bench work orders are generated at CASTING RECEIVED (not deposit) — you
       // can't do in-house bench work until the cast metal is in hand. See customProduction.addCastingCost.
-      const target = p.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
+      const target = p.readyForProduction ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
       // eslint-disable-next-line no-await-in-loop
       await advanceCustomOrderStatus(o.customID, target, { reason: `payment ${p.paymentProgress}%`, order: o });
       // PAID IN FULL is the affiliate commission trigger. Lazy import (the engine reads

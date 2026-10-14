@@ -619,3 +619,49 @@ far apart they actually are. If the answer is "always identical", this is a chea
 not, the gap is money you have been quoting wrong and should see before anything changes.
 
 **Status:** open — say the word and I will run the comparison first, read-only, and bring you the numbers.
+
+---
+
+### Q21 — When does a pay-over-time order go into production? (opened 2026-10-14)
+
+**Context.** Until 2026-10-14 every custom order went into production (with the "your piece is in production"
+email) at 50% paid, whichever way the customer chose to pay. For pay-over-time that is wrong: on a big-stone job
+the stone alone crosses 50% with the mounting unpaid; on a small-stone job 50% comes before the stone is secured.
+The owner asked for it fixed first (*"fix the 50% production bug first"*). Two readings of the rules:
+
+- `CUSTOM_PAYMENT_RULES.md` §3: production **may** start once the materials are covered (stone + mounting gates).
+- §12, the portal terms the customer accepts (*"Work on each stage begins once its stage is covered"*) and the
+  public Payment Options page: production starts once the **Production** stage is covered.
+
+**What was built** (`paymentProgress.js withProductionGate`): the second reading. Status moves to in_production once
+the pre-tax gates (stone + mounting + production) are paid; tax is still owed until pickup. It is what the customer
+was told, and the owner can still start production by hand earlier, as on Bryce.
+
+**Recommendation:** keep it. If you'd rather start at "materials covered", it's a one-line change in that function
+plus a copy change on the portal terms and the Payment Options page.
+
+**Status:** open — built as recommended, awaiting the owner's confirmation. See docs/PAY_OVER_TIME_AUDIT_2026-10-14.md.
+
+---
+
+### Q22 — How often does an unpaid mounting follow the metal market, and who confirms the new price? (opened 2026-10-14)
+
+**Context.** Nothing re-prices a published custom quote today. The owner wants the customer to see their mounting
+price "on any given day" while it is unpaid. The rules (§5) say a paid line is locked forever, only the mounting
+floats, and re-pricing happens on **staff action**, not silently (*"A number the customer is looking at must not
+change by itself"*, open question O3). Metal prices already update hourly (`update-metal-prices`). Quotes don't
+store the metal rate or weight they were priced from, so there's nothing to re-price from yet.
+
+Options:
+1. **Automatic daily** — the unpaid mounting re-prices every day off the metal snapshot; the portal shows "price as
+   of <date>". Most honest to the market, but the number moves under the customer.
+2. **Automatic, with a band** — re-price only when metal has moved more than X% (say 5%) since the last price, then
+   notify the customer.
+3. **Staff-confirmed** — a weekly admin list shows "metal has moved X% on these unpaid mountings"; the owner presses
+   re-price, the customer is notified.
+
+**Recommendation: 2, checked daily, 5% band, with a notice email.** Small daily wobbles don't churn the customer's
+number; a real move (the owner's example, 20% over six months) is passed on promptly and explained. Whichever is
+chosen, the payoff-now price is paid gates + today's price of unpaid gates, and a paid gate never changes.
+
+**Status:** open — the owner's call. Nothing is built until it's answered.

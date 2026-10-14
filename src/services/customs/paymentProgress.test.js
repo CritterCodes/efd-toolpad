@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computePaymentProgress, amountForOrder, invoicesForOrder } from '@/services/customs/paymentProgress';
+import { computePaymentProgress, amountForOrder, invoicesForOrder, withProductionGate } from '@/services/customs/paymentProgress';
 
 describe('computePaymentProgress', () => {
   it('tracks % paid and the 50% production threshold', () => {
@@ -179,5 +179,58 @@ describe('unallocatable invoices are refused, not guessed', () => {
   it('a single-order invoice still resolves through customIDs when customID is absent', () => {
     expect(amountForOrder({ customIDs: ['CO-A'], amount: 500 }, 'CO-A')).toBe(500);
     expect(amountForOrder({ customIDs: ['CO-A'], amount: 500 }, 'CO-B')).toBe(0);
+  });
+});
+
+/**
+ * The production threshold follows the PAYMENT PATH. Before 2026-10-14 every order went into
+ * production at 50% paid — including pay-over-time orders, whose customers were told work starts
+ * stage by stage. A big-stone job crossed 50% on the stone alone with the mounting unpaid.
+ */
+describe('withProductionGate', () => {
+  // Big-stone over-time quote: stone 2,600 / mounting 900 / production 500 = 4,000 pre-tax, +300 tax.
+  const quote = {
+    quoteTotal: 4000,
+    total: 4300,
+    gates: [
+      { n: 1, name: 'Stone', amount: 2600 },
+      { n: 2, name: 'Mounting', amount: 900 },
+      { n: 3, name: 'Production', amount: 500 },
+      { n: 4, name: 'Balance', amount: 300 },
+    ],
+  };
+  const paidRows = (amount) => [{ status: 'paid', amount }];
+  const progressAt = (order, paid) => withProductionGate(order, computePaymentProgress(order.quote.total, paidRows(paid)));
+
+  it('pay-over-time: crossing 50% on the stone alone does NOT start production', () => {
+    const p = progressAt({ quote, payment: { path: 'over-time' } }, 2600);
+    expect(p.hasReached50).toBe(true); // 2600 / 4300 = 60%
+    expect(p.readyForProduction).toBe(false);
+    expect(p.canStartProduction).toBe(false);
+    expect(p.amountForProduction).toBe(1400);
+    expect(p.paymentPath).toBe('over-time');
+  });
+
+  it('pay-over-time: ready exactly when the pre-tax gates are paid, tax still owed', () => {
+    const p = progressAt({ quote, payment: { path: 'over-time' } }, 4000);
+    expect(p.readyForProduction).toBe(true);
+    expect(p.canStartProduction).toBe(true);
+    expect(p.isFullyPaid).toBe(false);
+    expect(progressAt({ quote, payment: { path: 'over-time' } }, 3999.99).readyForProduction).toBe(false);
+  });
+
+  it('pay-over-time with no stamped gates falls back to the pre-tax quoteTotal', () => {
+    const legacy = { quoteTotal: 4000, total: 4300 };
+    expect(progressAt({ quote: legacy, payment: { path: 'over-time' } }, 3000).readyForProduction).toBe(false);
+    expect(progressAt({ quote: legacy, payment: { path: 'over-time' } }, 4000).readyForProduction).toBe(true);
+  });
+
+  it('deposit, full and unchosen paths keep the 50% rule unchanged', () => {
+    for (const payment of [{ path: 'deposit' }, { path: 'full' }, undefined]) {
+      const p = progressAt({ quote, payment }, 2150); // exactly 50% of 4300
+      expect(p.readyForProduction).toBe(true);
+      expect(p.canStartProduction).toBe(true);
+      expect(progressAt({ quote, payment }, 2149.99).readyForProduction).toBe(false);
+    }
   });
 });

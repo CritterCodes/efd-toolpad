@@ -104,3 +104,51 @@ export function computePaymentProgress(projectTotal, invoices = []) {
     amountFor50Percent: round(Math.max(0, total * 0.5 - paid)),
   };
 }
+
+/**
+ * WHEN DOES THIS ORDER GO INTO PRODUCTION? It depends on how the customer chose to pay.
+ *
+ * Full and 50%-deposit orders start at 50% paid, as they always have. A PAY-OVER-TIME order (the
+ * customer chose it in the shop: `order.payment.path === 'over-time'`) does not: its payments fill
+ * the quote's gates in order — Stone, Mounting, Production, then the tax Balance — and the customer
+ * was told, in the terms they accepted and on /custom-work/payment-options, that the piece goes to
+ * the bench once the Production stage is covered. On a big-stone job 50% is crossed by the stone
+ * alone, with the mounting unpaid; on a small-stone job 50% falls before the stone is even secured.
+ * Until 2026-10-14 both rails advanced every order at 50% and emailed "your piece is in production"
+ * (found before the first real over-time customer; see docs/PAY_OVER_TIME_AUDIT_2026-10-14.md).
+ *
+ * The threshold is the sum of the pre-tax gates (everything but gate 4, the tax Balance) as stamped
+ * on the quote by computeQuote; with no stamped gates it is the pre-tax `quoteTotal`. The owner can
+ * still move an order into production by hand at any point.
+ *
+ * Returns the progress object with `readyForProduction` + `amountForProduction` added, and
+ * `canStartProduction` re-based on them.
+ */
+export function withProductionGate(order = {}, progress = {}) {
+  const paymentPath = order?.payment?.path || null;
+  const cents = (v) => Math.round((Number(v) || 0) * 100);
+  const paid = Number(progress.totalPaid) || 0;
+
+  let readyForProduction;
+  let amountForProduction;
+  if (paymentPath === 'over-time') {
+    const q = order.quote || {};
+    const preTax = (Array.isArray(q.gates) ? q.gates : []).filter((g) => g && Number(g.n) !== 4);
+    const threshold = preTax.length
+      ? preTax.reduce((s, g) => s + (Number(g.amount) || 0), 0)
+      : Number(q.quoteTotal) || 0;
+    readyForProduction = threshold > 0 ? cents(paid) >= cents(threshold) : !!progress.isFullyPaid;
+    amountForProduction = round(Math.max(0, threshold - paid));
+  } else {
+    readyForProduction = !!progress.hasReached50;
+    amountForProduction = Number(progress.amountFor50Percent) || 0;
+  }
+
+  return {
+    ...progress,
+    paymentPath,
+    readyForProduction,
+    amountForProduction,
+    canStartProduction: readyForProduction && !progress.isFullyPaid,
+  };
+}
