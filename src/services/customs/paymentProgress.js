@@ -188,6 +188,8 @@ export const MIN_MONTHLY_PAYMENT = 10;
 export function paymentClock(order = {}, invoices = [], { now = new Date(), remaining = null } = {}) {
   const none = { lastPaymentAt: null, dueBy: null, overdue: false, minimumDue: 0 };
   if (order?.payment?.path !== 'over-time') return none;
+  // No monthly clock on a closed order (the shop's paymentClock has the same rule).
+  if (['cancelled', 'completed', 'delivered'].includes(order?.status)) return none;
   const left = remaining == null ? Infinity : Number(remaining) || 0;
   if (left <= 0) return none;
 

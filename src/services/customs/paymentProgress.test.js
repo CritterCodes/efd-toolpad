@@ -298,6 +298,12 @@ describe('paymentClock', () => {
     expect(paymentClock(order, [], { remaining: 6.5 }).minimumDue).toBe(6.5);
   });
 
+  it('has no clock on a cancelled, completed or delivered order (same as the shop)', () => {
+    for (const status of ['cancelled', 'completed', 'delivered']) {
+      expect(paymentClock({ ...order, status }, [], { now: new Date('2026-12-01T00:00:00Z'), remaining: 500 }).dueBy).toBe(null);
+    }
+  });
+
   it('has nothing to say for other paths or a paid-off order', () => {
     expect(paymentClock({ payment: { path: 'deposit', pathChosenAt: '2026-10-14' } }, [], { remaining: 100 }).dueBy).toBe(null);
     expect(paymentClock(order, [], { remaining: 0 }).dueBy).toBe(null);
