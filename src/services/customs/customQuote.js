@@ -221,6 +221,10 @@ export function computeQuote(quote = {}, settings = {}) {
   const taxAmount = quoteTotal * taxRate;
   const total = quoteTotal + taxAmount;
 
+  // Deposit as a whole 5% of the total (see depositRequired below). The epsilon keeps an exact 80% at 80.
+  const depositFloorShare = total > 0 ? (cog * 1.25) / total : 0;
+  const depositPercent = Math.min(100, Math.max(50, Math.ceil(depositFloorShare * 20 - 1e-9) * 5));
+
   return {
     materialsTotal: round(materialsTotal),
     // Broken out so the quote UI can show the two markups side by side, and so the snapshot on the
@@ -268,10 +272,14 @@ export function computeQuote(quote = {}, settings = {}) {
         { n: 4, name: 'Balance', covers: 'Sales tax — added when the price locks', amount: round(taxAmount) },
       ].filter((g) => g.amount > 0);
     })(),
-    // THE DEPOSIT the shop's deposit path charges (rules §1, decided 2026-08-12): half the total, or
-    // COG × 1.25 when that is higher — 50% only clears cost at a ~2.5× blended markup, and a stone-heavy
-    // quote (Bryce, 1.43×) left half of retail $1,307 short of cost. Never more than the total.
-    depositRequired: round(Math.min(total, Math.max(total * 0.5, cog * 1.25))),
+    // THE DEPOSIT the shop's deposit path charges. Rules §1 (decided 2026-08-12): it must clear COG × 1.25,
+    // because 50% only clears cost at a ~2.5× blended markup (Bryce, 1.43×, left half of retail $1,307
+    // short of cost). But the customer SEES this number, and an exact COG × 1.25 lets anyone back out
+    // EFD's cost (owner, 2026-10-14: "they shouldn't be able to figure out what the cost is"). So it is
+    // always a WHOLE 5% of the total — 50% normally, else the cost floor rounded UP to the next 5% (80.03%
+    // → 85%). Always ≥ the floor, never > 100%, and reads as an ordinary deposit policy.
+    depositPercent,
+    depositRequired: round(total * (depositPercent / 100)),
     projectedMargin: round(quoteTotal - cog),
   };
 }

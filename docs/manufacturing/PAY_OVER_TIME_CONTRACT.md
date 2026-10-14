@@ -14,8 +14,10 @@ Admin WRITES every field below; the shop READS them (via `toClientView`) and nev
 
 ## 2. Deposit (rules §1)
 
-`quote.depositRequired` — stamped by `computeQuote`: `min(total, max(total × 0.5, cog × 1.25))`, rounded to the
-cent. The shop's "50% deposit" path charges this (label "Deposit"), and admin's deposit path goes to production
+`quote.depositPercent` + `quote.depositRequired` — stamped by `computeQuote`: the percent is a WHOLE 5% of the
+total, `min(100, max(50, ceil(cog × 1.25 / total to the next 5%)))`, and the amount is `total × percent`, rounded to
+the cent. Rounding up to a 5% step is deliberate (owner, 2026-10-14): an exact `cog × 1.25` would let a customer
+back out EFD's cost. The shop shows "85% deposit" and never says what sets it. The shop's "50% deposit" path charges this (label "Deposit"), and admin's deposit path goes to production
 when it is paid.
 
 ## 3. Mounting follows the metal market (Q22)

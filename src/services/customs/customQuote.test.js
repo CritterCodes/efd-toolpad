@@ -559,20 +559,35 @@ describe('payment gates ladder (quote.gates — read by the shop)', () => {
   });
 });
 
-/** The shop's deposit path charges this; rules §1 (decided 2026-08-12). */
+/**
+ * The shop's deposit path charges this; rules §1 (decided 2026-08-12) sets the COG × 1.25 floor, and the
+ * owner ruled 2026-10-14 that the customer must not be able to back out EFD's cost from it — so it is a
+ * whole 5% of the total, rounded UP past the floor.
+ */
 describe('depositRequired', () => {
-  it('is half the total at a normal markup', () => {
+  it('is 50% at a normal markup', () => {
     const q = computeQuote({ mounting: { cost: 400 }, laborTasks: [{ description: 'bench', cost: 250, quantity: 1 }] }, { cogMarkup: 2.5, taxRate: 0 });
+    expect(q.depositPercent).toBe(50);
     expect(q.depositRequired).toBe(Math.round(q.total * 0.5 * 100) / 100);
   });
 
-  it('rises to COG × 1.25 on a stone-heavy quote where half would not cover cost', () => {
+  it('on a stone-heavy quote, rises to the next whole 5% above COG × 1.25 — never the exact floor', () => {
     const q = computeQuote(
       { centerstone: { cost: 3949.5 }, centerstoneMarkup: 1.3, mounting: { cost: 303 } },
       { cogMarkup: 2.5, taxRate: 0 },
     );
-    expect(q.total * 0.5).toBeLessThan(q.cog * 1.25);
-    expect(q.depositRequired).toBe(Math.round(q.cog * 1.25 * 100) / 100);
+    expect(q.depositPercent % 5).toBe(0);
+    expect(q.depositPercent).toBeGreaterThan(50);
+    expect(q.depositRequired).toBeGreaterThanOrEqual(Math.round(q.cog * 1.25 * 100) / 100);
+    expect(q.depositRequired).toBe(Math.round(q.total * (q.depositPercent / 100) * 100) / 100);
+    // The amount the customer sees, divided by 1.25, must not be EFD's cost.
+    expect(Math.round((q.depositRequired / 1.25) * 100)).not.toBe(Math.round(q.cog * 100));
     expect(q.depositRequired).toBeLessThanOrEqual(q.total);
+  });
+
+  it('never exceeds 100%', () => {
+    const q = computeQuote({ centerstone: { cost: 5000 }, centerstoneMarkup: 1.05 }, { cogMarkup: 2.5, taxRate: 0 });
+    expect(q.depositPercent).toBe(100);
+    expect(q.depositRequired).toBe(q.total);
   });
 });

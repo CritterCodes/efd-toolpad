@@ -289,6 +289,7 @@ export default class CustomOrdersModel {
       // What the shop's deposit path charges and when a deposit/full order goes to production
       // (paymentProgress withProductionGate). docs/manufacturing/PAY_OVER_TIME_CONTRACT.md §2.
       depositRequired: computed.depositRequired,
+      depositPercent: computed.depositPercent, // shown to the customer as "85% deposit"
     };
   }
 
