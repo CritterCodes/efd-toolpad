@@ -545,7 +545,7 @@ used by comms and the design model.
 
 ---
 
-### Q17 — Does Stripe actually send `charge.refunded` to the shop? (opened 2026-10-14)
+### Q19 — Does Stripe actually send `charge.refunded` to the shop? (opened 2026-10-14)
 
 **Context.** A refund now reverses the money in the database: efd-shop#96 + #97 wire
 `reversePaymentCredits` into the shop's `charge.refunded` / `refund.created` handler, covering custom
@@ -581,7 +581,7 @@ it is the same hole.
 
 ---
 
-### Q18 — A lead's quoted total comes from the browser, not the engine (opened 2026-10-14)
+### Q20 — A lead's quoted total comes from the browser, not the engine (opened 2026-10-14)
 
 **Context.** EFD-DEFECTS Q3, confirmed still live on `main`. `saveQuote`
 (`src/services/repairs/leadQuote.js:153`) sets the quote's total like this:
