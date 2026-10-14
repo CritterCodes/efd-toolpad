@@ -785,12 +785,28 @@
   .skeleton::after { animation: none; }
 }
 
+/*
+ * A route state fills the space it was given, and sits in the middle of it.
+ *
+ * It already had `max-width: 640px` and no margin, so on a 1024px window the whole of "That page is not
+ * here" sat in the top-left corner with ~380px of empty black beside it and ~700px below — which reads
+ * as a page that failed to finish loading rather than one telling you something. Seen on the real 404 at
+ * 1024x768, 2026-10-14.
+ *
+ * `margin-inline: auto` centres the column; `min-height: 60vh` with `justify-content: center` lifts the
+ * text to roughly optical centre. 60vh rather than 100vh on purpose — `error.js` inside a dashboard route
+ * renders *within* the shell, under its header and beside its nav, and a full-viewport box there would
+ * push itself off the bottom of the screen.
+ */
 .statePage {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 14px;
   padding: 24px 16px;
   max-width: 640px;
+  margin-inline: auto;
+  min-height: 60vh;
 }
 
 @media (min-width: 600px) {
