@@ -268,6 +268,10 @@ export function computeQuote(quote = {}, settings = {}) {
         { n: 4, name: 'Balance', covers: 'Sales tax — added when the price locks', amount: round(taxAmount) },
       ].filter((g) => g.amount > 0);
     })(),
+    // THE DEPOSIT the shop's deposit path charges (rules §1, decided 2026-08-12): half the total, or
+    // COG × 1.25 when that is higher — 50% only clears cost at a ~2.5× blended markup, and a stone-heavy
+    // quote (Bryce, 1.43×) left half of retail $1,307 short of cost. Never more than the total.
+    depositRequired: round(Math.min(total, Math.max(total * 0.5, cog * 1.25))),
     projectedMargin: round(quoteTotal - cog),
   };
 }

@@ -267,14 +267,21 @@ export async function withPaymentSummaries(orders = []) {
   return orders.map((order) => {
     try {
       const projectTotal = order.quote?.total ?? order.quote?.quoteTotal ?? 0;
-      const p = computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID));
+      const p = withProductionGate(order, computePaymentProgress(projectTotal, invoicesForOrder(invoices, order.customID)));
       return {
         ...order,
+        // The list REPLACES `payment` with this summary, so the customer's chosen path has to be carried
+        // across explicitly — before 2026-10-14 it was dropped and no list could tell a pay-over-time order
+        // apart (audit A2).
         payment: {
+          path: order.payment?.path || null,
+          overdueSince: order.payment?.overdueSince || null,
           totalPaid: p.totalPaid,
           remainingAmount: p.remainingAmount,
           paymentProgress: p.paymentProgress,
           hasReached50: p.hasReached50,
+          readyForProduction: p.readyForProduction,
+          amountForProduction: p.amountForProduction,
           isFullyPaid: p.isFullyPaid,
         },
       };

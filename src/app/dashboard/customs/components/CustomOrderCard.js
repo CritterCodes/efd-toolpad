@@ -27,13 +27,17 @@ const money = (n) => `$${(Number(n) || 0).toLocaleString(undefined, { maximumFra
 function nextAction(o) {
   const paid = o.payment?.totalPaid || 0;
   const total = o.quote?.total ?? o.quote?.quoteTotal ?? 0;
-  const to50 = Math.max(0, total * 0.5 - paid);
+  // The production threshold depends on the payment path (paymentProgress withProductionGate); the
+  // list summary carries it. Fall back to 50% for an older response without it.
+  const toProduction = o.payment?.amountForProduction ?? Math.max(0, total * 0.5 - paid);
   switch (o.status) {
     case 'pending': return 'Review request';
     case 'consultation': return 'Consult & start design';
     case 'design': return 'Design in progress';
     case 'quote': return o.quote?.quotePublished ? 'Awaiting client approval' : 'Publish quote';
-    case 'deposit': return to50 > 0 ? `${money(to50)} more to start production` : 'Collect balance';
+    case 'deposit':
+      if (o.payment?.overdueSince) return 'Monthly payment overdue';
+      return toProduction > 0 ? `${money(toProduction)} more to start production` : 'Collect balance';
     case 'in_production': return o.castingReceivedAt ? 'At the bench' : 'Awaiting casting';
     case 'qc': return 'QC review';
     case 'completed': return o.payment?.isFullyPaid ? 'Arrange delivery / pickup' : 'Collect final balance';
@@ -85,7 +89,8 @@ function PaymentBar({ order }) {
     );
   }
   const pct = Math.min(100, p.paymentProgress || 0);
-  const color = p.isFullyPaid ? '#66BB6A' : p.hasReached50 ? '#64B5F6' : '#FFB74D';
+  const ready = p.readyForProduction ?? p.hasReached50;
+  const color = p.isFullyPaid ? '#66BB6A' : ready ? '#64B5F6' : '#FFB74D';
   return (
     <Box sx={{ mt: 1 }}>
       <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.25 }}>
@@ -96,7 +101,7 @@ function PaymentBar({ order }) {
           {p.isFullyPaid ? 'Paid in full' : `${pct}%`}
         </Typography>
       </Stack>
-      <Tooltip title={p.isFullyPaid ? 'Paid in full' : `${money(p.remainingAmount)} outstanding · production starts at 50%`}>
+      <Tooltip title={p.isFullyPaid ? 'Paid in full' : `${money(p.remainingAmount)} outstanding · ${p.path === 'over-time' ? 'paying over time: production starts when the production stage is paid' : 'production starts at the deposit'}`}>
         <LinearProgress
           variant="determinate"
           value={pct}
@@ -125,6 +130,7 @@ export default function CustomOrderCard({ order, onOpen }) {
               <Chip size="small" label={(o.status || '').replace('_', ' ')} color={STATUS_COLOR[o.status] || 'default'} />
               {o.isRush && <Chip size="small" icon={<PriorityHighIcon />} label="RUSH" sx={{ bgcolor: '#FF4444', color: '#fff', height: 22 }} />}
               {o.priority === 'high' && !o.isRush && <Chip size="small" label="High" color="error" variant="outlined" />}
+              {o.payment?.path === 'over-time' && <Chip size="small" label="Pay over time" color={o.payment?.overdueSince ? 'error' : 'info'} variant="outlined" />}
               {isStale && (
                 <Tooltip title={`In ${(o.status || '').replace('_', ' ')} for ${days} days — needs a nudge`}>
                   <Chip size="small" label={`${days}d`} sx={{ height: 22, backgroundColor: '#FFB74D22', color: '#FFB74D', fontWeight: 700 }} />

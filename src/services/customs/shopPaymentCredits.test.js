@@ -16,6 +16,7 @@ const creditUpdates = [];
 const advances = [];
 const receipts = [];
 const notifications = [];
+const adminAlerts = [];
 let receiptImpl;
 
 const col = {
@@ -49,13 +50,14 @@ vi.mock('@/services/customs/customInvoiceDelivery', () => ({
 vi.mock('@/lib/notificationService', () => ({
   NOTIFICATION_TYPES: { PAYMENT_RECEIVED: 'payment-received' },
   NotificationService: { createNotification: vi.fn(async (n) => { notifications.push(n); }) },
+  notifyAllAdmins: vi.fn(async (n) => { adminAlerts.push(n); }),
 }));
-vi.mock('@/lib/appUrls', () => ({ portalLink: (id) => `https://shop.test/${id}` }));
+vi.mock('@/lib/appUrls', () => ({ portalLink: (id) => `https://shop.test/${id}`, adminLink: (p) => `https://admin.test${p}` }));
 
 const { drainShopPaymentCredits } = await import('@/services/customs/shopPaymentCredits');
 
 beforeEach(() => {
-  creditUpdates.length = 0; advances.length = 0; receipts.length = 0; notifications.length = 0;
+  creditUpdates.length = 0; advances.length = 0; receipts.length = 0; notifications.length = 0; adminAlerts.length = 0;
   receiptImpl = () => ({ delivery: { sent: true } });
   order = { customID: 'CO-1', clientID: 'client-1', title: 'Signet ring' };
   progress = { paymentProgress: 12.5, hasReached50: false, readyForProduction: false };
@@ -69,6 +71,7 @@ describe('drainShopPaymentCredits', () => {
     expect(advances).toEqual([{ id: 'CO-1', target: 'deposit', opts: { reason: 'shop payment 12.5%' } }]);
     expect(receipts).toEqual([['CO-1', 'cinv-shop-1']]);
     expect(notifications).toHaveLength(1);
+    expect(adminAlerts).toHaveLength(1); // the owner hears about a shop payment (audit 2026-10-14, A7)
     expect(credits[0].status).toBe('processed');
     expect(credits[0].receipt).toEqual({ sent: true });
   });

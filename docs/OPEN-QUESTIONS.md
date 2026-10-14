@@ -640,7 +640,8 @@ was told, and the owner can still start production by hand earlier, as on Bryce.
 **Recommendation:** keep it. If you'd rather start at "materials covered", it's a one-line change in that function
 plus a copy change on the portal terms and the Payment Options page.
 
-**Status:** open — built as recommended, awaiting the owner's confirmation. See docs/PAY_OVER_TIME_AUDIT_2026-10-14.md.
+**Status:** DECIDED 2026-10-14 — owner: *"Fix it all."*, in reply to the audit and these recommendations. Built as
+recommended (efd-toolpad#329). Deposit/full orders now start at `quote.depositRequired` (50%, or COG × 1.25 when higher).
 
 ---
 
@@ -664,4 +665,7 @@ Options:
 number; a real move (the owner's example, 20% over six months) is passed on promptly and explained. Whichever is
 chosen, the payoff-now price is paid gates + today's price of unpaid gates, and a paid gate never changes.
 
-**Status:** open — the owner's call. Nothing is built until it's answered.
+**Status:** DECIDED 2026-10-14 — owner: *"Fix it all."*, in reply to the audit and this recommendation: option 2,
+checked daily, 5% band, client emailed. Built: cron `reprice-custom-mountings` (daily 14:00 UTC), contract
+`docs/manufacturing/PAY_OVER_TIME_CONTRACT.md` §3. Only mountings priced with **Estimate** follow the market; a
+hand-typed mounting stays fixed and the owner's pay-over-time page flags it.

@@ -139,7 +139,15 @@ export function withProductionGate(order = {}, progress = {}) {
       : Number(q.quoteTotal) || 0;
     readyForProduction = threshold > 0 ? cents(paid) >= cents(threshold) : !!progress.isFullyPaid;
     amountForProduction = round(Math.max(0, threshold - paid));
+  } else if ((paymentPath === 'deposit' || paymentPath === 'full') && Number(order.quote?.depositRequired) > 0) {
+    // The customer chose the deposit (or full) path in the shop, which charges `quote.depositRequired`:
+    // 50% of the total, or COG × 1.25 when that is higher (rules §1, decided 2026-08-12). Production
+    // starts when THAT is paid — a stone-heavy quote's 50% would leave materials unpaid.
+    const threshold = Number(order.quote.depositRequired);
+    readyForProduction = cents(paid) >= cents(threshold);
+    amountForProduction = round(Math.max(0, threshold - paid));
   } else {
+    // No path chosen in the shop (admin-invoiced orders, legacy): the original 50% rule.
     readyForProduction = !!progress.hasReached50;
     amountForProduction = Number(progress.amountFor50Percent) || 0;
   }
@@ -150,5 +158,84 @@ export function withProductionGate(order = {}, progress = {}) {
     readyForProduction,
     amountForProduction,
     canStartProduction: readyForProduction && !progress.isFullyPaid,
+  };
+}
+
+/** Add calendar months, clamping to the month's last day (Jan 31 + 1 month = Feb 28/29). */
+export function addMonths(date, months = 1) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.getUTCDate();
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1,
+    d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target;
+}
+
+/** Minimum monthly payment per ORDER (rules §17). Mirrors efd-shop MIN_CUSTOM_PAYMENT. */
+export const MIN_MONTHLY_PAYMENT = 10;
+
+/**
+ * THE PAY-OVER-TIME CLOCK (docs/manufacturing/PAY_OVER_TIME_CONTRACT.md §4). Identical in efd-shop
+ * lib/customPayments.js — if one changes, change both, or the reminder email and the customer's
+ * screen disagree about when a payment is due.
+ *
+ * There is no schedule: the only obligation is something every month (rules §9). So the next payment
+ * is due one calendar month after the last one — or after the customer chose the path, before any
+ * payment. `invoices` are THIS order's share (invoicesForOrder); only paid ones count.
+ */
+export function paymentClock(order = {}, invoices = [], { now = new Date(), remaining = null } = {}) {
+  const none = { lastPaymentAt: null, dueBy: null, overdue: false, minimumDue: 0 };
+  if (order?.payment?.path !== 'over-time') return none;
+  const left = remaining == null ? Infinity : Number(remaining) || 0;
+  if (left <= 0) return none;
+
+  const paidTimes = (invoices || [])
+    .filter((i) => i?.status === 'paid' && i.paidAt)
+    .map((i) => new Date(i.paidAt).getTime())
+    .filter((t) => Number.isFinite(t));
+  const lastPaymentAt = paidTimes.length ? new Date(Math.max(...paidTimes)) : null;
+  const anchor = lastPaymentAt || (order.payment.pathChosenAt ? new Date(order.payment.pathChosenAt) : null);
+  const dueBy = anchor ? addMonths(anchor, 1) : null;
+  return {
+    lastPaymentAt,
+    dueBy,
+    overdue: !!dueBy && new Date(now).getTime() > dueBy.getTime(),
+    minimumDue: round(Math.min(MIN_MONTHLY_PAYMENT, left)),
+  };
+}
+
+/**
+ * The gates ladder for the order page: each stage's amount, whether payments have covered it
+ * (payments fill gates in order, rules §12), and how much more secures it. Plus the two STAFF-ONLY
+ * buying signals:
+ *   - stoneBuyable: paid has crossed the stone's COST, so EFD can afford to buy it (rules §3) —
+ *     the point where waiving the rest of the stone gate becomes a real option, not a gamble;
+ *   - stone / mounting gates paid: buy it now — it is the customer's, held for them.
+ */
+export function gateLadder(order = {}, totalPaid = 0) {
+  const q = order.quote || {};
+  const paid = Number(totalPaid) || 0;
+  const cents = (v) => Math.round((Number(v) || 0) * 100);
+  let cumulative = 0;
+  const gates = (Array.isArray(q.gates) ? q.gates : []).map((g) => {
+    const amount = Number(g.amount) || 0;
+    cumulative = round(cumulative + amount);
+    const covered = cents(paid) >= cents(cumulative);
+    return {
+      n: Number(g.n), name: g.name, covers: g.covers || '', amount: round(amount), cumulative,
+      covered, toCover: covered ? 0 : round(Math.min(amount, cumulative - paid)),
+    };
+  });
+  const stoneCost = Number(q.centerstone?.cost) || 0;
+  const stoneGate = gates.find((g) => g.n === 1);
+  const mountingGate = gates.find((g) => g.n === 2);
+  return {
+    gates,
+    stoneCost: round(stoneCost),
+    stoneBuyable: stoneCost > 0 && cents(paid) >= cents(stoneCost),
+    stoneGatePaid: !!stoneGate?.covered,
+    mountingGatePaid: !!mountingGate?.covered,
   };
 }

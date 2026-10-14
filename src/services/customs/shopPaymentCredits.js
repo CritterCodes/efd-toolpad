@@ -24,8 +24,8 @@ import { db } from '@/lib/database';
 import CustomOrdersModel, { CUSTOM_ORDER_STATUS } from '@/app/api/custom-orders/model';
 import { getCustomPaymentProgress } from '@/services/customs/customInvoices.service';
 import { advanceCustomOrderStatus } from '@/services/customs/customStatus';
-import { NotificationService, NOTIFICATION_TYPES } from '@/lib/notificationService';
-import { portalLink } from '@/lib/appUrls';
+import { NotificationService, NOTIFICATION_TYPES, notifyAllAdmins } from '@/lib/notificationService';
+import { portalLink, adminLink } from '@/lib/appUrls';
 
 const CREDITS_COLLECTION = 'customPaymentCredits';
 
@@ -123,6 +123,17 @@ async function processCredit(credit) {
       data: { customID: order.customID, invoiceID: credit.invoiceID, actionUrl: portalLink(order.customID, 'overview') },
     }).catch((e) => console.error('⚠️ shop-payment notification failed:', e.message));
   }
+
+  // 2a. TELL THE OWNER. An admin-marked payment does (notifyPayment); a shop payment didn't, so the
+  // owner only found out by opening the order (audit 2026-10-14, A7). Best-effort.
+  await notifyAllAdmins({
+    type: 'custom-shop-payment-admin',
+    title: `Payment received: $${(Number(credit.amount) || 0).toFixed(2)} toward ${credit.customID}`,
+    message: `${order.title || credit.customID}${progress.paymentPath === 'over-time' ? ' (pay over time)' : ''}: paid $${(Number(progress.totalPaid) || 0).toFixed(2)} of $${(Number(progress.projectTotal) || 0).toFixed(2)}.${advanced.advanced && target === CUSTOM_ORDER_STATUS.IN_PRODUCTION ? ' Production threshold reached: the order is now in production.' : ''}`,
+    relatedId: credit.customID,
+    actionUrl: adminLink(`/dashboard/customs/${credit.customID}`),
+    channels: ['inApp', 'email'],
+  }).catch((e) => console.error('⚠️ shop-payment admin alert failed:', e.message));
 
   // 2b. PAID IN FULL is the affiliate commission trigger — a shop payment can be the
   // one that completes the order. Best-effort; the commission cron is the backstop.

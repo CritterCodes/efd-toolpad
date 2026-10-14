@@ -191,3 +191,46 @@ Ranked by what the first customer would hit. File refs are efd-shop.
 
 Open questions for the owner: **Q21** (production trigger for over-time) and **Q22** (mounting re-pricing cadence)
 in `docs/OPEN-QUESTIONS.md`.
+
+---
+
+## 8. "Fix it all" — the build (2026-10-14, later the same day)
+
+Owner, after reading §4–§7: *"Fix it all."* Taken as approval of every recommendation above, including Q21 and
+Q22 (recorded as DECIDED in `docs/OPEN-QUESTIONS.md` with those words). The two apps were built against one
+contract, **`docs/manufacturing/PAY_OVER_TIME_CONTRACT.md`** — read that first; it says which app writes which
+field.
+
+**Merging without CI.** GitHub Actions is billing-blocked (see `docs/OVERNIGHT_2026-10-14.md`), and main's
+branch protection no longer lists `check` as required — `gh api …/branches/main/protection/required_status_checks`
+answers "Required status checks not enabled". #329 therefore merged on local evidence (tests, lint, Vercel's
+build) and it shipped one inline `sx` over the ratchet, which only the (unrun) test suite would have caught; fixed
+in this PR. Until Actions is paid, run `npx vitest run` and `npx eslint src scripts --quiet` before every merge.
+
+### efd-admin (PR `claude/over-time-admin`)
+
+| Area | Change | Files |
+|---|---|---|
+| Deposit (rules §1) | `computeQuote` stamps `depositRequired = min(total, max(total × 0.5, cog × 1.25))`; deposit/full shop orders go to production when it's paid; the quote builder shows it | `customQuote.js`, `model.js normalizeQuote`, `paymentProgress.js withProductionGate`, `QuoteTab.js` |
+| Monthly clock | `paymentClock` + `addMonths` (pure, mirrored in the shop) | `paymentProgress.js` |
+| Stages for the owner | `gateLadder`: each stage paid/unpaid, `toCover`, staff-only "payments have covered the stone's cost" marker | `paymentProgress.js` |
+| Metal follows market (Q22) | Estimate stores `mounting.metal {metalKey, volumeCm3, metalWeightG, pricePerGram, metalCost, pricedAt}`; typing a cost clears it; daily cron re-prices only unpaid mountings on a ≥5% move, re-stamps gates/tax/total, records history, emails the client | `QuoteTab.js`, `payOverTime.js repriceOverTimeMountings`, `api/cron/reprice-custom-mountings` |
+| Paid stages locked | Quote PUT returns 409 naming the stage if an edit would change a paid stage; re-pricing checks the same | `api/custom-orders/[customID]/quote/route.js`, `payOverTime.js paidGateConflict` |
+| Price history | `quote.priceHistory[]` + `quote.pricedAt` on publish, on any edit that changes a published total, on every re-price | quote route, `payOverTime.js recordPrice` |
+| Reminders + overdue | Daily cron: one digest email per client a week and a day before each due date; first day past due → `payment.overdueSince`, one client email, admin alert; cleared by the next payment. Never forfeits on its own | `payOverTime.js runPaymentClock`, `api/cron/custom-payment-clock` |
+| Stone checks | `POST /api/custom-orders/[id]/stone-check {status: available/sold/purchased, note}` records and emails the client at once; due weekly while the stone stage is unpaid | `api/custom-orders/[customID]/stone-check`, `payOverTime.js recordStoneCheck` |
+| Owner's view | `/dashboard/customs/pay-over-time` (facelift kit): metrics, this week's chores, every order; Monday email of the same chores; "Pay over time" button on Customs; badge on order cards; list API now carries `payment.path`, `readyForProduction`, `overdueSince` | `dashboard/customs/pay-over-time/*`, `api/custom-orders/pay-over-time`, `api/cron/pay-over-time-weekly`, `customInvoices.service.js withPaymentSummaries`, `CustomOrderCard.js`, `customs/page.js` |
+| Order page | Pay-over-time panel on the Invoices tab: stages, clock, stone buttons, "mark stone bought", metal status, price history, overrides | `dashboard/customs/components/PayOverTimePanel.js`, `[customID]/page.js` |
+| Override (rules §4) | Moving an over-time order into production before its production stage is paid → 409 `needsOverride`; a dialog asks why; `payment.overrides[]` keeps who/when/why | `api/custom-orders/[customID]/route.js`, `[customID]/page.js` |
+| Owner alert | Every shop payment alerts the admins | `shopPaymentCredits.js` |
+| Artisan side effect | Only staff opening the Invoices tab drain shop payments | `api/custom-orders/[customID]/invoices/route.js` |
+| Email | The generic template keeps line breaks (`white-space: pre-line`) so digests read as lists | `emails/generic-notification.hbs` |
+| Crons | `reprice-custom-mountings` 14:00 UTC daily · `custom-payment-clock` 15:00 UTC daily · `pay-over-time-weekly` 13:00 UTC Mondays. All accept `?dryRun=1` | `vercel.json` |
+
+Tests: `paymentProgress.test.js` (deposit threshold, `addMonths` month-ends and leap year, `paymentClock`,
+`gateLadder`), `customQuote.test.js` (`depositRequired`), new `payOverTime.test.js` (lock, price entry, stone-check
+timing, chores), `shopPaymentCredits.test.js` (admin alert). Customs suite 256/256; full suite 2,413 passed (three
+production files can't load `mongodb-memory-server` in a worktree whose node_modules is a junction; unrelated).
+
+**Not done, on purpose:** status never moves backward after a refund (rules make status forward-only; the order
+page and the owner's list show the real paid figure). Forfeiture on default stays a human decision.
