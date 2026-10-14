@@ -106,7 +106,8 @@ async function processCredit(credit) {
 
   // 1. Threshold advancement off the REAL ledger (the shop's invoice is already in it).
   const { progress } = await getCustomPaymentProgress(credit.customID);
-  const target = progress.hasReached50 ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
+  // 50% for full/deposit orders; the pre-tax gates for pay-over-time (paymentProgress withProductionGate).
+  const target = progress.readyForProduction ? CUSTOM_ORDER_STATUS.IN_PRODUCTION : CUSTOM_ORDER_STATUS.DEPOSIT;
   const advanced = await advanceCustomOrderStatus(credit.customID, target, {
     reason: `shop payment ${progress.paymentProgress}%`,
   });

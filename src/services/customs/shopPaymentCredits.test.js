@@ -58,7 +58,7 @@ beforeEach(() => {
   creditUpdates.length = 0; advances.length = 0; receipts.length = 0; notifications.length = 0;
   receiptImpl = () => ({ delivery: { sent: true } });
   order = { customID: 'CO-1', clientID: 'client-1', title: 'Signet ring' };
-  progress = { paymentProgress: 12.5, hasReached50: false };
+  progress = { paymentProgress: 12.5, hasReached50: false, readyForProduction: false };
   credits = [{ _id: 'c1', creditID: 'cr-1', customID: 'CO-1', invoiceID: 'cinv-shop-1', amount: 10, status: 'applied' }];
 });
 
@@ -73,8 +73,8 @@ describe('drainShopPaymentCredits', () => {
     expect(credits[0].receipt).toEqual({ sent: true });
   });
 
-  it('targets in_production once the ledger crosses 50%', async () => {
-    progress = { paymentProgress: 62, hasReached50: true };
+  it('targets in_production once the order is ready for production', async () => {
+    progress = { paymentProgress: 62, hasReached50: true, readyForProduction: true };
     await drainShopPaymentCredits();
     expect(advances[0].target).toBe('in_production');
   });

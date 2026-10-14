@@ -293,7 +293,15 @@ export default function CustomDetailPage() {
               <LinearProgress variant="determinate" value={Math.min(100, progress.paymentProgress)} sx={{ height: 8, borderRadius: 4, backgroundColor: REPAIRS_UI.bgTertiary, '& .MuiLinearProgress-bar': { backgroundColor: REPAIRS_UI.accent } }} />
             </Box>
           )}
-          {progress?.hasReached50 && (() => {
+          {progress?.paymentPath === 'over-time' && !progress.readyForProduction && !progress.isFullyPaid && (
+            <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, border: `1px solid ${REPAIRS_UI.border}`, backgroundColor: REPAIRS_UI.bgTertiary }}>
+              <Typography variant="body2" sx={{ color: REPAIRS_UI.textPrimary, fontWeight: 700, mb: 0.5 }}>Pay over time</Typography>
+              <Typography variant="caption" sx={{ color: REPAIRS_UI.textSecondary }}>
+                The client is paying stage by stage (stone, mounting, production). Production starts once the production stage is paid: {money(progress.amountForProduction)} to go.
+              </Typography>
+            </Box>
+          )}
+          {progress?.readyForProduction && (() => {
             const q = order.quote || {};
             const parts = [
               q.mounting?.item && { label: 'Mounting', name: q.mounting.item },
@@ -302,7 +310,7 @@ export default function CustomDetailPage() {
             ].filter(Boolean);
             return (
               <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, border: '1px solid rgba(102,187,106,0.4)', backgroundColor: 'rgba(102,187,106,0.08)' }}>
-                <Typography variant="body2" sx={{ color: '#66BB6A', fontWeight: 700, mb: 0.5 }}>50% reached — order the parts</Typography>
+                <Typography variant="body2" sx={{ color: '#66BB6A', fontWeight: 700, mb: 0.5 }}>{progress.paymentPath === 'over-time' ? 'Production stage paid — order the parts' : '50% reached — order the parts'}</Typography>
                 {parts.length === 0 ? (
                   <Typography variant="caption" sx={{ color: REPAIRS_UI.textMuted }}>No gemstones or mounting on the quote yet.</Typography>
                 ) : (
