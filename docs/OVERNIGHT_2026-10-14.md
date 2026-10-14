@@ -78,6 +78,22 @@ Lint clean, production build clean, 2,349 tests pass. **Not merged, because noth
 So the one tool that checks a visual change at desktop **and** 375px is unavailable from both ends at
 once. Merging a visual PR on a green build would be claiming a fix I have not seen. In FRICTION-LOG.
 
+**Half of that is now fixed (#317, merged after this report was first written).** Chasing the blocker I
+found that `next start` and `next dev` both 500 on their first request in every worktree:
+`Cannot find module 'react/jsx-runtime'` from the build output in `%LOCALAPPDATA%`, which has no
+`node_modules` on any parent. `next build` survives it because the compiler resolves from the project
+root — which is why it was logged on 2026-10-01 as a *build* problem and given a build-shaped
+workaround ("use a real `.next` folder"). `prepare-next-dir.js` now links `node_modules` beside the
+output; `/auth/signin` goes 500 → 200. Checked 375px while it was up: no horizontal scroll, nothing
+overflowing.
+
+**What is still missing is a signed-in session.** `e2e/views/seed.mjs` states in its own header that it
+may never point at a real database, so its accounts can only be seeded into a throwaway Mongo — which
+needs `mongodb-memory-server`, the part still blocked. **One thing from the owner unblocks it:** the six
+`<role>@views.check` accounts already exist on `efd-database-DEV` (Q1), and their password is the
+`E2E_PREVIEW_PASSWORD` secret. With it, a local server pointed at `efd-database-DEV` signs in and every
+screen becomes checkable, writing nothing.
+
 ## EFD-DEFECTS — the list is stale, sweep before working from it
 
 The convention here is that a fix cites its id ("EFD-DEFECTS P1"). Grepping both repos for all 51 ids
@@ -104,11 +120,16 @@ known fixed without naming an id, so absence of a citation is weak evidence. Che
 2. **Browser-priced quotes (Q20).** **Recommendation:** let me run the comparison read-only first —
    both numbers over recent quotes — before anything changes. If they always agree it is a tidy-up; if
    they do not, that gap is money quoted wrong and you should see it before I touch it.
-3. **Actions billing.** It is blocking CI, `npm run views`, `ship.yml` and `deps.yml` simultaneously.
+3. **`E2E_PREVIEW_PASSWORD` — the cheapest unblock on this list.** The local server works again (#317).
+   The only thing between me and checking every converted screen at 375px is a session, and the six
+   `<role>@views.check` accounts you seeded on `efd-database-DEV` already exist for exactly this.
+   **Recommendation:** paste me that password, or put it in the worktree's `.env.local`. Nothing gets
+   written, nothing is installed, and the parked branch becomes mergeable the same night.
+4. **Actions billing.** It is blocking CI, `npm run views`, `ship.yml` and `deps.yml` simultaneously.
    **Recommendation:** settle it, or tell me to treat visual PRs as unshippable indefinitely — right now
    the UI half of the standing brief cannot be completed to its own standard, and saying so beats
-   quietly merging unverified screens.
-4. **The three cash-route invoices.** `rinv-bca435de`, `rinv-498455fe`, `rinv-96c7c681` still hold
+   quietly merging unverified screens. (3 above is the cheap workaround; this is the real fix.)
+5. **The three cash-route invoices.** `rinv-bca435de`, `rinv-498455fe`, `rinv-96c7c681` still hold
    inflated `amountPaid` totalling $754.32. No money is owed — the completed payment covered each total.
    **Recommendation:** let me correct them the same way I corrected Dylan's, dry run first. One word.
 

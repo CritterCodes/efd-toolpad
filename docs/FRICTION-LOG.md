@@ -111,3 +111,28 @@ for a guardrail.
   **Tell it apart from a real failure:** the stack is entirely inside `next/dist/compiled/@next/font` and
   names no file of yours. **Workaround:** re-run the build. **Proposed:** self-host the font files so a
   build never depends on a third-party fetch — it also removes a render-blocking request in production.
+- **2026-10-14: `npm run views` cannot run locally, and with Actions billing-blocked it cannot run at all.**
+  The crawl needs `playwright`, which is not in `node_modules`, the workspace root, or the pnpm store;
+  `mongodb-memory-server` is in the store but unlinked, which is also why 3 admin test suites fail locally
+  with `Failed to load url mongodb-memory-server`. Adding either is forbidden outside
+  `.github/workflows/deps.yml`, and that workflow needs GitHub Actions, blocked on billing ("recent
+  account payments have failed"). So the one tool that verifies a visual change at desktop **and** 375px
+  was unavailable from both ends at once, and `claude/pagebody-repairs-ring` (9 screens on the page frame,
+  lint/build/test clean) is parked unmerged for exactly that reason. **Proposed:** settle the Actions
+  billing, or link both packages through `deps.yml` once it can run — and until then treat visual PRs as
+  unshippable rather than merging on a green build.
+- **2026-10-14: nothing could serve the app locally either — and that part was a one-line bug, now fixed
+  (#317). Supersedes the 2026-10-01 entry above.** That entry recorded `Cannot find module
+  'react/jsx-runtime'` and worked around it with "a real `.next` folder in the worktree". The actual cause:
+  the output is junctioned to `%LOCALAPPDATA%`, Node resolves a bare `require` by walking **up** from the
+  requiring file, and nothing above `%LOCALAPPDATA%` has a `node_modules` — so the first thing in
+  `.next/server` to require a package name throws and the server 500s on its first request. **`next build`
+  survives it** because the compiler resolves from the project root, which is why it looked like a build
+  problem and got a build-shaped workaround. `scripts/prepare-next-dir.js` now links `node_modules` beside
+  the output; `/auth/signin` goes 500 → 200, no worktree surgery needed. **What is still missing to check a
+  dashboard screen is a signed-in session:** `e2e/views/seed.mjs` says in its own header that it may never
+  point at a real database, so those accounts can only go in a throwaway Mongo — the part still blocked.
+  **Shortest way out:** the owner already seeded the six `<role>@views.check` accounts on
+  `efd-database-DEV` (OPEN-QUESTIONS Q1) and holds the password as the `E2E_PREVIEW_PASSWORD` secret. With
+  that password, a local server pointed at `efd-database-DEV` signs in and every screen becomes checkable,
+  writing nothing.
