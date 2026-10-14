@@ -14,9 +14,12 @@ import path from 'node:path';
  * Two uses are not this bug and are excluded:
  *
  * - **Surfaces the kit does not reach.** Print and email templates are ink-on-white documents rendered
- *   outside the app's CSS. `/emergency-logout` is the same case for a different reason: it sits outside the
- *   dashboard providers, on MUI's *default light* palette, so a `Field` label rendered white on a pale blue
- *   Alert at about 1.1:1 — measured in the browser, invisible. The fix there is the page, not the row.
+ *   outside the app's CSS. `/emergency-logout` is excluded too, though **not** for the reason recorded
+ *   here until 2026-10-14: that page is no longer on MUI's light palette. Measured in a browser that day,
+ *   `body` is `rgb(8, 9, 11)` and every string passes AA. The reason it stays excluded is that `Field`
+ *   reads `--fl-text-3` and `--fl-text` with no fallbacks and nothing there mounts `FaceliftRoot`, so both
+ *   halves would inherit the Alert's severity colour and the tonal separation would be lost. The fix there
+ *   is still the page, not the row — see the header of `SessionStatusAlert.js`.
  * - **Prose emphasis** — `<strong>Security Notice:</strong> This PIN will only be displayed once.` is a
  *   sentence with a lead-in, not a label and a value. The test only counts a `<strong>` whose next
  *   non-space character starts an expression or ends the element, which is the label-and-value shape.
