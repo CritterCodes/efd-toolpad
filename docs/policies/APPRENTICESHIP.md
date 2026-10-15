@@ -5,6 +5,8 @@ Status: **OPEN — being designed.** Started 2026-09-30. Nothing here is built e
 
 Recommendations below come from the research at the bottom of this doc. They are **not decisions**.
 
+**The proposed program built from this research — levels, rep counts, the bench test, pay, and the implementation plan — is [`APPRENTICESHIP_PROGRAM.md`](APPRENTICESHIP_PROGRAM.md) (2026-09-30).** This doc stays as the research and the open questions.
+
 ---
 
 ## Shipped (2026-09-30, PR #140)
