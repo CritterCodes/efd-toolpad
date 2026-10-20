@@ -30,7 +30,7 @@ const accountOn = (interval) => ({ settings: { payouts: { schedule: { interval }
 vi.mock('@/lib/notificationService', () => ({ notifyAllAdmins: mocks.notifyAllAdmins }));
 vi.mock('@/lib/appUrls', () => ({ adminBase: () => 'http://test' }));
 
-import { computeFundingNeed, normalizeFundingSettings, fundingIdempotencyKey, runFundingCheck, FUNDING_DEFAULTS } from './payrollFunding';
+import { computeFundingNeed, normalizeFundingSettings, fundingIdempotencyKey, fundingTopupRequest, runFundingCheck, FUNDING_DEFAULTS } from './payrollFunding';
 
 const MON = new Date('2026-09-21T15:00:00Z');
 
@@ -82,6 +82,18 @@ describe('payroll funding math (pure)', () => {
 
   it('rounds to whole cents, so float drift cannot mint a second key for one amount', () => {
     expect(fundingIdempotencyKey(MON, 49999.6)).toBe(fundingIdempotencyKey(MON, 50000));
+  });
+
+  /**
+   * The rest of the request must be as steady as its key (2026-10-20: "Try using a key other than 'payroll-funding-2026-10-20-23758'"
+   * — the same day, the same amount, a second run). The amount was in the key, but the request also carried runAt and the live
+   * balance and projection, which differ every run; Stripe refused the repeat as "different parameters". Everything sent is now made
+   * from the day and the amount alone, so a repeat is the same request and collapses to the one top-up.
+   */
+  it('a repeat on the same day for the same amount sends the very same request', () => {
+    const morning = new Date('2026-10-20T15:00:00Z'); const later = new Date('2026-10-20T15:06:00Z');
+    expect(fundingTopupRequest(later, 23758)).toEqual(fundingTopupRequest(morning, 23758));
+    expect(fundingTopupRequest(morning, 23758)).toEqual({ amountCents: 23758, description: 'Payroll funding — 2026-10-20', metadata: { day: '2026-10-20', amountCents: '23758' }, idempotencyKey: 'payroll-funding-2026-10-20-23758' });
   });
 
   it('keeps the old day-only shape when no amount is given', () => {
