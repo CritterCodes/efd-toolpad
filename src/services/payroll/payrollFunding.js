@@ -86,6 +86,19 @@ export function computeFundingNeed({ projected = 0, balance = 0, settings = FUND
  * is bounded by `maxTopup` per run and self-limiting: each top-up raises the balance, which lowers
  * the next computed shortfall.
  */
+/**
+ * The whole top-up request, made from the day and the amount alone (2026-10-20). Stripe refuses a key it has seen with ANY parameter
+ * different — not just the amount: the request carried runAt and the live balance and projection, which differ every run, so the
+ * second run of a day for the same amount failed ("Try using a key other than 'payroll-funding-2026-10-20-23758'"). Now a repeat is
+ * the very same request and collapses to the one top-up. The projection and balance stay in the admins' notice and the run's result.
+ */
+export function fundingTopupRequest(now, amountCents) {
+  const idempotencyKey = fundingIdempotencyKey(now, amountCents);
+  const day = idempotencyKey.slice('payroll-funding-'.length, 'payroll-funding-'.length + 10);
+  const cents = Math.round(Number(amountCents) || 0);
+  return { amountCents: cents, description: `Payroll funding — ${day}`, metadata: { day, amountCents: String(cents) }, idempotencyKey };
+}
+
 export function fundingIdempotencyKey(now = new Date(), amountCents = null) {
   const day = now.toISOString().slice(0, 10);
   if (amountCents === null || amountCents === undefined) return `payroll-funding-${day}`;
@@ -194,12 +207,8 @@ export async function runFundingCheck({ now = new Date(), dryRun = false, notify
     if (dryRun) return { ...result, wouldTopup: need.topup };
 
     const amountCents = Math.round(need.topup * 100);
-    const topup = await createTopup({
-      amountCents,
-      description: `Payroll funding — projected ${money(due.projected)} + ${settings.bufferPct}% buffer + ${money(settings.floor)} floor`,
-      metadata: { projected: String(due.projected), target: String(need.target), balance: String(need.balance), runAt: now.toISOString() },
-      idempotencyKey: fundingIdempotencyKey(now, amountCents),
-    });
+    // Everything sent is made from the day and the amount — the key's own parts — so a re-run is the same request (2026-10-20).
+    const topup = await createTopup(fundingTopupRequest(now, amountCents));
     result.topup = { id: topup.id, amount: need.topup, status: topup.status, expectedAvailability: topup.expected_availability_date ? new Date(topup.expected_availability_date * 1000) : null };
     if (notify) {
       await notifyAllAdmins({
