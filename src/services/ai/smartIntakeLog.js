@@ -59,6 +59,9 @@ export function compareIntake(kind, suggestion = {}, outcome = {}) {
   for (const field of ['metalType', 'karat', 'goldColor', 'currentRingSize', 'desiredRingSize', 'promiseDate']) {
     const ai = field === 'metalType' || field === 'karat' || field === 'goldColor' ? lower(suggestion[field]) : text(suggestion[field]);
     const final = field === 'metalType' || field === 'karat' || field === 'goldColor' ? lower(outcome[field]) : text(outcome[field]);
+    // Every ticket carries a promise date and almost nobody says one, so the form fills it in. A blank date from the
+    // AI is the right answer then, not a miss: counting it marked all 77 saved text intakes as "changed" (2026-11-09).
+    if (field === 'promiseDate' && !ai) continue;
     if (ai !== final) push(field, ai, final);
   }
   if (typeof suggestion.isRing === 'boolean' && suggestion.isRing !== outcome.isRing) push('isRing', suggestion.isRing, outcome.isRing);

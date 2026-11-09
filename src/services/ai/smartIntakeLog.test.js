@@ -57,9 +57,15 @@ describe('compareIntake', () => {
     const changes = compareIntake('text', suggestion, outcome);
     expect(changes).toEqual([
       { field: 'karat', ai: '14k', final: '18k' },
-      { field: 'promiseDate', ai: '—', final: '2026-10-08' },
       { field: 'tasks', ai: 'Size Down', final: 't1 ×2' },
     ]);
+  });
+
+  it('a promise date the AI left blank is the form default, not a miss; a wrong date it gave is', () => {
+    const outcome = ticketOutcome({ ...suggestion, tasks: [{ _id: 't1', quantity: 1 }], promiseDate: '2026-10-08' });
+    expect(compareIntake('text', suggestion, outcome)).toEqual([]);
+    expect(compareIntake('text', { ...suggestion, promiseDate: '2026-10-10' }, outcome))
+      .toEqual([{ field: 'promiseDate', ai: '2026-10-10', final: '2026-10-08' }]);
   });
 
   it('counts a wrong ring call', () => {

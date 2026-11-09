@@ -235,6 +235,33 @@ thing from the owner: a handful of intakes where it got it wrong, and what was r
 
 **Status:** open, waiting for those examples.
 
+**2026-11-09 — the log answered it.** Owner: *"I think we should have some data now."* `smartIntakeLogs` (production, read-only)
+held 194 entries, 2026-10-02 to 11-06: 106 typed, 88 photos; 153 saved to a ticket. Photos: 76 saved, **none** edited. Typed: 77
+saved; the tasks differed from the finished ticket on **33**. What drove those, and what changed (branch `claude/smart-intake-quality`):
+
+| Cause | Evidence | Done |
+|---|---|---|
+| The keyword prefilter hid the right task from the model | 11 of the 94 tasks on finished tickets were never offered: "from 11.5 to 9" → Size Down, "laser-welded" → Laser Weld, "two tips" → Retip | The whole catalog (32 tasks) is sent; the prefilter runs only above 80 |
+| A count of pieces read as a size | "Size all 3 to a 6" → current size 3; "2 rings" lost the sizing | Prompt rule: a piece count multiplies each job and is never a size |
+| Two sizes without the word "size" | "7.25 needs to be 6.75" → no sizing task (twice) | Prompt rule |
+| The 3–5mm sizing task picked with no width stated | 3 tickets changed it to the up-to-3mm task | Prompt rule: no width stated → the narrowest band |
+| The miss counter itself | Every saved intake counted as "changed", because nobody says a promise date and the form fills one | A blank AI date is no longer a miss |
+
+Not yet measured: a replay of the 77 through the new prompt is written but could not run — the Gemini key in the local
+`.env.local` answered **402, prepayment credits depleted**. Production uses a different key and is working (owner, 2026-11-09:
+*"ai seems to be working fine in prod"*).
+
+**Ruled by the owner, 2026-11-09, and built the same day:**
+1. **Rhodium on white gold** — *"yes all white gold get rhodium"*. The Rhodium Plating task has aiMeta, but it only says
+   "turned yellow or dull, or the customer asks", so the model left it off. Now deterministic: `withRhodiumForWhiteGold`
+   adds the task to any white-gold intake that matched a job.
+2. **Gold colour when unsaid** — *"yes yellow default is ok"*. `normalizeParsedPayload` fills yellow.
+3. **Size-up quantity** — *"it kept suggesting 1/4, 1/2, and 3/4 sizes and applying the fractional stock as a material when
+   it should be rounding up. 1.25 sizes is charged as 2"*. Sizing stock is whole sizes, rounded up, in the prompt, in
+   `normalizeParsedPayload` and in `getAdditionalSizingMaterialQuantity` (4.75→6 = 1 stock; 8.5→12.25 = 3).
+
+**Status:** fixes in PR #336; still to do — replay the logged intakes once a funded key is on this machine.
+
 ---
 
 ### Q14 — Retipping is priced from a labour estimate four times reality, and the laser is charged per prong (opened 2026-10-02)
