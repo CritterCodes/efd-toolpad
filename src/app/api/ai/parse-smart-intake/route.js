@@ -152,6 +152,58 @@ export const withRhodiumForWhiteGold = (parsed, tasks = []) => {
   return { ...parsed, matchedTasks: next, matchedTaskIds: next.map((m) => m.id) };
 };
 
+const titleOf = (t) => String(t?.title || '').toLowerCase();
+const WIDE_BAND = /3\s*(?:mm)?\s*to\s*5\s*mm/;
+const NARROW_BAND = /up to 3\s*mm/;
+/** A task title with its width band and filler removed, so "Size Up - 3mm to 5mm shanks" and "Size up (1 size) - up to 3mm x 2 mm shank" compare equal. */
+const familyOf = (t) => titleOf(t)
+  .replace(WIDE_BAND, '').replace(NARROW_BAND, '').replace(/\(1 size\)|x\s*2\s*mm|shanks?/g, '')
+  .replace(/[^a-z]+/g, ' ').trim();
+/** Did the intake say the shank is wide? A stated width over 3mm, or the word for it. */
+export const statesWideShank = (inputText = '') => {
+  const text = String(inputText).toLowerCase();
+  const widths = [...text.matchAll(/(\d+(?:\.\d+)?)\s*mm/g)].map((m) => Number(m[1]));
+  return widths.some((w) => w > 3) || /\b(wide|thick|heavy|chunky)\b/.test(text);
+};
+
+/**
+ * A ring is 3x2mm unless the intake says otherwise (owner, 2026-11-09: "Default ring mm is always 3x2 unless specified
+ * 3-5"). A matched 3-to-5mm task becomes its up-to-3mm sibling when no wide shank was stated.
+ */
+export const withDefaultShankWidth = (parsed, tasks = [], inputText = '') => {
+  if (statesWideShank(inputText)) return parsed;
+  const byId = new Map(tasks.map((t) => [String(t.id), t]));
+  const matchedTasks = (parsed.matchedTasks || []).map((m) => {
+    const task = byId.get(m.id);
+    if (!task || !WIDE_BAND.test(titleOf(task))) return m;
+    const narrow = tasks.find((t) => NARROW_BAND.test(titleOf(t)) && familyOf(t) === familyOf(task));
+    return narrow ? { ...m, id: String(narrow.id) } : m;
+  });
+  return { ...parsed, matchedTasks, matchedTaskIds: matchedTasks.map((m) => m.id) };
+};
+
+/**
+ * Two ring sizes ARE a sizing job. "Going up two sizes from 5 to a 7" came back with sizing stock and no task
+ * (owner's screenshot, 2026-11-09). When the sizes move and no sizing task was matched, add the standard one:
+ * Size Down, or the up-to-3mm Size Up. The form's metal alignment swaps in the platinum task afterwards.
+ */
+export const withSizingTaskForSizes = (parsed, tasks = []) => {
+  const from = Number.parseFloat(parsed.currentRingSize);
+  const to = Number.parseFloat(parsed.desiredRingSize);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) return parsed;
+  const byId = new Map(tasks.map((t) => [String(t.id), t]));
+  const matched = parsed.matchedTasks || [];
+  const isSizing = (t) => /\bsiz(e|ing)\b/.test(titleOf(t)) && !/bead/.test(titleOf(t));
+  if (matched.some((m) => isSizing(byId.get(m.id)))) return parsed;
+  const standard = tasks.filter((t) => !/platinum|customer|bead/.test(titleOf(t)) && !(Array.isArray(t.metals) && t.metals.length));
+  const pick = to < from
+    ? standard.find((t) => /size down/.test(titleOf(t)))
+    : (standard.find((t) => /size up/.test(titleOf(t)) && NARROW_BAND.test(titleOf(t))) || standard.find((t) => /size up/.test(titleOf(t))));
+  if (!pick) return parsed;
+  const matchedTasks = [{ id: String(pick.id), quantity: 1 }, ...matched];
+  return { ...parsed, matchedTasks, matchedTaskIds: matchedTasks.map((m) => m.id) };
+};
+
 export const prefilterTasks = (inputText, tasks, limit = 15) => {
   const words = inputText.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
   if (!words.length) return tasks.slice(0, limit);
@@ -349,7 +401,11 @@ export async function POST(request) {
       );
     }
 
-    const normalized = withRhodiumForWhiteGold(normalizeParsedPayload(parsed), tasks);
+    // The model suggests; these decide. Order matters: the sizing task first, so rhodium sees a matched job.
+    const normalized = withRhodiumForWhiteGold(
+      withDefaultShankWidth(withSizingTaskForSizes(normalizeParsedPayload(parsed), tasks), tasks, inputText),
+      tasks,
+    );
 
     // Smart-intake log (OPEN-QUESTIONS Q13): what was typed and what the AI said. The save adds what the ticket
     // became. Task ids are kept with their titles so the log reads without a lookup. Best-effort.

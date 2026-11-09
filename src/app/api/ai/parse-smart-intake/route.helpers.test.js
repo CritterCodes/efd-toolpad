@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
-const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT, withRhodiumForWhiteGold } = await import('./route.js');
+const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT, withRhodiumForWhiteGold, withSizingTaskForSizes, withDefaultShankWidth, statesWideShank } = await import('./route.js');
 
 describe('normalizeKaratValue', () => {
   it('maps every casing and suffix Gemini produces onto the form vocabulary', () => {
@@ -138,5 +138,56 @@ describe('owner rulings, 2026-11-09', () => {
       expect(withRhodiumForWhiteGold(white([]), tasks).matchedTasks).toEqual([]);
       expect(withRhodiumForWhiteGold(white([{ id: 'down', quantity: 1 }]), [tasks[0]]).matchedTasks).toHaveLength(1);
     });
+  });
+});
+
+describe('the sizing task is decided, not hoped for (owner, 2026-11-09)', () => {
+  // The live titles, 2026-11-09.
+  const tasks = [
+    { id: 'down', title: 'Size Down' },
+    { id: 'up3', title: 'Size up (1 size) - up to 3mm x 2 mm shank' },
+    { id: 'up5', title: 'Size Up  - 3mm to 5mm shanks' },
+    { id: 'upCust', title: 'Size Up (Customer Supplied Gold)' },
+    { id: 'upPt', title: 'Size Up (1 size) — Platinum (laser welded)', metals: ['platinum'] },
+    { id: 'hs3', title: 'Half-Shank — up to 3mm' },
+    { id: 'hs5', title: 'Half-Shank — 3 to 5mm' },
+    { id: 'beads', title: 'Sizing Beads' },
+    { id: 'rh', title: 'Rhodium Plating' },
+  ];
+  const parsed = (over) => ({ metalType: 'gold', goldColor: 'white', currentRingSize: '5', desiredRingSize: '7', matchedTasks: [], matchedTaskIds: [], ...over });
+
+  it('"going up two sizes from 5 to a 7" with no task matched gets the 3x2 size up, and then rhodium', () => {
+    const sized = withSizingTaskForSizes(parsed(), tasks);
+    expect(sized.matchedTasks).toEqual([{ id: 'up3', quantity: 1 }]);
+    expect(withRhodiumForWhiteGold(sized, tasks).matchedTaskIds).toEqual(['up3', 'rh']);
+  });
+
+  it('a size down gets Size Down; sizing beads do not count as the sizing job', () => {
+    expect(withSizingTaskForSizes(parsed({ currentRingSize: '7.25', desiredRingSize: '6.75' }), tasks).matchedTaskIds).toEqual(['down']);
+    expect(withSizingTaskForSizes(parsed({ matchedTasks: [{ id: 'beads', quantity: 1 }] }), tasks).matchedTaskIds).toEqual(['up3', 'beads']);
+  });
+
+  it('leaves alone: a sizing task already matched (customer gold included), or no size change', () => {
+    const cust = parsed({ matchedTasks: [{ id: 'upCust', quantity: 1 }] });
+    expect(withSizingTaskForSizes(cust, tasks)).toBe(cust);
+    const none = parsed({ currentRingSize: '', desiredRingSize: '' });
+    expect(withSizingTaskForSizes(none, tasks)).toBe(none);
+    const same = parsed({ currentRingSize: '8', desiredRingSize: '8' });
+    expect(withSizingTaskForSizes(same, tasks)).toBe(same);
+  });
+
+  it('a ring is 3x2 unless a wide shank is stated', () => {
+    const wide = parsed({ matchedTasks: [{ id: 'up5', quantity: 1 }, { id: 'hs5', quantity: 3 }] });
+    expect(withDefaultShankWidth(wide, tasks, '10k white gold, size 6 to 7.5').matchedTasks)
+      .toEqual([{ id: 'up3', quantity: 1 }, { id: 'hs3', quantity: 3 }]);
+    expect(withDefaultShankWidth(wide, tasks, '14k yellow gold, 5 mm band, size up 2 sizes')).toBe(wide);
+    expect(withDefaultShankWidth(wide, tasks, 'wide band size up')).toBe(wide);
+  });
+
+  it('statesWideShank: a width over 3mm or the word for it; "3x2 mm" and "2 mm" are not wide', () => {
+    expect(statesWideShank('3.5 mm band')).toBe(true);
+    expect(statesWideShank('chunky ring')).toBe(true);
+    expect(statesWideShank('3x2 mm shank')).toBe(false);
+    expect(statesWideShank('size 5 to 7')).toBe(false);
   });
 });
