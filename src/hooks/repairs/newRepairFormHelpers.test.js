@@ -46,7 +46,9 @@ describe('ring sizing', () => {
 
   it('adds sizing stock only past the first size up, in half sizes', () => {
     expect(getAdditionalSizingMaterialQuantity('6', '7')).toBe(0);
-    expect(getAdditionalSizingMaterialQuantity('6', '8.5')).toBe(1.5);
+    expect(getAdditionalSizingMaterialQuantity('6', '8.5')).toBe(2); // 2.5 sizes charges as 3: the task's one + 2 stock
+    expect(getAdditionalSizingMaterialQuantity('4.75', '6')).toBe(1); // owner 2026-11-09: "1.25 sizes is charged as 2"
+    expect(getAdditionalSizingMaterialQuantity('8.5', '12.25')).toBe(3);
     expect(getAdditionalSizingMaterialQuantity('8', '6')).toBe(0);
   });
 });

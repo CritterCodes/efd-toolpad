@@ -248,14 +248,19 @@ saved; the tasks differed from the finished ticket on **33**. What drove those, 
 | The miss counter itself | Every saved intake counted as "changed", because nobody says a promise date and the form fills one | A blank AI date is no longer a miss |
 
 Not yet measured: a replay of the 77 through the new prompt is written but could not run — the Gemini key in the local
-`.env.local` answered **402, prepayment credits depleted**. If production uses the same key, smart intake is down.
+`.env.local` answered **402, prepayment credits depleted**. Production uses a different key and is working (owner, 2026-11-09:
+*"ai seems to be working fine in prod"*).
 
-**Owner's to rule (the log shows a habit the AI can't know):**
-1. **Rhodium on white gold.** Rhodium Plating was added by hand to 4 white-gold jobs that never mentioned it. Should a
-   white-gold intake suggest it?
-2. **Gold colour when unsaid.** "14k" with no colour became yellow every time (5 of 5). Default to yellow?
-3. **Size-up quantity.** The prompt says a sizing task is always ×1 plus sizing stock; finished tickets use *Size up (1 size)*
-   ×1 for 4.75→6 and 6→7.5, but ×2 for 5→7 and 8.5→12.25. What is the rule?
+**Ruled by the owner, 2026-11-09, and built the same day:**
+1. **Rhodium on white gold** — *"yes all white gold get rhodium"*. The Rhodium Plating task has aiMeta, but it only says
+   "turned yellow or dull, or the customer asks", so the model left it off. Now deterministic: `withRhodiumForWhiteGold`
+   adds the task to any white-gold intake that matched a job.
+2. **Gold colour when unsaid** — *"yes yellow default is ok"*. `normalizeParsedPayload` fills yellow.
+3. **Size-up quantity** — *"it kept suggesting 1/4, 1/2, and 3/4 sizes and applying the fractional stock as a material when
+   it should be rounding up. 1.25 sizes is charged as 2"*. Sizing stock is whole sizes, rounded up, in the prompt, in
+   `normalizeParsedPayload` and in `getAdditionalSizingMaterialQuantity` (4.75→6 = 1 stock; 8.5→12.25 = 3).
+
+**Status:** fixes in PR #336; still to do — replay the logged intakes once a funded key is on this machine.
 
 ---
 

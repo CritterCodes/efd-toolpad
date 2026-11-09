@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
-const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT } = await import('./route.js');
+const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT, withRhodiumForWhiteGold } = await import('./route.js');
 
 describe('normalizeKaratValue', () => {
   it('maps every casing and suffix Gemini produces onto the form vocabulary', () => {
@@ -101,5 +101,42 @@ describe('buildIntakePrompt', () => {
     expect(prompt).toMatch(/SEVERAL PIECES/);        // "size all 3 to a 6" was read as size 3 -> 6
     expect(prompt).toMatch(/SIZE WITH NO WORD "SIZE"/); // "7.25 needs to be 6.75" got no sizing task
     expect(prompt).toMatch(/SHANK WIDTH/);           // a 3-5mm sizing task picked with no width stated
+  });
+});
+
+describe('owner rulings, 2026-11-09', () => {
+  it('gold with no colour said is yellow; other metals get no colour', () => {
+    expect(normalizeParsedPayload({ metalType: 'gold', karat: '14k' }).goldColor).toBe('yellow');
+    expect(normalizeParsedPayload({ metalType: 'gold', goldColor: 'white' }).goldColor).toBe('white');
+    expect(normalizeParsedPayload({ metalType: 'silver' }).goldColor).toBe('');
+  });
+
+  it('sizing stock is whole sizes, rounded up — never a quarter of a piece', () => {
+    const hints = normalizeParsedPayload({ materialHints: [{ type: 'sizing_material', quantity: 0.25 }, { type: 'solder', quantity: 0.5 }] }).materialHints;
+    expect(hints).toEqual([
+      { type: 'sizing_material', quantity: 1, reason: '' },
+      { type: 'solder', quantity: 0.5, reason: '' },
+    ]);
+  });
+
+  describe('every white gold job gets rhodium', () => {
+    const tasks = [{ id: 'down', title: 'Size Down' }, { id: 'rh', title: 'Rhodium Plating' }];
+    const white = (matchedTasks) => ({ metalType: 'gold', goldColor: 'white', matchedTasks, matchedTaskIds: matchedTasks.map((m) => m.id) });
+
+    it('adds it when the model left it off, carrying the piece count', () => {
+      expect(withRhodiumForWhiteGold(white([{ id: 'down', quantity: 1 }]), tasks).matchedTasks)
+        .toEqual([{ id: 'down', quantity: 1 }, { id: 'rh', quantity: 1 }]);
+      expect(withRhodiumForWhiteGold(white([{ id: 'down', quantity: 2 }]), tasks).matchedTasks.at(-1))
+        .toEqual({ id: 'rh', quantity: 2 });
+    });
+
+    it('leaves alone: already there, yellow gold, no matched job, no rhodium task in the catalog', () => {
+      const has = white([{ id: 'down', quantity: 1 }, { id: 'rh', quantity: 1 }]);
+      expect(withRhodiumForWhiteGold(has, tasks)).toBe(has);
+      const yellow = { ...white([{ id: 'down', quantity: 1 }]), goldColor: 'yellow' };
+      expect(withRhodiumForWhiteGold(yellow, tasks)).toBe(yellow);
+      expect(withRhodiumForWhiteGold(white([]), tasks).matchedTasks).toEqual([]);
+      expect(withRhodiumForWhiteGold(white([{ id: 'down', quantity: 1 }]), [tasks[0]]).matchedTasks).toHaveLength(1);
+    });
   });
 });

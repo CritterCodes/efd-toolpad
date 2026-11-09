@@ -109,7 +109,11 @@ export const normalizeParsedPayload = (payload = {}) => {
         type: normalizeString(item?.type || item?.name).toLowerCase().replace(/\s+/g, '_'),
         quantity: Math.max(0, Number(item?.quantity || 0)),
         reason: normalizeString(item?.reason)
-      })).filter((item) => item.type && item.quantity > 0).slice(0, 3)
+      }))
+      // Sizing stock is charged by the whole size, rounded up (owner, 2026-11-09: "1.25 sizes is charged as 2").
+      // The model kept answering 0.25 / 0.5 / 0.75, which put a fraction of a piece of stock on the ticket.
+      .map((item) => (item.type === 'sizing_material' ? { ...item, quantity: Math.ceil(item.quantity) } : item))
+      .filter((item) => item.type && item.quantity > 0).slice(0, 3)
     : [];
 
   const metalType = normalizeEnum(payload.metalType, ['gold', 'silver', 'platinum', 'costume']);
@@ -117,7 +121,8 @@ export const normalizeParsedPayload = (payload = {}) => {
   return {
     metalType,
     karat: applyDefaultPurity(metalType, normalizeKaratValue(payload.karat)),
-    goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']),
+    // Gold with no colour said is yellow (owner, 2026-11-09; 5 of 5 logged intakes were corrected to yellow).
+    goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']) || (metalType === 'gold' ? 'yellow' : ''),
     isRing: toBool(payload.isRing),
     currentRingSize: normalizeString(payload.currentRingSize),
     desiredRingSize: normalizeString(payload.desiredRingSize),
@@ -129,6 +134,22 @@ export const normalizeParsedPayload = (payload = {}) => {
     matchedTaskIds,
     matchedTasks: matchedTasks.length ? matchedTasks : matchedTaskIds.map((id) => ({ id, quantity: 1 }))
   };
+};
+
+/**
+ * Every white gold job gets rhodium (owner, 2026-11-09: "yes all white gold get rhodium"). The Rhodium Plating task's
+ * own aiMeta only says "turned yellow or dull, or the customer asks", so the model left it off 4 logged white-gold jobs.
+ * Deterministic: the prompt asks for it, this guarantees it. Added past the 3-task cap, with the piece count the other
+ * jobs carry when they all agree ("2 rings" = rhodium x2), otherwise 1.
+ */
+export const withRhodiumForWhiteGold = (parsed, tasks = []) => {
+  if (parsed?.metalType !== 'gold' || parsed?.goldColor !== 'white') return parsed;
+  const rhodium = tasks.find((t) => /rhodium/i.test(String(t?.title || '')));
+  const matched = parsed.matchedTasks || [];
+  if (!rhodium || !matched.length || matched.some((m) => m.id === String(rhodium.id))) return parsed;
+  const quantities = [...new Set(matched.map((m) => m.quantity))];
+  const next = [...matched, { id: String(rhodium.id), quantity: quantities.length === 1 ? quantities[0] : 1 }];
+  return { ...parsed, matchedTasks: next, matchedTaskIds: next.map((m) => m.id) };
 };
 
 export const prefilterTasks = (inputText, tasks, limit = 15) => {
@@ -214,7 +235,9 @@ export function buildIntakePrompt({ inputText, description = '', tasks = [], tod
     '- promiseDate must be YYYY-MM-DD. Resolve relative dates like "next friday" against the current date. If no due/promise date is stated, use an empty string.',
     '- taskHints should be SHORT keywords that describe repair work.',
     '- materialHints should only be used when the intake clearly implies extra material beyond the base task.',
-    '- For ring sizing, assume the base sizing task covers 1 size. If the ring is being sized UP by more than 1 full size, add a sizing_material hint with quantity equal to the extra sizes beyond the first included size. Example: from 7 to 9 => quantity 1. from 7 to 8.5 => quantity 0.5.',
+    '- For ring sizing, the base sizing task covers 1 size. Sizing stock is charged by the WHOLE size, rounded UP: 1.25 sizes counts as 2. If the ring is being sized UP by more than 1 size, add a sizing_material hint with quantity = (sizes moved, rounded up) - 1. Examples: 7 to 9 => 1. 7 to 8.5 => 1. 4.75 to 6 => 1. 8.5 to 12.25 => 3. Never a fraction.',
+    '- WHITE GOLD: every white gold job also gets the rhodium plating task when one is listed, whether or not rhodium is mentioned.',
+    '- GOLD COLOR: gold with no color stated is yellow.',
     '- Do not add materialHints for size-down work unless material is explicitly mentioned.',
     '- Ring examples: "resize", "size up", "size down", "resize with stones", "size with accent stones", "retip", "prong", "setting"',
     '- Non-ring examples: "solder", "chain repair", "clasp repair", "restring", "clean", "polish", "stone replace", "weld", "refinish", "replating"',
@@ -326,7 +349,7 @@ export async function POST(request) {
       );
     }
 
-    const normalized = normalizeParsedPayload(parsed);
+    const normalized = withRhodiumForWhiteGold(normalizeParsedPayload(parsed), tasks);
 
     // Smart-intake log (OPEN-QUESTIONS Q13): what was typed and what the AI said. The save adds what the ticket
     // became. Task ids are kept with their titles so the log reads without a lookup. Best-effort.

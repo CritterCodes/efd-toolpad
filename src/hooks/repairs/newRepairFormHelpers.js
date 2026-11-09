@@ -122,7 +122,8 @@ export const getRingSizeDelta = (currentRingSize = '', desiredRingSize = '') => 
 export const getAdditionalSizingMaterialQuantity = (currentRingSize = '', desiredRingSize = '') => {
   const delta = getRingSizeDelta(currentRingSize, desiredRingSize);
   if (delta <= 1) return 0;
-  return Math.round((delta - 1) * 2) / 2;
+  // Charged by the whole size, rounded up (owner, 2026-11-09: "1.25 sizes is charged as 2") — never half a piece of stock.
+  return Math.ceil(delta) - 1;
 };
 
 export const inferMaterialHintsFromSmartIntake = ({
