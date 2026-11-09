@@ -10,7 +10,7 @@
 // `canEdit` defaults to true so every existing caller is unchanged; the customs detail page passes
 // `isStaff(session)`.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 import NotesTab from './NotesTab';
@@ -61,6 +61,23 @@ describe('the same tabs for staff', () => {
     cleanup();
     showImages(true);
     expect(screen.getByRole('button', { name: /upload/i })).toBeInTheDocument();
+  });
+
+  it('asks before removing an image — one tap must never delete it (2026-11-09, two lost on mobile)', async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const onChanged = vi.fn();
+    render(<ImagesTab customID="CO-1" images={images} onChanged={onChanged} notify={vi.fn()} canEdit />);
+    fireEvent.click(screen.getByRole('button', { name: /remove image/i }));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /^keep$/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /remove image/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(fetchSpy).toHaveBeenCalledWith('/api/custom-orders/CO-1/images/i1', { method: 'DELETE' });
+    vi.unstubAllGlobals();
   });
 
   it('default to editable, so no existing caller changed behaviour', () => {
