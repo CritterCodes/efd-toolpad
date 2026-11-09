@@ -235,6 +235,28 @@ thing from the owner: a handful of intakes where it got it wrong, and what was r
 
 **Status:** open, waiting for those examples.
 
+**2026-11-09 — the log answered it.** Owner: *"I think we should have some data now."* `smartIntakeLogs` (production, read-only)
+held 194 entries, 2026-10-02 to 11-06: 106 typed, 88 photos; 153 saved to a ticket. Photos: 76 saved, **none** edited. Typed: 77
+saved; the tasks differed from the finished ticket on **33**. What drove those, and what changed (branch `claude/smart-intake-quality`):
+
+| Cause | Evidence | Done |
+|---|---|---|
+| The keyword prefilter hid the right task from the model | 11 of the 94 tasks on finished tickets were never offered: "from 11.5 to 9" → Size Down, "laser-welded" → Laser Weld, "two tips" → Retip | The whole catalog (32 tasks) is sent; the prefilter runs only above 80 |
+| A count of pieces read as a size | "Size all 3 to a 6" → current size 3; "2 rings" lost the sizing | Prompt rule: a piece count multiplies each job and is never a size |
+| Two sizes without the word "size" | "7.25 needs to be 6.75" → no sizing task (twice) | Prompt rule |
+| The 3–5mm sizing task picked with no width stated | 3 tickets changed it to the up-to-3mm task | Prompt rule: no width stated → the narrowest band |
+| The miss counter itself | Every saved intake counted as "changed", because nobody says a promise date and the form fills one | A blank AI date is no longer a miss |
+
+Not yet measured: a replay of the 77 through the new prompt is written but could not run — the Gemini key in the local
+`.env.local` answered **402, prepayment credits depleted**. If production uses the same key, smart intake is down.
+
+**Owner's to rule (the log shows a habit the AI can't know):**
+1. **Rhodium on white gold.** Rhodium Plating was added by hand to 4 white-gold jobs that never mentioned it. Should a
+   white-gold intake suggest it?
+2. **Gold colour when unsaid.** "14k" with no colour became yellow every time (5 of 5). Default to yellow?
+3. **Size-up quantity.** The prompt says a sizing task is always ×1 plus sizing stock; finished tickets use *Size up (1 size)*
+   ×1 for 4.75→6 and 6→7.5, but ×2 for 5→7 and 8.5→12.25. What is the rule?
+
 ---
 
 ### Q14 — Retipping is priced from a labour estimate four times reality, and the laser is charged per prong (opened 2026-10-02)
