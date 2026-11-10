@@ -62,6 +62,13 @@ Two modes, both required once they exist:
   error ABORTS the run; it is never scored as an empty answer. **On 2026-11-09 the key on the owner's machine answered
   402, credits depleted** — if it still does, run rules mode, say so in the Round log, and ask the owner once.
 
+**Sizing tickets are not ground truth.** Owner, 2026-11-09: he gave customers breaks on some size-ups, rounding
+down instead of up. A saved ticket shows what he charged that day, not what the rule is. So for every fixture where
+the ring is sized UP: the expected sizing quantity and sizing stock come from the owner's rule (O1), never from the
+saved ticket; until O1 is answered those two fields are excluded from the score for those tickets, and the replay
+prints them as "sizing: waiting on O1". Never tune a rule or the prompt to match a discounted ticket. The same goes
+for any other field the owner later says he discounted — mark the fixture, don't learn from it.
+
 Baseline before any of today's fixes, from the production log (2026-10-02 → 11-06): 77 saved typed intakes = 70
 tickets; tasks+quantities matched on 44 of 77 logs; 40 of 70 tickets saved exactly as suggested.
 
@@ -143,9 +150,12 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 ## Owner questions (do not decide these)
 
-- **O1 — multi-size size-up.** Is 5 → 7 the size-up task ×1 plus 1 stock (built 2026-11-09 from *"1.25 sizes is
-  charged as 2"*), or the task ×2? His own tickets show both (5→7 and 8.5→12.25 saved as ×2). **Asked twice on
-  2026-11-09, not yet answered.** Recommendation: ask again before round 2 touches sizing.
+- **O1 — multi-size size-up.** What is the full-price rule? Owner, 2026-11-09: *"1.25 sizes is charged as 2"*, and
+  then: *"Some of our data on sizings wasn't true … I gave people breaks on some size ups, rounding down instead of
+  up."* So the saved sizing tickets are NOT the truth (see **Sizing tickets are not ground truth** below). Read with
+  that in mind, his tickets fit **the size-up task × sizes rounded up** (5→7 saved as task ×2 with stock ×2), not what
+  was built on 2026-11-09 (task ×1 plus stock for the extra sizes). **Not yet confirmed.** Until he answers: change
+  nothing about sizing quantities or stock.
 - **O2 — photo descriptions.** 76 saved, none edited, but 9 of 65 that name a metal colour contradict the ticket. Are
   they read by anyone? Recommendation: decide before spending a round on them.
 
