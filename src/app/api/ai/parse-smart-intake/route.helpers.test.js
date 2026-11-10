@@ -96,8 +96,10 @@ describe('buildIntakePrompt', () => {
   });
 
   it('lists every task and the input', () => {
-    expect(prompt).toContain('id:down');
-    expect(prompt).toContain('id:weld');
+    // By short key, never the database id: the model blended two near-identical 24-character ids into one no task has.
+    expect(prompt).toContain('id:size-down | title:"Size Down"');
+    expect(prompt).toContain('id:laser-weld | title:"Laser Weld"');
+    expect(prompt).not.toMatch(/id:(?:down|weld) /);
     expect(prompt).toContain('Note: 14k white gold. Size all 3 to a 6');
   });
 

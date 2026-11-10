@@ -28,11 +28,49 @@ export const tasksForPrompt = (inputText, tasks = []) => (
   tasks.length <= FULL_CATALOG_LIMIT ? tasks : prefilterTasks(inputText, tasks, 40)
 );
 
+/**
+ * What the model is shown in place of a task's database id: its title as a slug ("sizing-beads"), in list order.
+ *
+ * The model has to copy an id back. Shown 24-character database ids that differ by a character or two, it blended two
+ * neighbours — "…5763…12" (Solder Together) and "…5766…13" (Sizing Beads) came back as "…5763…13", an id no task has —
+ * so Sizing Beads was dropped every single time it was asked for (made-up notes, 2026-11-10: 0 of 10). A key made of
+ * the task's own name cannot be blended into another's. ("T1", "T2"… were tried first and fixed it too, but moved
+ * three real tickets; the slug moved none on balance.) Two tasks with one title get "-2", "-3".
+ */
+export const taskKeys = (tasks = []) => {
+  // Every key handed out is remembered, so a "-2" made here can never be another title's own slug ("Laser Weld",
+  // "Laser-Weld" and "Laser Weld 2" used to give laser-weld-2 twice — Codex review of #356).
+  const used = new Set();
+  return tasks.map((t, i) => {
+    const base = String(t?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `task-${i + 1}`;
+    let key = base;
+    for (let n = 2; used.has(key); n += 1) key = `${base}-${n}`;
+    used.add(key);
+    return key;
+  });
+};
+
+/** The model's answer with its task keys turned back into task ids. Anything that is not a key is left as it is. */
+export function withTaskIds(raw, tasks = []) {
+  if (!raw || !Array.isArray(raw.matchedTasks)) return raw;
+  const keys = taskKeys(tasks);
+  const idOf = new Map(tasks.map((t, i) => [keys[i], String(t?.id || '')]));
+  return {
+    ...raw,
+    matchedTasks: raw.matchedTasks.map((m) => {
+      const key = String(m?.id ?? '').trim().toLowerCase();
+      return m && typeof m === 'object' && idOf.has(key) ? { ...m, id: idOf.get(key) } : m;
+    }),
+  };
+}
+
 /** The prompt, built in one place so the route and the replay send exactly the same words. */
 export function buildIntakePrompt({ inputText, description = '', tasks = [], todayIso }) {
   const offered = tasks.length > 0 ? tasksForPrompt(inputText, tasks) : [];
+  const keys = taskKeys(tasks);
+  const keyOf = new Map(tasks.map((t, i) => [t, keys[i]]));
   const taskList = offered.map((t) => (
-    `- id:${t.id} | title:"${t.title}"`
+    `- id:${keyOf.get(t)} | title:"${t.title}"`
     + (restricted(t) ? ` | onlyForMetals:${JSON.stringify(t.metals)}` : '')
     + (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '')
     + (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '')
@@ -56,7 +94,7 @@ export function buildIntakePrompt({ inputText, description = '', tasks = [], tod
     '  "pieceCount": 1,        // how many separate pieces of jewelry are on this job',
     '  "promiseDate": "",      // YYYY-MM-DD only when a due date is said; else ""',
     '  "normalizedSummary": "",',
-    `  "matchedTasks": [{"id": "", "quantity": 1}]   // from the task list below; at most ${TASK_CAP}`,
+    `  "matchedTasks": [{"id": "", "quantity": 1}]   // the id is a task's id from the list below, copied exactly; at most ${TASK_CAP}`,
     '}',
     '',
     'Reading the note:',

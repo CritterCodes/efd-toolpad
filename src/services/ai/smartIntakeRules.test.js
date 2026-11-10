@@ -4,6 +4,7 @@ import {
   withPieceCount, withSizingStock, normalizeParsedPayload, TASK_CAP, normalizeGoldColor, sizingStockFor,
   describesDifferentWorkPerPiece, MAX_SIZES_MOVED, shankWidthSaid, unpairedWidthTasks, sizePairsSaid,
 } from './smartIntakeRules';
+import { withTaskIds, taskKeys } from './smartIntakePrompt';
 
 // The live titles, 2026-11-09 (test/fixtures/smart-intake/catalog.json holds the real catalog).
 const tasks = [
@@ -474,7 +475,9 @@ describe('round 4 sweep, 2026-11-09', () => {
     expect(decide({ metalType: 'gold', goldColor: 'white', matchedTasks: [] }, '14k white gold earrings set with stones over 1 carat, 2 times').warnings.join(' ')).toMatch(/No work was matched/);
     const flat = decideIntake({ metalType: 'gold', karat: '14k', goldColor: 'yellow', matchedTasks: [{ id: 'tight', quantity: 5 }] },
       { tasks: [...tasks, { id: 'tight', title: 'Check & Tighten < 20 stones' }], inputText: '14k yg ring check and tighten 5 stones' });
-    expect(flat.warnings.join(' ')).toMatch(/"Check & Tighten < 20 stones" is priced for the whole piece, and 5 were suggested/);
+    // Since the made-up notes of 2026-11-10 it is set to one per piece, and said — no longer left at 5 with a question.
+    expect(flat.matchedTasks.map((m) => `${m.id}x${m.quantity}`).join(' ')).toBe('tightx1');
+    expect(flat.warnings.join(' ')).toMatch(/"Check & Tighten < 20 stones" set to 1, not 5: it is priced for the whole piece/);
   });
 
   it('two rings going to different sizes are not one job times two', () => {
@@ -609,5 +612,42 @@ describe('Codex review of #351', () => {
   it('"ring has a wide shank" is this ring; "wife has wide band" is hers', () => {
     for (const t of ['14k yg ring has a wide shank size 6 to 8', 'it has a thick band, size 9 to 10']) expect(shankWidthSaid(t), t).toBe('wide');
     for (const t of ['thin band size 6 to 7, wife has wide band too', 'she has a wide band at home']) expect(shankWidthSaid(t), t).toBe('unclear');
+  });
+});
+
+describe('made-up notes, 2026-11-10 — what the gaps in the real tickets were hiding', () => {
+  it('the model answers with the name of the task as a key, which becomes its id again', () => {
+    const answer = { matchedTasks: [{ id: 'sizing-beads', quantity: 1 }, { id: ' Size-Down ', quantity: 1 }, { id: 'no-such-task', quantity: 1 }, { id: 'weld', quantity: 2 }] };
+    expect(withTaskIds(answer, tasks).matchedTasks.map((m) => m.id)).toEqual(['beads', 'down', 'no-such-task', 'weld']);
+    // Two tasks with one title still get a key each.
+    expect(taskKeys([{ title: 'Laser Weld' }, { title: 'Laser weld!' }, { title: '' }])).toEqual(['laser-weld', 'laser-weld-2', 'task-3']);
+    // A key the list does not have is still dropped, and said.
+    const out = decide(withTaskIds({ metalType: 'gold', matchedTasks: [{ id: 'sizing-beads', quantity: 1 }, { id: 'no-such-task', quantity: 1 }] }, tasks), '14k yg sizing beads');
+    expect(lines(out)).toBe('beadsx1');
+    expect(out.warnings.join(' ')).toMatch(/Dropped 1 task/);
+    expect(withTaskIds({ matchedTasks: 'nope' }, tasks)).toEqual({ matchedTasks: 'nope' });
+    expect(withTaskIds(null, tasks)).toBe(null);
+  });
+
+  it('another ring\'s band, given as a measurement, is not this shank\'s width', () => {
+    for (const t of ['14k yg half shank, wears next to a 4mm band', '10k White gold, size 6 to 7.5. wears with 4mm band', 'size 6 to 7 to match her 5mm wedding band']) {
+      expect(shankWidthSaid(t), t).toBe('');
+    }
+    expect(shankWidthSaid('14k yg 4mm band half shank')).toBe('wide');
+    // Codex review of #356: a bare "with" is this ring's own shank, or at worst a question — never the narrow default.
+    expect(shankWidthSaid('14k yellow gold ring with 4mm shank needs half shank')).toBe('wide');
+    expect(shankWidthSaid('14k yg ring with a 4mm band, half shank')).toBe('unclear');
+    expect(taskKeys([{ title: 'Laser Weld' }, { title: 'Laser-Weld' }, { title: 'Laser Weld 2' }])).toEqual(['laser-weld', 'laser-weld-2', 'laser-weld-2-2']);
+    const out = decide({ metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, matchedTasks: [{ id: 'hs5', quantity: 1 }] }, '14k yg half shank, wears next to a 4mm band');
+    expect(lines(out)).toBe('hs3x1');
+    expect(out.warnings.join(' ')).toMatch(/3x2 default/);
+  });
+
+  it('a whole-piece task is one per piece, however many stones the note counts', () => {
+    const flatTasks = [...tasks, { id: 'tight', title: 'Check & Tighten — over 20 stones' }, { id: 'straight', title: 'Straighten Prongs — up to 20 stones' }];
+    const one = decideIntake({ metalType: 'gold', matchedTasks: [{ id: 'tight', quantity: 30 }, { id: 'retip', quantity: 4 }] }, { tasks: flatTasks, inputText: '14k yg pave ring check and tighten 30 stones, retip 4' });
+    expect(lines(one)).toBe('tightx1 retipx4');
+    const two = decideIntake({ metalType: 'gold', pieceCount: 2, matchedTasks: [{ id: 'straight', quantity: 3 }] }, { tasks: flatTasks, inputText: '14k yg 2 rings straighten 3 prongs' });
+    expect(lines(two)).toBe('straightx2');
   });
 });
