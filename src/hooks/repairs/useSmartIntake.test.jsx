@@ -600,3 +600,21 @@ describe('Codex review of #352', () => {
     expect(stockQty(h)).toBe('s32x2');
   });
 });
+
+describe('round 8 sweep, 2026-11-10 — the two checks that argued with a correct ticket', () => {
+  it('"no rhodium" in the note: no rhodium on the ticket, and no check offering to add it', async () => {
+    const h = harness();
+    await read(h, '14k white gold ring retip 4 prongs, no rhodium', { metalType: 'gold', karat: '14k', goldColor: 'white', isRing: true, matchedTasks: [{ id: 'retip', quantity: 4 }] });
+    expect(lines(h)).toBe('retipx4');
+    expect(ticketChecks(h.result.current.formData, TASKS)).toEqual([]);
+    // Without those words the check still speaks.
+    expect(ticketChecks({ ...h.result.current.formData, smartIntakeInput: '14k white gold ring retip 4 prongs' }, TASKS).map((c) => c.key)).toEqual(['rhodium-missing']);
+  });
+
+  it('sizing beads to fit smaller: no check offering a Size Down; going up still asks for a size-up', () => {
+    const beads = { _id: 'beads', title: 'Sizing Beads', id: 1, quantity: 1 };
+    const catalog = [...TASKS, { _id: 'beads', title: 'Sizing Beads' }];
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', currentRingSize: '7', desiredRingSize: '6.5', tasks: [beads] }, catalog)).toEqual([]);
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', currentRingSize: '6', desiredRingSize: '7', tasks: [beads] }, catalog).map((c) => c.key)).toEqual(['sizing-missing']);
+  });
+});

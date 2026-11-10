@@ -65,3 +65,27 @@ describe('ring sizes at save', () => {
     expect(mocks.createRepair).toHaveBeenCalled();
   });
 });
+
+describe('smart-intake markers are not saved with the ticket', () => {
+  it('strips the AI marks from tasks and from the sizing stock, and keeps everything else', async () => {
+    const setErrors = vi.fn();
+    const actions = intakeSubmitActions({
+      addRepair: vi.fn(), benchJewelers: [], formData: { ...RING, currentRingSize: '5', desiredRingSize: '8' }, getJewelerLabel: () => '', initialData: null, isQuote: false,
+      isWholesale: false, onSubmit: vi.fn(), persistOnSubmit: true,
+      pricedRepair: {
+        tasks: [{ id: 1, title: 'Size up (1 size) - up to 3mm x 2 mm shank', quantity: 1, price: 60, __aiQuantity: 1, _smartIntakeRuled: 'the ring changes size' }],
+        materials: [{ id: 2, name: '3x2 mm Flat Sizing Stock', quantity: 2, price: 30, _smartIntakeHintType: 'sizing_material', _smartIntakeQuantity: 2, _smartIntakeReason: 'r' }],
+        customLineItems: [], unpriced: [], totals: { subtotal: 120, rushFee: 0, deliveryFee: 0, taxRate: 0, taxAmount: 0, total: 120 },
+      },
+      pricingError: '', repairID: null, rushJobInfo: { canCreate: true }, setErrors, setLoading: vi.fn(),
+      smartIntakeLogIDsRef: { current: [] }, submitMode: 'create', updateRepair: vi.fn(), viewerIsWholesaler: false,
+    });
+    await actions.handleSubmit();
+    const saved = mocks.createRepair.mock.calls.at(-1)[0];
+    const body = saved instanceof FormData ? JSON.parse(saved.get('materials') || '[]') : saved.materials;
+    const tasks = saved instanceof FormData ? JSON.parse(saved.get('tasks') || '[]') : saved.tasks;
+    expect(body).toEqual([{ id: 2, name: '3x2 mm Flat Sizing Stock', quantity: 2, price: 30 }]);
+    expect(tasks[0].__aiQuantity).toBeUndefined();
+    expect(tasks[0]).toMatchObject({ title: 'Size up (1 size) - up to 3mm x 2 mm shank', quantity: 1 });
+  });
+});

@@ -1,6 +1,7 @@
 import { extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { ringSizeNumber } from '@/services/repairs/ringSizing';
 import { sizingStockFor, isSizeUpTask, isSizeDownTask, isCustomerGoldTask, taskRoles } from '@/services/ai/smartIntakeRules';
+import { saysNoRhodium } from '@/services/ai/smartIntakeNotes';
 import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 // Item categories that might have sizes
 export const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
@@ -417,7 +418,10 @@ export function ticketChecks(formData = {}, availableTasks = [], { pieces = 1 } 
     });
   }
   // The sizes change and nothing on the ticket sizes the ring: he deleted the line, or a re-read did not put it back.
-  if (moved && !lines.some((l) => isSizeUpTask(l) || isSizeDownTask(l))) {
+  // …unless the ring is only being made to FIT smaller with sizing beads: the read left the Size Down off on purpose,
+  // and a check offering to add it argued with a correct ticket (round 8 sweep, 2026-11-10).
+  const beadsToFitSmaller = moved < 0 && lines.some((l) => /sizing beads/i.test(String(l.title || '')));
+  if (moved && !beadsToFitSmaller && !lines.some((l) => isSizeUpTask(l) || isSizeDownTask(l))) {
     const to = catalogTask(moved < 0 ? sizeDown : sizeUp);
     out.push({
       key: 'sizing-missing',
@@ -427,7 +431,9 @@ export function ticketChecks(formData = {}, availableTasks = [], { pieces = 1 } 
   }
   const white = formData.metalType === 'gold' && formData.goldColor === 'white';
   const rhodiumLine = rhodium ? lines.find((l) => String(l._id) === rhodium.id) : null;
-  if (white && rhodium && !rhodiumLine) {
+  // The note on this ticket says not to plate: the read left rhodium off on purpose, and so does this check — it
+  // used to offer "Add rhodium" on a ticket that was right, one tap from an over-charge (round 8 sweep, 2026-11-10).
+  if (white && rhodium && !rhodiumLine && !saysNoRhodium(formData.smartIntakeInput)) {
     // One per piece. A sizing line is one per ring, so its quantity is the piece count; adding a single rhodium to a
     // two-ring ticket left the second ring uncharged (Codex review of #347).
     const sizing = lines.find((l) => /\bsize (?:up|down)\b/i.test(String(l.title || '')));
