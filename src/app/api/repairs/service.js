@@ -1,6 +1,7 @@
 import RepairsModel from "./model";
 import { shouldMarkQuoteReady, buildQuoteReadyUpdate, notifyQuoteReady } from '@/services/repairs/quoteRequest';
 import Repair from "./class";
+import { keepAlive } from '@/lib/keepAlive';
 import { syncLaborLogAfterRepairChange } from '@/services/repairLaborReviewSync';
 
 export default class RepairsService {
@@ -66,7 +67,7 @@ export default class RepairsService {
             // A store asked for a quote and this edit priced it → mark quoted and tell them the number.
             if (shouldMarkQuoteReady(existingRepair, updatedRepair)) {
                 const quoted = await RepairsModel.updateById(repairID, buildQuoteReadyUpdate(existingRepair, updatedRepair));
-                notifyQuoteReady(quoted).catch((e) => console.error('quote-ready notify failed:', e?.message));
+                keepAlive(notifyQuoteReady(quoted), 'quote-ready notify');
                 return quoted;
             }
 

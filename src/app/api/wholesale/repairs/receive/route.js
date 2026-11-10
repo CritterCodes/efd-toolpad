@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import { keepAlive } from '@/lib/keepAlive';
+
+// Room for the email started after the answer to finish, or to fail and be recorded (see lib/keepAlive.js).
+export const maxDuration = 60;
 import { db } from '@/lib/database';
 import { requireRepairOps } from '@/lib/apiAuth';
 import { LEGACY_BENCH_STATUS, REPAIR_STATUS } from '@/services/repairWorkflow';
@@ -89,7 +93,7 @@ export async function POST(request) {
         }
         for (const [owner, ids] of byOwner) {
             const user = ownerById.get(owner);
-            NotificationService.createNotification({
+            keepAlive(NotificationService.createNotification({
                 userId: owner,
                 recipientEmail: user?.email || '',
                 type: 'wholesale-received',
@@ -105,7 +109,7 @@ export async function POST(request) {
                     actionUrl: adminLink('/dashboard/wholesaler/repairs/current'),
                     actionLabel: 'View Current Repairs',
                 },
-            }).catch((e) => console.error('receive notification failed:', e?.message));
+            }), 'receive notification');
         }
 
         return NextResponse.json({
