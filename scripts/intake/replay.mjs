@@ -21,4 +21,4 @@ if (args.includes('--model')) {
   const status = run(['test/smart-intake/replay.model.test.js'], { INTAKE_MODEL: '1' });
   if (status !== 0) process.exit(status);
 }
-process.exit(run(['test/smart-intake/replay.test.js', 'test/smart-intake/catalog.test.js'], args.includes('--update') ? { INTAKE_UPDATE: '1' } : {}));
+process.exit(run(['test/smart-intake/replay.test.js', 'test/smart-intake/synthetic.test.js', 'test/smart-intake/catalog.test.js'], args.includes('--update') ? { INTAKE_UPDATE: '1' } : {}));

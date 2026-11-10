@@ -5,7 +5,7 @@ import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
 import { aiErrorMessage, userFacingAiError, SMART_INTAKE_FALLBACK } from '@/services/ai/aiErrorMessage';
 import { buildIntakePrompt, decideIntake, INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
-import { intakePromptFingerprint } from '@/services/ai/smartIntakePrompt';
+import { intakePromptFingerprint, withTaskIds } from '@/services/ai/smartIntakePrompt';
 
 // The pure half lives in services/ai/smartIntakeRules.js. Re-exported so older imports keep working.
 export {
@@ -137,7 +137,9 @@ export async function POST(request) {
     }
 
     const rawText = extractGeminiText(geminiPayload);
-    const raw = extractFirstJsonObject(rawText);
+    // The model answers with the short task keys it was shown ("T4"); from here on they are task ids again, so the
+    // log, the rulings and any later replay never depend on the order the task list happened to be in.
+    const raw = withTaskIds(extractFirstJsonObject(rawText), tasks);
     if (!raw) {
       await recordIntakeSuggestion({
         session, kind: 'text', input: { text: inputText, description, formMetal },

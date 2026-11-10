@@ -71,7 +71,12 @@ export const shankWidthSaid = (inputText = '') => {
     const after = text.slice(m.index + m[0].length);
     const before = text.slice(Math.max(0, m.index - 28), m.index);
     // The band or shank is the next word. A "ring" next is not enough — "4mm ring guard" is a guard (review, 2026-11-10).
-    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}(?:band|shank)\b`).test(after)) { wide = true; continue; }
+    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}(?:band|shank)\b`).test(after)) {
+      // "wears next to a 4mm band", "to match her 5mm wedding band": another ring's width says nothing about this
+      // shank, so the 3x2 default stands (round 8 sweep, and the made-up notes of 2026-11-10: the wide task, unwarned).
+      if (!notThisBand(before)) wide = true;
+      continue;
+    }
     if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}ring\b`).test(after)) { unclear = true; continue; }
     if (hasUnit && /^\s*(?:in\s+)?(?:wide|width|thick)\b/.test(after)) {
       // "ring is 5mm wide" is the ring; "center stone is 5mm wide" is not.

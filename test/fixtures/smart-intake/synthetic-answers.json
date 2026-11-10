@@ -1,0 +1,3342 @@
+{
+ "model": "gemini-2.5-flash",
+ "promptHash": "af7f9cc3e233",
+ "at": "2026-11-10",
+ "answers": {
+  "syn-003300c5e9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, straighten prongs, retip 2 prongs.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-02a2cdc461": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Pearl necklace restring",
+   "matchedTasks": []
+  },
+  "syn-0300a1d2ef": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring needs half shank",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfc",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-0bf672ec9c": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Watch stopped",
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-0d60fb9015": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring sizing from 7 to 6.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfa",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-0db7260eb2": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold cluster ring. Tighten stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-0ddeae918e": {
+   "metalType": "gold",
+   "karat": "",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "White gold ring with platinum head, size down from 6 to 5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-0e1a957dd5": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring spins, add sizing beads.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-1122e34663": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "8",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size ring from 6 to 8, retip 4 prongs, clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-126149e1a9": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum men's band needs a 5mm half shank replacement.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfd",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-12780cbb96": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, size from 7 to 6.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-128860447e": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring, rhodium plate",
+   "matchedTasks": [
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-141d331fba": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Watch band is too big, remove 2 links.",
+   "matchedTasks": [
+    {
+     "id": "6a1a62d4cc79949f56081518",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-16145a2373": {
+   "metalType": "gold",
+   "karat": "22k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Laser weld on a 22k yellow gold bangle.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-1821e4c84a": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6.5",
+   "desiredRingSize": "5.5",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring, size down from 6.5 to 5.5.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfa",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-1a08f06f6e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, set stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-1ec4f62a4e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring half shank and size up from 6 to 7",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-1ffb7d6eb6": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "7",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring size from 5 to 7.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfb",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2375c43413": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs a half shank replacement for a 2mm band.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2675bc6dd9": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "rose",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k rose gold chain with a break.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-269b52bcce": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 5,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver 5 rings clean and polish",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2765360c6f": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Watch battery replacement and watch link removal.",
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 1
+    },
+    {
+     "id": "6a1a62d4cc79949f56081518",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2804a15317": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "1",
+   "desiredRingSize": "3",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold baby ring, size from 1 to 3.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-28b3b70587": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "7.5",
+   "sizeChange": 0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring, size from 7 to 7.5.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfb",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-28b71d74bf": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14-karat yellow gold ring, size 7. Laser weld.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2c28b23bb0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6.25",
+   "sizeChange": -0.75,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 7, desired size 6.25.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2c8de4d1e5": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "7",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 7, desired size 7.",
+   "matchedTasks": []
+  },
+  "syn-2c9c5c40b2": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Reset a 1.5ct center stone and two 0.10ct side stones in a 14k yellow gold ring.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 1
+    },
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-2d70380016": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "9",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 6mm band, size from 8 to 9.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-2fd484f585": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring with a 4mm shank.",
+   "matchedTasks": []
+  },
+  "syn-3695a92265": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring shank broken clean through.",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-36ab0b7f1f": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Replace batteries in 2 watches.",
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-3894d4f074": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring needs 2 laser welds and a clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-38b9ea7087": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs check and tighten for 25 stones.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5759cc79949f5608150f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-39174fffae": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold bangle is bent and needs to be reshaped.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-392e111731": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Solder together two rings and clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-3aa38a54c8": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, retip all prongs.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-3b19a54dc5": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Watch link removal, 3 links",
+   "matchedTasks": [
+    {
+     "id": "6a1a62d4cc79949f56081518",
+     "quantity": 3
+    }
+   ]
+  },
+  "syn-3bdfb70bdc": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "9",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 7, desired size 9, customer supplied gold.",
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-3e8f877126": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold wide band half shank",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-3fd74c9afe": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum wedding set, solder together, 2 rings.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-40364c088c": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "10",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum band, current size 9, desired size 10.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfb",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-4338651c7b": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, set 0.50ct stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-438f27c133": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain needs a new spring ring.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-446437958c": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Prongs bent, straighten, rhodium.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-462a2e5cd0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Retip 2 prongs on a 14k yellow gold 6-prong head.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-46a1e65bfe": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver necklace needs clasp repair and a break in the chain repaired.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    },
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-4a208acefb": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, size from 6 to 5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-4a3f2f5c1c": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6.5",
+   "desiredRingSize": "7.25",
+   "sizeChange": 0.75,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size 6.5 to 7.25.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-4aaaadc523": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "12",
+   "sizeChange": 6,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size from 6 to 12.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-4c3407f758": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, remove sizing beads.",
+   "matchedTasks": []
+  },
+  "syn-4d9a7c7d84": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, add 2 jump rings, solder closed.",
+   "matchedTasks": [
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-4fee3fb295": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring needs sizing beads because it spins.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-51888d3f2c": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold half shank repair, wears next to a 4mm band.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5205b022c3": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, set 2 stones, 0.25ct each.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-52410e9b46": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Add 3 jump rings to a sterling silver charm bracelet.",
+   "matchedTasks": [
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 3
+    }
+   ]
+  },
+  "syn-527d6ed885": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain, clasp repair.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5372342f31": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, add sizing beads.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-539faa95a4": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "7",
+   "sizeChange": -2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold ring, size down from 9 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5825e0a085": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring shank is paper thin at the bottom.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5984db446e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 3.5mm band, size from 6 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5aac7d407a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "rose",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "5.5",
+   "sizeChange": -1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k rose gold ring, size from 7 to 5.5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5c46bafa02": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver pendant needs an opal glued.",
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-5e519c4ec3": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring needs sizing beads.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-616cc8f049": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "12.5",
+   "sizeChange": 2.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 5mm band, size from 10 to 12.5.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-62213c46e0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, check and tighten 20 stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-630cad6126": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring, 4mm wide, half shank replacement.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfd",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6a21cb662f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, reprong.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6bf897adad": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, break in shank.",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6d1ccc2b3d": {
+   "metalType": "costume",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Gold filled chain needs a break in chain repair.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6d25758138": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Two 14k white gold rings, sized from 7 to 6.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6f141403ce": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Add a link back to watch",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6f2d32581d": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring squished, reshape",
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-6f31c9153f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold earring post broken, laser weld new post.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-72de3a791e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold charm: add jump ring and laser it shut.",
+   "matchedTasks": [
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-745fb5e5b5": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring band snapped.",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-74b7270081": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pearl earring, pearl came off the post, needs to be reglued.",
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-75b28bac3d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 3,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, 3 rings. Size down from 7 to 6, 8 to 7, and 9 to 8.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-75bdfc23f8": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum 5mm band, size up 2 sizes.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfb",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-770bc9778a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, reglue pearl.",
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-78355bf011": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold necklace clasp won't close",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-7a3987292b": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver bracelet clasp broken.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-7cad3f739a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring bent out of round.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-7cddcefda4": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold tennis bracelet needs check and tighten.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5759cc79949f5608150f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-824f6c4b1c": {
+   "metalType": "gold",
+   "karat": "18k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "18k yellow gold ring, retip 2 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-848870551a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 7. Retip 4 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    }
+   ]
+  },
+  "syn-88d5d11713": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "8",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold 4mm band, size from 6 to 8, with customer supplied gold.",
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-89abe1ffd3": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Set 2ct center stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8aa9656e79": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring clean and polish",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8bdcd1e83a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold chain clasp repair and one laser weld",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    },
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8bf949dc9e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, stone is loose.",
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8c7b18a0f4": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, set 0.75 carat stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8c7d2064fd": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring needs 4 prongs retipped.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    }
+   ]
+  },
+  "syn-8cea3288a2": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, check and tighten over 20 stones.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5759cc79949f5608150f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8d01af8aad": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, straighten 3 prongs.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "quantity": 3
+    }
+   ]
+  },
+  "syn-8fb458b79a": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Stainless watch band size down",
+   "matchedTasks": [
+    {
+     "id": "6a1a62d4cc79949f56081518",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-8fbbfcca92": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold earrings. Set two 1ct stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-903efaa430": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "5",
+   "sizeChange": -2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size 14k yellow gold ring from size 7 to 5. Band is 4mm wide.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-910ffdeab5": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "6.5",
+   "sizeChange": 0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs reshaping and sizing up from 6 to 6.5.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-9160998d66": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Fourteen karat yellow gold ring laser weld times two",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-921074d51e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, unsolder rings.",
+   "matchedTasks": []
+  },
+  "syn-9496bc6461": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring sizing beads",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-94995afb47": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain shorten 2 inches",
+   "matchedTasks": []
+  },
+  "syn-95dee9f61b": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs two sizing beads.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-960ad2fac5": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 3mm band needs a half shank replacement.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-982edd0923": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring is too big.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-99063bbcfe": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring. Set one 1 carat stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-99665847f9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring appraisal",
+   "matchedTasks": []
+  },
+  "syn-9adc2fe16f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size from 6 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-9fa6237867": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "8",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Ring size 7 to 8",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a15175283c": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 3mm band, size from 6 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a243a9b634": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold rope chain broke in two places, needs laser welding.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 2
+    },
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a38a5436ce": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "7.5",
+   "sizeChange": -0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring sized down from 8 to 7.5.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfa",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a3fa57966f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain with 2 breaks.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-a502e7a004": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.5",
+   "desiredRingSize": "7",
+   "sizeChange": -1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, size 8.5 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a53c1fc161": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size down from 7 to 6, and add sizing beads.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a5592afcc9": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold half shank replacement for a 3-5mm band.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a5606ad82d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs to be sized up by a quarter size.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a5e346a9a2": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Two 14k yellow gold chains need clasp repair.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-a69af196ee": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 3,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, solder 3 rings together.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 3
+    }
+   ]
+  },
+  "syn-a6bed6b8fa": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, set 0.5 carat stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-a8ea557ce1": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size down platinum ring from 7 to 6, rhodium plate.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfa",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-aa821b8df7": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, 12 laser welds.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 12
+    }
+   ]
+  },
+  "syn-aafb33d335": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, laser weld 3 times. Do not polish.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 3
+    }
+   ]
+  },
+  "syn-ab43a8bf7a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pendant, add jump ring, laser closed.",
+   "matchedTasks": [
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ab8eb41bad": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold earrings, reglue 2 pearls",
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-ac3a95b575": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs 5 stones checked and tightened.",
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 5
+    }
+   ]
+  },
+  "syn-ad0c311572": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold speed bumps",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ae97b14ab4": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Retip 8 prongs on 2 14k yellow gold rings.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 8
+    }
+   ]
+  },
+  "syn-b1110b7363": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "8",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold wide band, size from 7 to 8.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-b3716f3ae8": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, engrave inside.",
+   "matchedTasks": []
+  },
+  "syn-b59c539045": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring with a cracked shank.",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-b6958bd7f6": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, reprong 2 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-b80df95960": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14-karat white gold ring, rebuild one prong, rhodium.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-b8d38c27bc": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": -0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size down half a size.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-b8f43c49d0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold wedding set to be soldered together.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-bab302c01d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring; set 1.25 carat diamond.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-bc9927fb4d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pendant bail broken, needs laser weld.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-bfc44be1d7": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Replace watch battery on 2 watches.",
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-c1d7c09f3e": {
+   "metalType": "platinum",
+   "karat": "950",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7.25",
+   "sizeChange": 1.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring, size up from 6 to 7.25.",
+   "matchedTasks": [
+    {
+     "id": "6a95cd288e8d468ac7162dfb",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-c42a86eb81": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs 4 new prongs and a 0.75ct stone set.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 4
+    },
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-c67ce2c29d": {
+   "metalType": "platinum",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Platinum ring, reprong 6 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 6
+    }
+   ]
+  },
+  "syn-c9a49b54f8": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "rose",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k rose gold ring, size from 6 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-cb9244eeab": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "8",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs to be sized up to an 8.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-cd4904b3b1": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pave ring, check and tighten 30 stones",
+   "matchedTasks": [
+    {
+     "id": "6a1a5759cc79949f5608150f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-cdfc4dd84a": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Stainless steel ring needs to be sized up.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ce17fc9a9e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pendant, add jump ring",
+   "matchedTasks": [
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-cebe1fb47c": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold chain broken at the clasp.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-d014bb38d5": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, rhodium plate the head only.",
+   "matchedTasks": [
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-d344d348a7": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold retip 4 prongs, 14k white gold retip 2 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-d3579f9245": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold, 2 rings, break in shank",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-d421a49796": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "13",
+   "desiredRingSize": "15.5",
+   "sizeChange": 2.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size 14k yellow gold men's ring from 13 to 15.5.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-d47fcf511b": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring. Set 5 melee stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 5
+    }
+   ]
+  },
+  "syn-d6fc336e37": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size 7, currently has sizing beads that make it fit like a 6.5.",
+   "matchedTasks": []
+  },
+  "syn-dbea43d849": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "5",
+   "sizeChange": -2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, size from 7 to 5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e0c3bb9b52": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, 4mm band, needs half shank.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e109f515a2": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "2026-11-13",
+   "normalizedSummary": "14k yellow gold ring. Size up one size.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e2a0542f10": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, prong broke off, needs a new prong.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e4517eb0a0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "8",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size from 6 to 8.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e5caa738f2": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "11",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold class ring, size from 10 to 11.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-e9a6fd43f9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7.5",
+   "sizeChange": 1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, 4mm band, size from 6 to 7.5.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-eb6dad3d12": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold 6mm band needs a half shank replacement.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-eb9abf99d1": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain, add jump ring 7mm.",
+   "matchedTasks": []
+  },
+  "syn-ec8d328e61": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Remove watch links.",
+   "matchedTasks": [
+    {
+     "id": "6a1a62d4cc79949f56081518",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ee3c1a166c": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "9",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Silver ring size 7 to 9",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ee4ccbfdd0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs half shank.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-ef52355e0a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Two 14k yellow gold rings need half shanks.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 2
+    }
+   ]
+  },
+  "syn-ef5ba0bfec": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Clean and polish",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-efd7a264f7": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold bracelet, replace lobster clasp.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f1316a617e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "7",
+   "desiredRingSize": "6",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, sized down from 7 to 6.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f1cbdb8a23": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring half shank",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f2182f73f8": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Check and tighten all stones on a 14k white gold eternity band.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5759cc79949f5608150f",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f22c50aa35": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring needs half shank replacement (4.5mm wide) and rhodium plating.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f32242eea7": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold men's ring, 5 mm shank, bottom worn thin, half shank.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5760cc79949f56081511",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f3ac1e5016": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, ring guard.",
+   "matchedTasks": []
+  },
+  "syn-f3af8c5d79": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "10",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold men's band, 4 mm, size 9 to 10.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-f5398822e4": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold bracelet, tighten clasp tongue.",
+   "matchedTasks": [
+    {
+     "id": "6a1a618dcc79949f56081516",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-fb657cc46d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold sizing beads",
+   "matchedTasks": [
+    {
+     "id": "6a1a5766cc79949f56081513",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-fb8c762ea9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Reprong 4 prongs.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 4
+    }
+   ]
+  },
+  "syn-fc29e3256a": {
+   "metalType": "gold",
+   "karat": "18k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "6.5",
+   "sizeChange": 1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "18k white gold ring, size from 5 to 6.5.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-fd398c862e": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs new head.",
+   "matchedTasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-fe24a6dd47": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs 3 prongs retipped and 1 prong repronged.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 3
+    },
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "quantity": 1
+    }
+   ]
+  },
+  "syn-fe6de32bab": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7",
+   "sizeChange": 1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k two tone ring, size from 6 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ]
+  }
+ }
+}

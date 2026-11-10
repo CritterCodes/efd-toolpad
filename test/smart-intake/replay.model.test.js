@@ -13,6 +13,8 @@ import path from 'node:path';
 import { describe, it } from 'vitest';
 import { buildIntakePrompt, INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
 import { FIXTURES, loadFixtures, lastAttemptPerTicket, expectedFor, scoreReplay, report, promptHashFor } from './replay.js';
+import { withTaskIds } from '@/services/ai/smartIntakePrompt';
+import { syntheticFixtures, scoreSynthetic, syntheticReport } from './synthetic.js';
 
 const MODEL = INTAKE_MODEL;
 const RUN = process.env.INTAKE_MODEL === '1';
@@ -63,26 +65,43 @@ async function ask(prompt, key) {
   }
 }
 
+/** Today's prompt for every intake in the list, five at a time. */
+async function askAll(list, catalog, key) {
+  const answers = {};
+  let version = MODEL;
+  const queue = [...list];
+  const worker = async () => {
+    while (queue.length) {
+      const intake = queue.shift();
+      const prompt = buildIntakePrompt({ inputText: intake.text, description: intake.description, tasks: catalog, todayIso: intake.at });
+      const got = await ask(prompt, key);
+      answers[intake.id] = withTaskIds(got.answer, catalog); // stored with task ids, as the route logs them
+      version = got.version;
+    }
+  };
+  await Promise.all(Array.from({ length: 5 }, worker));
+  return { answers: Object.fromEntries(Object.keys(answers).sort().map((id) => [id, answers[id]])), version };
+}
+
 describe.skipIf(!RUN)('smart intake replay (model mode)', () => {
+  // The made-up notes (syntheticCases.js): asked the same way, stored and scored apart from the real tickets.
+  it.skipIf(PROPOSAL)('asks the model about every made-up note', async () => {
+    const key = apiKey();
+    if (!key) throw new Error('No GEMINI_API_KEY. See docs/goals/SMART_INTAKE.md, "The score", for where to get it.');
+    const { catalog } = loadFixtures();
+    const { answers, version } = await askAll(syntheticFixtures(catalog).intakes, catalog, key);
+    fs.writeFileSync(path.join(FIXTURES, 'synthetic-answers.json'),
+      `${JSON.stringify({ model: version, promptHash: promptHashFor(catalog), at: new Date().toISOString().slice(0, 10), answers }, null, 1)}\n`);
+    console.log(syntheticReport(version, scoreSynthetic(catalog, (intake) => answers[intake.id])));
+  }, 1800000);
+
   it('asks the model about every scored ticket and scores the answers', async () => {
     const key = apiKey();
     if (!key) throw new Error('No GEMINI_API_KEY. See docs/goals/SMART_INTAKE.md, "The score", for where to get it.');
     const fx = loadFixtures();
     const catalog = PROPOSAL ? withProposal(fx.catalog) : fx.catalog;
     const todo = lastAttemptPerTicket(fx.intakes).filter((i) => !expectedFor(i, fx.marks, fx.catalog).skip);
-    const answers = {};
-    let version = MODEL;
-    const queue = [...todo];
-    const worker = async () => {
-      while (queue.length) {
-        const intake = queue.shift();
-        const prompt = buildIntakePrompt({ inputText: intake.text, description: intake.description, tasks: catalog, todayIso: intake.at });
-        const got = await ask(prompt, key);
-        answers[intake.id] = got.answer;
-        version = got.version;
-      }
-    };
-    await Promise.all(Array.from({ length: 5 }, worker));
+    const { answers, version } = await askAll(todo, catalog, key);
 
     const run = scoreReplay(fx, (intake) => answers[intake.id]);
     if (PROPOSAL) {

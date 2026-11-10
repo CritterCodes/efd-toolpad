@@ -11,7 +11,7 @@
  */
 
 import { TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
-import { ticketNotes, saysNoRhodium } from './smartIntakeNotes';
+import { ticketNotes, saysNoRhodium, isFlatTask } from './smartIntakeNotes';
 
 export { INTAKE_MODEL, TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
 
@@ -479,6 +479,23 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
 };
 
 /**
+ * A task priced for the whole piece ("Check & Tighten < 20 stones") is one per piece, whatever count the note gives:
+ * "check and tighten 5 stones" came back as five of them, with only a warning (made-up notes, 2026-11-10).
+ */
+export const withFlatTasksPerPiece = (parsed, tasks = []) => {
+  const byId = byIdOf(tasks);
+  const pieces = parsed.pieces || 1;
+  const notes = [];
+  const lines = (parsed.matchedTasks || []).map((m) => {
+    const task = byId.get(m.id);
+    if (!task || !isFlatTask(task) || m.quantity <= pieces) return m;
+    notes.push(`"${task.title}" set to ${pieces}, not ${m.quantity}: it is priced for the whole piece, not per stone.`);
+    return ruled({ ...m, quantity: pieces }, 'priced for the whole piece');
+  });
+  return notes.length ? notes.reduce(warn, withLines(parsed, lines)) : parsed;
+};
+
+/**
  * Every white gold job gets rhodium (owner, 2026-11-09: "yes all white gold get rhodium"). The Rhodium Plating task's
  * own aiMeta only says "turned yellow or dull, or the customer asks", so the model left it off. One per piece: 14
  * prongs retipped on one ring is one rhodium, not fourteen (review, 2026-11-09).
@@ -544,6 +561,7 @@ export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} }
   p = withUnknownDirection(p, tasks, inputText);
   p = withShankWidth(p, tasks, inputText);
   p = withPieceCount(p, tasks, inputText);
+  p = withFlatTasksPerPiece(p, tasks);
   p = withRhodiumForWhiteGold(p, tasks, inputText);
   p = withSizingStock(p, tasks);
   p = withPlainSpeaking(p, tasks, inputText);
