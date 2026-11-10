@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
@@ -111,6 +112,9 @@ export async function POST(request) {
 
     const todayIso = new Date().toISOString().slice(0, 10);
     const prompt = buildIntakePrompt({ inputText, description, tasks, todayIso });
+    // The instructions and the task list this read was made with, as a short hash — so a change to either (an aiMeta
+    // edit in Admin, a prompt change) can be told apart in the log afterwards (reviews, 2026-11-09 and 11-10).
+    const promptHash = createHash('sha256').update(buildIntakePrompt({ inputText: '', description: '', tasks, todayIso: '' })).digest('hex').slice(0, 12);
 
     let geminiPayload = null;
 
@@ -155,7 +159,7 @@ export async function POST(request) {
       session,
       kind: 'text',
       // The form's metal is part of what decided the answer; without it a replay cannot send what production sent.
-      input: { text: inputText, description, formMetal },
+      input: { text: inputText, description, formMetal, promptHash },
       output: {
         ...normalized,
         tasks: (normalized.matchedTasks || []).map((t) => ({ id: t.id, title: titleOf.get(t.id) || '', quantity: t.quantity })),

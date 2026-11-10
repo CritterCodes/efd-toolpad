@@ -15,6 +15,8 @@ export function ticketCheckActions({ availableTasks = [], formData = {}, removeI
   const applyCheck = (check) => {
     if (check.add) {
       setFormData((prev) => ({ ...prev, tasks: [...prev.tasks, { ...stripComputedPrices(check.add), id: Date.now(), quantity: check.quantity || 1, _smartIntakeRuled: check.why || 'added from a check' }] }));
+    } else if (check.setQuantity) {
+      setFormData((prev) => ({ ...prev, tasks: prev.tasks.map((t) => (t.id === check.setQuantity.id ? { ...t, quantity: check.setQuantity.quantity } : t)) }));
     } else if (check.remove != null) {
       removeItem('tasks', check.remove);
     } else if (check.swap) {

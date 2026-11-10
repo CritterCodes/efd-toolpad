@@ -492,3 +492,54 @@ describe('Codex review of #350', () => {
     expect(h.result.current.notes.assumed).toMatchObject({ karat: '', goldColor: 'yellow' });
   });
 });
+
+describe('round 6 sweep, 2026-11-10', () => {
+  const up = { metalType: 'gold', karat: '14k', goldColor: 'white', isRing: true, currentRingSize: '6', desiredRingSize: '8' };
+
+  it('a metal nobody named is assumed, with its purity — silver guessed onto a blank form is not ticked', async () => {
+    const h = harness();
+    await read(h, 'ring going up from 6 to 8', { metalType: 'silver', isRing: true, currentRingSize: '6', desiredRingSize: '8' });
+    expect(h.result.current.formData).toMatchObject({ metalType: 'silver', karat: '925' });
+    expect(h.result.current.notes.assumed.metal).toBe('silver');
+    const g = harness();
+    await read(g, 'silver ring going up from 6 to 8', { metalType: 'silver', isRing: true, currentRingSize: '6', desiredRingSize: '8' });
+    expect(g.result.current.notes.assumed.metal).toBe('');
+  });
+
+  it('the AI goes down after he corrected the sizes and karat: his corrections stay', async () => {
+    const h = harness();
+    await read(h, '14k wg ring size 6 to 8', up);
+    act(() => h.result.current.setFormData((p) => ({ ...p, desiredRingSize: '7', karat: '18k' })));
+    fail = true;
+    await read(h, '14k wg ring size 6 to 8 and polish', {});
+    expect(h.result.current.formData).toMatchObject({ currentRingSize: '6', desiredRingSize: '7', karat: '18k', goldColor: 'white' });
+    expect(h.result.current.notes.fallback).toBe(true);
+  });
+
+  it('an edit made while a read is in flight is not undone', async () => {
+    const h = harness();
+    await read(h, '14k wg ring size 6 to 8', up);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    global.fetch = vi.fn(async (_url, init) => {
+      await gate;
+      const body = JSON.parse(init.body);
+      const parsed = decideIntake(up, { tasks: body.tasks, inputText: body.inputText, formMetal: body.metal });
+      return { ok: true, status: 200, json: async () => ({ success: true, data: { parsed } }) };
+    });
+    act(() => h.result.current.setFormData((p) => ({ ...p, smartIntakeInput: '14k wg ring size 6 to 8 and polish' })));
+    let pending;
+    act(() => { pending = h.result.current.handleAnalyzeSmartIntake(); });
+    act(() => h.result.current.setFormData((p) => ({ ...p, desiredRingSize: '7' }))); // while the call is out
+    await act(async () => { release(); await pending; });
+    expect(h.result.current.formData.desiredRingSize).toBe('7');
+  });
+
+  it('rule-added rhodium follows the sizing line\'s count', () => {
+    const rh = { ...TASKS[3], id: 2, quantity: 2, _smartIntakeRuled: 'white gold' };
+    const checks = ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [{ ...TASKS[1], id: 1, quantity: 1 }, rh] }, TASKS);
+    expect(checks).toMatchObject([{ key: 'rhodium-count', action: 'Make it 1', setQuantity: { id: 2, quantity: 1 } }]);
+    // Rhodium he set himself is left alone.
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [{ ...TASKS[1], id: 1, quantity: 1 }, { ...TASKS[3], id: 2, quantity: 2 }] }, TASKS)).toEqual([]);
+  });
+});

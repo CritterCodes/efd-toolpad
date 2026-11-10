@@ -233,10 +233,12 @@ export default function NewRepairFlow(props) {
 
   // `assumed`: nobody said it — it is a default. Shown as such, not with a tick (review, 2026-11-09: "14k ring" showed
   // "✓ yellow gold" under "Picked up from that sentence").
+  const metalAssumed = Boolean(smartIntakeNotes?.assumed?.metal) && smartIntakeNotes.assumed.metal === formData.metalType;
   const extractedChips = [
-    formData.karat && { label: String(formData.karat), assumed: Boolean(smartIntakeNotes?.assumed?.karat) && smartIntakeNotes.assumed.karat === formData.karat },
-    formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: Boolean(smartIntakeNotes?.assumed?.goldColor) && smartIntakeNotes.assumed.goldColor === formData.goldColor },
-    formData.metalType && formData.metalType !== 'gold' && { label: formData.metalType },
+    // A metal the note never named is a guess, and so is the purity that came with it.
+    formData.karat && { label: String(formData.karat), assumed: metalAssumed || (Boolean(smartIntakeNotes?.assumed?.karat) && smartIntakeNotes.assumed.karat === formData.karat) },
+    formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: metalAssumed || (Boolean(smartIntakeNotes?.assumed?.goldColor) && smartIntakeNotes.assumed.goldColor === formData.goldColor) },
+    formData.metalType && formData.metalType !== 'gold' && { label: formData.metalType, assumed: metalAssumed },
     formData.isRing && { label: 'Ring' },
     formData.currentRingSize && formData.desiredRingSize && { label: `${formData.currentRingSize} → ${formData.desiredRingSize}` },
   ].filter(Boolean);
@@ -248,6 +250,7 @@ export default function NewRepairFlow(props) {
 
   // The karat or colour nobody said is marked on Review too — that is the screen the save is on (review, 2026-11-09).
   const assumedParts = [
+    metalAssumed && 'metal',
     smartIntakeNotes?.assumed?.karat && smartIntakeNotes.assumed.karat === formData.karat && 'karat',
     smartIntakeNotes?.assumed?.goldColor && smartIntakeNotes.assumed.goldColor === formData.goldColor && formData.metalType === 'gold' && 'colour',
   ].filter(Boolean);

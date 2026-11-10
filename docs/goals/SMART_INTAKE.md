@@ -358,6 +358,34 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   history of the fresh score; ratchet rates, not counts; export `formMetal`; store sizing stock in the outcome.
 - **W13.** Length caps on the note and the client's task list (= F2).
 
+**X — from the round 6 sweep** (`docs/goals/smart-intake-reviews/r6-sweep.md`)
+
+- ✅ r7 **X1.** A stone-weight tier picked when the note gives no weight is questioned (the real "remove and reset
+  stone" ticket came back as the under-half-carat tier, silently).
+- ✅ r7 **X2.** A count over 1 that the note does not say is questioned ("retip prongs on 6 prong head" answered 4; a
+  task the model names twice arriving as ×2).
+- ✅ r7 **X3.** Width: "5mm x 2mm" and "5 by 2 shank" are the shank; "4mm ring guard" and "wife has wide band" are
+  not; "size 3 to 5 band" is a size move.
+- ✅ r7 **X4.** "No rhodium" in the words it is said in: "does not want rhodium", "rhodium not needed", "no replate".
+- ✅ r7 **X5.** A metal the note never named (silver read off the photo text) is "(assumed)", with its purity, on
+  the chips and on Review.
+- ✅ r7 **X6.** His sizes and metal stand when the AI goes down, and an edit made while a read is in flight is not
+  undone: "kept" is decided against the live form.
+- ✅ r7 **X7.** Rule-added rhodium follows the sizing line's count (a check, "Make it N").
+- ✅ r7 **X8.** `__aiQuantity` is no longer saved with the ticket, so a read on a reopened ticket does not take the
+  saved lines for its own. An empty task list says so.
+- ✅ r7 **X9.** Every read logs a hash of the instructions and task list it was made with (`input.promptHash`).
+- **X10.** Use it: split the admin trend by `promptHash`, and show a drift alarm when the live catalog's hash is not
+  the one the replay measured.
+- **X11.** "Closest task" picks ("hard solder" → Break in chain) carry no mark. Wants the model to say when a pick is
+  a stretch — a prompt change — or the aiMeta fix (D1).
+- **X12.** A sizing task the server calls a guess still shows the "from your sentence" tick. A hand-set stock
+  quantity is replaced on a re-read.
+- **X13.** A metal-only task with no general sibling is dropped silently on another metal (invented task; today's
+  four platinum tasks all have siblings).
+- **X14.** Stores see "fix the task names in Admin → Tasks", which they cannot act on.
+- **X15.** One-tap "AI was wrong / my call" on changed rows in the admin log, in place of hand-edited marks.
+
 **F — hardening, small**
 
 - **F1.** Timeouts: worst case 94s against a 90s function limit; cap the total at 30s, cap `Retry-After`, retry 503.
@@ -401,6 +429,11 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **O4, a third time.** Three reviewers in a row have pointed at the same number: of your 12 white gold tickets, 6
   were saved with rhodium and 6 without. You have said twice that all white gold gets it, and the rule follows that.
   From round 6 a note that says "no rhodium" is honoured. Nothing else changes unless you say so.
+- **D1, the reason to say yes (round 7).** A reviewer read the live text on "Size up (1 size)": it tells the AI not
+  to use that task "if more than one size up is needed". That is why the AI picks the 3–5mm task on every multi-size
+  job, and why you see a width warning on nearly every one of them. Warnings that fire every time get ignored. The
+  prepared rewrite fixes that line. It still cannot be PROVEN on the saved tickets (it was written from them), so
+  the honest plan is: apply it, then watch the admin trend, which from round 7 can tell reads made before and after.
 - **D1, updated round 4.** The round 3 evidence reviewer measured the aiMeta proposal against the fixtures: 20 of its
   49 symptom phrases are word-for-word from the tickets it is scored on, so the replay cannot show that it helps —
   only that it does no harm (65/69 against 64/69, inside the noise). Recommendation: do not apply it yet. Refresh the
@@ -409,6 +442,12 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 ## Declined
 
 *(findings a round chose not to act on, with the reason)*
+
+- **Changing the sizing stock to match two saved tickets** (round 6: "5 to a 7" saved as task ×2 + stock 2;
+  "8.5 to 12.25" as ×2 + stock 8). The owner ruled on 2026-11-09 — "2 sizes up is 1x task and 1x sizing stock
+  material" — and said the saved size-ups were breaks and not ground truth. The ruling stands.
+- **Spelled-out karats ("18 carat", "stamped 750"), validating the client-sent catalog, the prefilter, a dollar
+  replay, an LLM judge** (round 6 reviewers' own "not worth doing").
 
 - **Telling a join from a break for Solder Together** (round 5: "2 rings, both shanks broken, solder back
   together" → ×1). It needs a list of break words read by a regex. The warning now says what it did and what to do
@@ -471,6 +510,44 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 7 — 2026-11-10 — `claude/smart-intake-r7`
+
+**Round 6's sweep** (`docs/goals/smart-intake-reviews/r6-sweep.md`) again demonstrated class-(a) cases: on two REAL
+tickets the model's pick is wrong with nothing said (a stone tier with no weight in the note; "hard solder" matched
+to Break in chain); a count nobody said, ticked; silver guessed onto a blank form, ticked; "5mm x 2mm" read as no
+width; an edit made during a slow read undone; rhodium not following a corrected piece count. The arithmetic — the
+piece count, stock, direction, the size guards — held for the third sweep running. The evidence reviewer found no
+wrong price from code and no lost data. Triage: X1–X15, a reason added to D1, two entries under Declined.
+
+**What changed in kind.** The earlier rounds fixed places where the CODE put a wrong line on the ticket. What is left
+is the MODEL's own pick being wrong, which no rule can correct without knowing the answer. Round 7's answer is to
+hold each pick against the note and ask when the note does not back it: a tier with no weight, a count with no
+number, a metal with no name.
+
+**Fixed.** X1–X9 (see Backlog). New in code: `smartIntakeNotes.js` (`ticketNotes`, `saysNoRhodium`); the width
+reader takes "N unit x N unit" and "N by N"; `assumed.metal`; the keep decision moved inside the state update;
+the `rhodium-count` check; `input.promptHash` on every log row.
+
+**Score** (69 tickets, 2 skipped; the stored model answers — the prompt did not change):
+
+| | End of round 6 | End of round 7 |
+|---|---|---|
+| vs the rulings — same tasks and quantities | 66 / 69 | **66 / 69** |
+| vs what he saved | 45 / 69 | **45 / 69** |
+| Sizes · metal · sizing stock | 68 · 69 · 69 | 68 · 69 · 69 |
+| Fresh tickets (saved after 2026-11-09) | none yet | none yet |
+
+**The score did not improve by a ticket**, for the fourth round running. Of the three tickets still wrong, two now
+carry a true warning (the stone tier; "No work was matched" on the earrings). The bangles ticket still does not.
+
+**For the stop condition:** no quiet round yet — every sweep so far has demonstrated at least one wrong line with
+nothing on screen. Round 8 is the cap.
+
+**Local gate.** `npm test`: 279 files pass; the same 3 production files cannot load `mongodb-memory-server` here.
+`npm run lint`: clean. `npm run views`: not run (H5). The form changes were **not opened in a browser**.
+
+**Waiting on the owner.** O5, O6, O7, O8, O9, D1.
 
 ### Round 6 — 2026-11-09 — `claude/smart-intake-r6`
 

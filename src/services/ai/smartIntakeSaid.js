@@ -33,7 +33,11 @@ const MM_WORDS = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
 // Words that may follow a measurement without being the thing measured: "6mm, size 9", "5mm and polish".
 const CONTINUES = /^(?:and|size|sized|sizing|resize|sz|needs|to|half|comfort|with|so|for|please|up|down|then|also|customer|wants|rush)$/;
 // A band that is someone else's, or denied: "wears it with a wide band", "not a wide band", "her other wide band".
-const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against|wears|wearing)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+// "wife has wide band too" is hers; "ring has a wide shank" is this ring (Codex review of #351). Who HAS it decides.
+const SOMEONE_HAS = /\b(?:has|have)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+const THIS_PIECE_HAS = /\b(?:ring|band|it|piece)\s+(?:has|have)\s+(?:an?\s+|the\s+)?$/;
+const notThisBand = (before) => NOT_THIS_BAND.test(before) || (SOMEONE_HAS.test(before) && !THIS_PIECE_HAS.test(before));
 /**
  * What the note says about the shank's width: 'wide', 'unclear', or '' (nothing).
  *
@@ -54,17 +58,21 @@ export const shankWidthSaid = (inputText = '') => {
     // Dictated: "four and a half millimeters" is 4.5mm.
     .replace(/\b(three|four|five|six|seven|eight)(\s+and\s+a\s+half)?(?=\s*(?:mm\b|millimet|mil\b))/g, (_, w, half) => String(MM_WORDS[w] + (half ? 0.5 : 0)));
   const justNamed = (before) => before.match(/\b(band|shank|ring)s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$/);
-  const measure = /(?<![\d.])(\d+(?:\.\d+)?)\s*(x\s*\d+(?:\.\d+)?)?\s*(mm\b|millimet(?:er|re)s?\b|mil\b)?/g;
+  // "5mm", "5x2", "5 x 2 mm", "5mm x 2mm", dictated "5 by 2": the first number is the width.
+  const UNIT = '(?:mm|millimet(?:er|re)s?|mil)';
+  const measure = new RegExp(String.raw`(?<![\d.])(\d+(?:\.\d+)?)\s*(${UNIT}\b)?\s*((?:x|by)\s*\d+(?:\.\d+)?)?\s*(${UNIT}\b)?`, 'g');
   let wide = false;
   let unclear = false;
   for (const m of text.matchAll(measure)) {
-    const hasUnit = Boolean(m[3]);
-    if (!hasUnit && !m[2]) continue; // a bare number is not a measurement
+    const hasUnit = Boolean(m[2] || m[4]);
+    if (!hasUnit && !m[3]) continue; // a bare number is not a measurement
     const width = Number(m[1]);
     if (!(width > 3 && width <= 12)) continue;
     const after = text.slice(m.index + m[0].length);
     const before = text.slice(Math.max(0, m.index - 28), m.index);
-    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}${SHANK}\b`).test(after)) { wide = true; continue; }
+    // The band or shank is the next word. A "ring" next is not enough — "4mm ring guard" is a guard (review, 2026-11-10).
+    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}(?:band|shank)\b`).test(after)) { wide = true; continue; }
+    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}ring\b`).test(after)) { unclear = true; continue; }
     if (hasUnit && /^\s*(?:in\s+)?(?:wide|width|thick)\b/.test(after)) {
       // "ring is 5mm wide" is the ring; "center stone is 5mm wide" is not.
       if (justNamed(before)) wide = true; else unclear = true;
@@ -82,13 +90,14 @@ export const shankWidthSaid = (inputText = '') => {
     unclear = true;
   }
   // The owner's own shorthand for the wide class: "3-5", "3 to 5 shank", "3-5mm".
-  if (/(?<![\d.])3\s*(?:-|–|to)\s*5\s*(?:mm\b|millimet\w*)?\s*(?:wide\s+)?(?:band|shank)s?\b/.test(text)) wide = true;
+  // …but "size 3 to 5 band" is a ring going from a 3 to a 5.
+  if (/(?<!(?:size|sz|from|sized)\s+)(?<![\d.])3\s*(?:-|–|to)\s*5\s*(?:mm\b|millimet\w*)?\s*(?:wide\s+)?(?:band|shank)s?\b/.test(text)) wide = true;
   else if (/(?<![\d.])3\s*(?:-|–)\s*5(?![\d.])/.test(text)) unclear = true;
   // "heavy mens ring" is a hint, not a width.
   if (new RegExp(String.raw`\bheavy\s+${BAND_FILLER}ring\b(?!\s+wear)`).test(text)) unclear = true;
   const worded = new RegExp(String.raw`\b(?:(?:wide|thick|chunky)\s+${BAND_FILLER}${SHANK}\b(?!\s+wear)|heavy\s+${BAND_FILLER}(?:band|shank)\b)`, 'g');
   for (const m of text.matchAll(worded)) {
-    if (NOT_THIS_BAND.test(text.slice(Math.max(0, m.index - 16), m.index))) unclear = true; else wide = true;
+    if (notThisBand(text.slice(Math.max(0, m.index - 24), m.index))) unclear = true; else wide = true;
   }
   if (/\bcigar band\b/.test(text) || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text)) wide = true;
   if (wide) return 'wide';
