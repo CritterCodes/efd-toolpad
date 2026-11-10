@@ -137,7 +137,11 @@ export async function listIntakeLogs({ kind = '', surface = '', limit = 200 } = 
   const dbi = await db.connect();
   const entries = await dbi.collection(SMART_INTAKE_LOGS).find(query)
     .sort({ createdAt: -1 }).limit(Math.min(Math.max(Number(limit) || 200, 1), 500)).toArray();
-  return { entries: entries.map(withChanges), summary: summarizeMisses(entries) };
+  // The per-ticket trend looks at the last 60 days whatever the page limit is — 200 rows is about six weeks of reads.
+  const recent = await dbi.collection(SMART_INTAKE_LOGS)
+    .find({ kind: 'text', outcome: { $ne: null }, createdAt: { $gte: new Date(Date.now() - 61 * DAY) }, ...(query.surface ? { surface: query.surface } : {}) })
+    .project({ kind: 1, logID: 1, repairID: 1, createdAt: 1, savedAt: 1, output: 1, outcome: 1 }).limit(5000).toArray();
+  return { entries: entries.map(withChanges), summary: { ...summarizeMisses(entries), tickets: summarizeTickets(recent) } };
 }
 
 /** Pure: per-field miss counts across saved entries — "where it all went wrong". */
@@ -150,5 +154,45 @@ export function summarizeMisses(entries = []) {
     if (diffs.length) changed += 1;
     for (const d of diffs) byField[d.field] = (byField[d.field] || 0) + 1;
   }
-  return { logged: entries.length, saved: saved.length, changed, byField };
+  return { logged: entries.length, saved: saved.length, changed, byField, tickets: summarizeTickets(entries) };
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+/**
+ * Pure: the sentence reads, counted PER TICKET — the number that can answer "is it getting worse?".
+ *
+ * The per-attempt count above cannot (reviews, 2026-11-09, three times): a ticket read twice counts its superseded
+ * first read as a miss (40 of 79 attempts "changed", but 32 of 71 tickets), there is no time axis, and photo reads are
+ * mixed in. Here each saved ticket counts once, by its LAST sentence read — the one the ticket was built from — and
+ * the counts are given for the last 30 days and the 30 before, so a change to the rules or the prompt has a before
+ * and an after.
+ *
+ * "tasksChanged" is the one to watch: the tasks on the saved ticket were not the tasks suggested. It still includes
+ * his own breaks and bench additions, so it is a trend, not a score — the replay is the score.
+ */
+export function summarizeTickets(entries = [], now = Date.now()) {
+  const last = new Map();
+  for (const e of entries) {
+    if (e.kind !== 'text' || !e.outcome) continue;
+    const key = e.repairID || e.logID;
+    const prev = last.get(key);
+    if (!prev || new Date(e.createdAt || 0) > new Date(prev.createdAt || 0)) last.set(key, e);
+  }
+  const count = (list) => {
+    let changed = 0;
+    let tasksChanged = 0;
+    for (const e of list) {
+      const diffs = compareIntake(e.kind, e.output || {}, e.outcome);
+      if (diffs.length) changed += 1;
+      if (diffs.some((d) => d.field === 'tasks')) tasksChanged += 1;
+    }
+    return { tickets: list.length, changed, tasksChanged };
+  };
+  const all = [...last.values()];
+  const age = (e) => now - new Date(e.savedAt || e.createdAt || 0).getTime();
+  return {
+    all: count(all),
+    last30: count(all.filter((e) => age(e) <= 30 * DAY)),
+    prev30: count(all.filter((e) => age(e) > 30 * DAY && age(e) <= 60 * DAY)),
+  };
 }

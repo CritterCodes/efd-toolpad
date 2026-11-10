@@ -48,6 +48,8 @@ import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestio
 
 // The data seam: all fetching, derived state, and handlers.
 import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
+import { ticketCheckActions } from '@/hooks/repairs/ticketCheckActions';
+import { IntakeChecks } from './IntakeChecks';
 
 // Metal configuration — single source of truth, shared with the custom-request intake.
 import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
@@ -223,7 +225,7 @@ export default function NewRepairForm({
     formData, setFormData,
     loading, errors,
     showNewClientDialog, setShowNewClientDialog,
-    analyzingSmartIntake, smartIntakeError, setSmartIntakeError,
+    analyzingSmartIntake, smartIntakeError, setSmartIntakeError, smartIntakeNotes,
     generatingImageDescription, imageDescriptionError, setImageDescriptionError,
     newClientData, setNewClientData, newClientLoading,
     picturePreviewUrl,
@@ -782,6 +784,10 @@ export default function NewRepairForm({
                     Enter submits analysis. Shift+Enter adds a new line.
                   </Typography>
                 </Stack>
+                {/* The same checks the stepped flow shows: this form used to show none of them (review, 2026-11-09). */}
+                <Box sx={intakeChecksSx}>
+                  <IntakeChecks {...ticketCheckActions({ availableTasks, formData, removeItem, setFormData })} removeItem={removeItem} smartIntakeNotes={{ ...smartIntakeNotes, fallback: false }} updateItem={updateItem} />
+                </Box>
                 {smartIntakeError ? (
                   <Alert severity="warning" sx={{ mt: 1.5, backgroundColor: UI.bgCard, border: '1px solid', borderColor: UI.border }}>
                     {smartIntakeError}
@@ -1592,6 +1598,8 @@ export function CustomLineItem({
 }
 
 // Total cost card with rush job information
+const intakeChecksSx = { mt: 1.5 };
+
 export function TotalCostCard({ formData, pricingTotals, pricingSettings, storeTaxRate = null, viewerIsWholesaler = false }) {
   const isCompedRepair = Boolean(formData.compRepair || formData.includedWithSale);
   // Nothing here is calculated: the totals are THE engine's (priceRepairTotals) and every line already

@@ -89,7 +89,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   `output`, `outcome`, `createdAt`, and the task catalog as the model saw it) under `test/fixtures/smart-intake/`, plus
   a read-only `scripts/intake/export-logs.mjs` that refreshes them. Hand-mark the ~13 tickets whose final work was
   never said in the sentence ("14 Kar" → Laser Weld) as `unknowable` and exclude them from the headline.
-- **A2.** Fix the miss counter (`src/services/ai/smartIntakeLog.js`, Admin → Smart intake log): count per ticket, not
+- ◐ r4 (per ticket by the last read, last 30 days against the 30 before, sentence reads only — on Admin → Smart intake log. Still no failed-call count and no prompt hash) **A2.** Fix the miss counter (`src/services/ai/smartIntakeLog.js`, Admin → Smart intake log): count per ticket, not
   per log; split typed from photo; include materials; log AI failures and invalid JSON (today they return before the
   log write); store the task ids offered, a prompt hash and the model version; add a date range (the page loads the
   newest 200 and there are already 194).
@@ -208,10 +208,10 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   the model run; "no work was said" tickets are scored as "should suggest nothing" instead of skipped (8 → 2 skips).
 - ◐ r3 (the form now checks rhodium and the metal's own task as well as stock; the SAVE still checks nothing) **S8b.** The save (`src/app/api/repairs/route.js`) prices the lines it is given and does not hold sizing stock
   against the sizes. A server-side check, or at least a note on the saved ticket.
-- **S12.** The production miss counter (= A2): per ticket, materials, failures, dates, prompt hash.
+- ◐ r4 (see A2) **S12.** The production miss counter (= A2): per ticket, materials, failures, dates, prompt hash.
 - **S13.** Run `taskRoles` when a task is saved in Admin → Tasks and warn there — catches a rename at the moment it
   is made, before the next intake. Cheaper than C1 and worth doing first.
-- ◐ r3 (warnings and checks now show on the Work step; Review still shows a count, not the lines) **S14.** Review step: list the actual lines (rest of E2); show the stock check there too.
+- ◐ r4 (warnings, ticket checks and the stock check now show on Review, above the save; Review still shows a count, not the lines) **S14.** Review step: list the actual lines (rest of E2); show the stock check there too.
 - **S15.** Coverage: no platinum ticket, 4 store intakes, 10 tasks appear once. Add hand-written fixtures for the
   platinum swap and a store intake when real ones don't arrive.
 - **S16.** Photo path: "the ring" for every item; gold items described "silver-toned" (= G1, F3).
@@ -252,13 +252,50 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **T16.** Count how often a rule-added line is removed at the counter, per rule (log which rule added each line; the
   save already records the outcome). This is the only honest test of a ruling — rhodium above all — and replaces most
   hand-marking.
-- **T17.** The production counter (= A2, S12): still per attempt, still no rate, still silent on failed calls.
+- ◐ r4 (see A2) **T17.** The production counter (= A2, S12): still per attempt, still no rate, still silent on failed calls.
 - **T18.** Live catalog drift: the prompt hash is over `catalog.json`, not production. Record a catalog hash in each
   log entry so an aiMeta edit in the admin shows up.
-- **T19.** The classic form (`?ui=classic`) shows none of the warnings, chips or checks. Delete it or wire them in.
+- ✅ r4 (the classic form shows the same warnings and checks, from the same component) **T19.** The classic form (`?ui=classic`) shows none of the warnings, chips or checks. Delete it or wire them in.
 - **T20.** The chips still tick values built from form state ("✓ 925"); the tick should mean "the note said it".
-- **T21.** The width rule still fails silently if a banded task is renamed ("under 3mm"). Warn when a task that looks
+- ✅ r4 (`unpairedWidthTasks`; `taskRoles.problems` carries `shankWidth`; the counter is warned when the task on the ticket is one of them. Warning in Admin → Tasks at the moment of the rename is still S13) **T21.** The width rule still fails silently if a banded task is renamed ("under 3mm"). Warn when a task that looks
   banded has no sibling (with S13).
+
+**U — from the round 3 sweep** (`docs/goals/smart-intake-reviews/r3-sweep.md`)
+
+- ✅ r4 **U1.** Width was wrong both ways again: a stone's millimetres after "ring" made the shank wide ("ring 5mm cz
+  missing"), and real widths were missed ("comfort fit 6mm", "shank 4x2", "five millimeter band"). `shankWidthSaid` now
+  gives three answers — wide, nothing, or UNCLEAR. Unclear swaps nothing either way: the model's pick stays and the
+  jeweler is asked to check. The next word after a measurement is what was measured.
+- ✅ r4 **U2.** "14ky" / "10kw" (karat with its colour on) slipped past the karat-as-size guard, and was not read as the
+  note naming its metal or colour. See O6 for the one real ticket this changes.
+- ✅ r4 **U3.** Per-piece counts: "laser weld on 1", "the second ring", "one only" are different work per piece (nothing
+  multiplied). A line whose count is above the piece count is still left alone, but the warning now names it and says
+  so — and asks, when the note says "each", instead of claiming everything was counted N times.
+- ✅ r4 **U4.** Nothing dropped silently: a size the parser cannot read ("6-1/2 US") is said; a quantity like "4 prongs"
+  is 4; `taskId`/`qty` keys are read; Solder Together says when it changed the count and marks the line "ruled".
+- ✅ r4 **U5.** The checks were on the wrong screen. Metal and sizes are edited on Review, where the save is; the checks
+  showed on Work only. One component (`IntakeChecks`) now shows on Work, on Review above the save, and in the classic
+  form.
+- ✅ r4 **U6.** A second read turned "(assumed) yellow" into a tick. The assumed colour is remembered until a person
+  changes it.
+- ✅ r4 **U7.** The checks looked one way only. Added: the sizing task against the direction the sizes go (6 → 5 with
+  Size Up on the ticket), and a task made for another metal even when nothing resolves by name. The stock message no
+  longer says "sizing up -1 sizes".
+- ✅ r4 **U8.** A hand line the sentence counts differently is kept and said. Stock is not added when the size-up line
+  it belongs to was deleted. A count he changed loses the "from your sentence" tick at once.
+- ✅ r4 **U9.** Measurement honesty: the headline is labelled a fit, not a forecast; the fresh line compares as-saved
+  with as-saved; the "logged" run is described as what it is. `apply-aimeta.mjs` restores by `_id`, and the `--env`
+  file's database beats one left in the shell. The photo route reads `INTAKE_MODEL`.
+- **U10.** Hold the model's own numbers against the sentence, warning only: "retip 4 prongs" answered 40; "18k"
+  answered 14k. Needs a model error to trigger; not seen in 79 intakes.
+- **U11.** Sizing stock matching ignores colour when materials are NAMED by colour (white-gold aliases include plain
+  "gold"). The live materials list names no metal, so this is latent. Check when a colour-named stock is added.
+- **U12.** `generate-ai-meta/route.js` asks for customer speech for a chatbot, so every new task gets aiMeta that
+  argues with the rulings. Rewrite its prompt in jeweler shorthand (with D1).
+- **U13.** `--update` should take a one-line reason written into `score.json`; a monthly reminder to export and
+  re-run the model. The scheduler matters more than more tests.
+- **U14.** A store's POST can price a line whose `_id` is not in the catalog from the line itself
+  (`repairLines.js`). Outside smart intake; needs its own look — it is a guard-the-sink question.
 
 **F — hardening, small**
 
@@ -287,10 +324,28 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **O5 — a pair of earrings.** Is a pair one piece or two? "14k white gold earrings set with stones over 1 carat,
   2 times" was saved as Set Stone ×2 + Rhodium ×1; "14k yellow gold earrings, laser weld" as Laser Weld ×2. The model
   is told a pair is one piece unless the note counts them. (Opened round 1.)
+- **O6 — "Size 10KY to an 8".** A store typed this on 2026-10-10 and the ticket was saved as size 10 → 8, 10k yellow.
+  Read literally, "10KY" is the karat and the ring's current size was never said. From round 4 the current size is
+  left BLANK with a warning ("Size 10 looks like the karat"); the Size Down the model picked stays. Is that right — or
+  when a store writes it that way, is the ring really a 10? (This is the one replay ticket round 4 made worse on
+  purpose: sizes 69 → 68.)
+- **D1, updated round 4.** The round 3 evidence reviewer measured the aiMeta proposal against the fixtures: 20 of its
+  49 symptom phrases are word-for-word from the tickets it is scored on, so the replay cannot show that it helps —
+  only that it does no harm (65/69 against 64/69, inside the noise). Recommendation: do not apply it yet. Refresh the
+  fixtures in 2–3 weeks and measure it on tickets saved after 2026-11-09. Still the owner's call.
 
 ## Declined
 
 *(findings a round chose not to act on, with the reason)*
+
+- **Multiplying a count by the pieces when the note says "each"** (round 3 server reviewer: "retip 4 prongs on each"
+  of 2 rings should be 8). Tried in round 4 and taken back the same hour: the model sometimes answers with the total
+  already, and 16 is worse than 4. The line is left and the warning asks.
+- **`responseSchema`, `thinkingBudget: 0`** (round 3, again). Either changes what the model answers on every ticket,
+  for a failure — a mis-keyed field — that has not happened in 79 intakes and is now read anyway (U4).
+- **Photo scoring, dollar-weighted scoring, covering all 32 tasks, statistics on n=69, automating marks, a role field
+  for a 32-task catalog, more piece-count regex, re-running the rulings on save** (round 3 reviewers' own "not worth
+  doing").
 
 - **Read the item description for a wide shank** (round 0 review: "a wide band described there is downgraded").
   Reversed in round 2: the description is usually written by the photo model, and round 1's sweep showed "band is
@@ -332,6 +387,46 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 4 — 2026-11-09 — `claude/smart-intake-r4`
+
+**Round 3's sweep** (`docs/goals/smart-intake-reviews/r3-sweep.md`) demonstrated wrong tickets again, so the stop
+condition was not met: a stone's millimetres read as a wide shank and real widths missed (both under a warning that
+said something untrue); "14ky" read as size 14 with no warning at all; per-piece wording; and — the largest — every
+check built in round 3 was on the Work step, while the metal and sizes are edited on Review, where the save is. The
+evidence reviewer demonstrated no wrong price, and showed that the headline score is a fit to the tickets the rules
+were written on, with no held-out data. Triage: U1–U14 in the Backlog, O6 and an update to D1 under Owner questions,
+three entries under Declined.
+
+**Fixed.** U1–U9, T19, T21; A2/S12/T17 and S14 in part (see Backlog). New in code: `smartIntakeSaid.js` (the
+sentence readers, split out when the rules file passed the line limit) with `shankWidthSaid`; `unpairedWidthTasks`;
+`IntakeChecks.js` and `ticketCheckActions.js`, used by the stepped flow's Work and Review steps and by the classic
+form; two more `ticketChecks`; `summarizeTickets` and its line on the admin log page.
+
+**Score** (69 tickets in the tuning set, 2 skipped; the stored model answers from round 3 — the prompt did not change,
+so the model was not asked again):
+
+| | End of round 3 | End of round 4 |
+|---|---|---|
+| vs the rulings — same tasks and quantities | 66 / 69 | **66 / 69** |
+| vs what he saved | 45 / 69 | **45 / 69** |
+| Sizes · metal · sizing stock | 69 · 69 · 69 | **68** · 69 · 69 |
+| Fresh tickets (saved after 2026-11-09) | none yet | none yet |
+
+**The score did not improve by a ticket.** One ticket flipped, for the worse and on purpose: "Size 10KY to an 8" now
+leaves the current size blank (O6). Nothing that was wrong became right: the three misses are still the reset stone
+with no size said, the silver bangles, and the white gold earrings — all aiMeta, all waiting on D1. Recorded with
+`--update`.
+
+**For the stop condition:** this round's sweep (round 3's) DID demonstrate wrong-price bugs, so this is not yet one of
+the two quiet rounds. If round 4's sweep demonstrates none, that is the first.
+
+**Local gate.** `npm test`: 279 files pass; the same 3 production files cannot load `mongodb-memory-server` here.
+`npm run lint`: clean. `npm run views`: not run (H5). Review, Work and the classic form changed and were **not
+opened in a browser** (no preview password); the Review step is rendered and clicked in
+`NewRepairFlowIntakeNotes.test.jsx`. The classic form's new block has no render test.
+
+**Waiting on the owner.** O5, O6, D1.
 
 ### Round 3 — 2026-11-09 — `claude/smart-intake-r3`
 

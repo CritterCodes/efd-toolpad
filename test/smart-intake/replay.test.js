@@ -2,7 +2,9 @@
  * Smart intake replay, rules mode — runs in `npm test`, calls nothing.
  *
  * Two sets of model answers go through TODAY'S rulings and are scored against what each ticket should have been:
- *   logged   what the model answered at the time (old prompt, old task list)
+ *   logged   what the FORM was told at the time — the old prompt's answer AFTER the old rules, because the log did not
+ *            keep the raw answer until 2026-11-09. Useful only as a guard that old answers do not get worse; its count
+ *            is not a score of anything (review, 2026-11-09).
  *   model    what the model answered the last time `npm run intake:replay -- --model` ran (model-answers.json)
  *
  * The ratchet (docs/goals/SMART_INTAKE.md, "The score"):

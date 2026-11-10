@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { stripComputedPrices } from '@/services/pricing/computedFields';
 import { keyMatchesContext, normalizeIsoPromiseDate, isSizingStockMaterial } from '@/hooks/repairs/newRepairFormHelpers';
+import { isSizeUpTask } from '@/services/ai/smartIntakeRules';
 import { normalizeRingSizeValue, extractMetalContextFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 import { normalizeSpokenIntake } from '@/services/repairs/spokenIntake';
@@ -82,6 +83,9 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
   // What the last read put on the ticket, and what the jeweler has since taken off (never put back by a re-read).
   const lastAddedRef = useRef({ taskIds: [], stock: false });
   const removedByHandRef = useRef({ taskIds: new Set(), stock: false });
+  // The gold colour the last read ASSUMED. While the form still holds it, a re-read must not turn it into a tick —
+  // the form "had a colour" only because the first read put it there (review, 2026-11-09).
+  const assumedColorRef = useRef('');
   // The newest read. An answer that is not for it is thrown away.
   const readSeqRef = useRef(0);
 
@@ -153,7 +157,9 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         if (changed) updates.tasks = [...keptTasks, ...fresh];
 
         const keptMaterials = (prev.materials || []).filter((m) => !m._smartIntakeHintType);
-        const stock = results.skipStock
+        // Stock goes with a size-up line. If he deleted that line, a re-read must not leave stock on its own.
+        const sizingUp = [...keptTasks, ...fresh].some(isSizeUpTask);
+        const stock = results.skipStock || !sizingUp
           ? { items: [] }
           : sizingStockItemsFor(results.materialHints, availableMaterials, { ...prev, ...updates }, { wide: results.wideShank });
         // A sizing stock he already added by hand is not doubled.
@@ -268,8 +274,19 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         { metalType: parsed.metalType || formData.metalType, karat: parsed.karat || formData.karat, goldColor: parsed.goldColor || formData.goldColor }, { wide: wideShank });
       const warnings = [...(Array.isArray(parsed.warnings) ? parsed.warnings : [])];
       if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none for this metal. Add it by hand.');
+      // A line he put on or changed by hand is kept as his. When the sentence counts it differently, say so.
+      for (const line of formData.tasks || []) {
+        const read = inferredTasks.find((t) => String(t._id) === String(line._id || ''));
+        const byHand = !line.__aiQuantity || Number(line.quantity) !== Number(line.__aiQuantity);
+        if (read && byHand && Number(line.quantity) !== read.__aiQuantity) {
+          warnings.push(`"${line.title}" is on the ticket at ${line.quantity} by hand; the sentence reads as ${read.__aiQuantity}. It was left at ${line.quantity}.`);
+        }
+      }
       const said = parsed.said || {};
       const formHadColor = Boolean(String(formData.goldColor || '').trim());
+      const stillAssumed = Boolean(assumedColorRef.current) && assumedColorRef.current === formData.goldColor;
+      const assumedColor = parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '';
+      assumedColorRef.current = assumedColor;
 
       applySmartIntakeResults({
         inputText: parsingText,
@@ -293,13 +310,14 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       setSmartIntakeNotes({
         warnings,
         // Gold whose colour nobody said: shown as assumed while it is still the value on the form.
-        assumed: { goldColor: parsed.metalType === 'gold' && !said.color && !formHadColor ? (parsed.goldColor || '') : '' },
+        assumed: { goldColor: assumedColor },
         fallback: false,
       });
     } catch (error) {
       if (!latest()) return;
       console.error('Smart intake failed:', error?.message);
       runRuleBasedSmartIntake(parsingText);
+      assumedColorRef.current = '';
       setSmartIntakeNotes({ warnings: [], assumed: {}, fallback: true });
       setSmartIntakeError(AI_DOWN_MESSAGE);
     } finally {

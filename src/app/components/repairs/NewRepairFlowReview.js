@@ -5,8 +5,9 @@ import { METAL_TYPES, GOLD_COLORS } from '@/constants/customRequest.constants';
 import PromiseDateSuggestion from '@/app/components/repairs/PromiseDateSuggestion';
 import { TotalCostCard } from '@/app/components/repairs/NewRepairForm';
 import { ticketSizesRing } from '@/services/repairs/ringSizing';
+import { IntakeChecks } from './IntakeChecks';
 
-export function NewRepairFlowReview({ benchJewelers, formData, getJewelerLabel, isComped, isQuote, isWholesale, itemCount, itemsSubtotal, karatOptions, metalSummary, picturePreviewUrl, pricingSettings, pricingTotals, promiseDateContext, promiseDateError, promiseDateEstimate, promiseDateLoading, quoteIntent, reviewTotal, rushJobInfo, setFormData, setShowFullBreakdown, setStep, showFullBreakdown, step, submitMode, wholesalerPricingSettings }) {
+export function NewRepairFlowReview({ applyCheck, benchJewelers, checks, removeItem, smartIntakeNotes, stockCheck, updateItem, formData, getJewelerLabel, isComped, isQuote, isWholesale, itemCount, itemsSubtotal, karatOptions, metalSummary, picturePreviewUrl, pricingSettings, pricingTotals, promiseDateContext, promiseDateError, promiseDateEstimate, promiseDateLoading, quoteIntent, reviewTotal, rushJobInfo, setFormData, setShowFullBreakdown, setStep, showFullBreakdown, step, submitMode, wholesalerPricingSettings }) {
   // The sizes are only demanded when a line on the ticket sizes the ring (owner, 2026-10-01, Q12). On any other
   // ring they are optional, and a size already on file still shows.
   const sizingRing = ticketSizesRing(formData.tasks);
@@ -23,6 +24,9 @@ export function NewRepairFlowReview({ benchJewelers, formData, getJewelerLabel, 
       {/* ── Step 4 — Review (summary rows, tap to edit) ───────────────── */}
       {step === 3 && (
         <Stack spacing={2.5}>
+          {/* The metal and the sizes are edited on this step, and the save is here: what no longer fits the ticket is
+              said here too, not only on Work (review, 2026-11-09). */}
+          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} updateItem={updateItem} />
           {/* Header block: photo thumb + client + the sentence. */}
           <Box sx={{ display: 'flex', gap: 1.5 }}>
             <Box sx={{ flexShrink: 0, width: 58, height: 58, borderRadius: '11px', border: `1px dashed rgba(255,255,255,0.22)`, backgroundColor: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>

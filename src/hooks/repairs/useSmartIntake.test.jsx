@@ -288,3 +288,64 @@ describe('ticketChecks — the rulings against the ticket as it stands now', () 
     expect(ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [line(TASKS[1])] }, [])).toEqual([]);
   });
 });
+
+describe('round 3 sweep, 2026-11-09 — the ticket as it stands at the save', () => {
+  const yellow = { metalType: 'gold', karat: '14k', isRing: true, currentRingSize: '6', desiredRingSize: '8' };
+
+  it('a second read of the same sentence keeps the colour "assumed"; picking a colour clears it', async () => {
+    const h = harness();
+    await read(h, 'size up 14k ring 6 to 8', yellow);
+    expect(h.result.current.notes.assumed.goldColor).toBe('yellow');
+    await read(h, 'size up 14k ring 6 to 8', yellow); // the mic stops and re-reads
+    expect(h.result.current.notes.assumed.goldColor).toBe('yellow');
+    // He picks white on Review, then it re-reads: white is his, not assumed.
+    act(() => h.result.current.setFormData((p) => ({ ...p, goldColor: 'white' })));
+    await read(h, 'size up 14k ring 6 to 8', yellow);
+    expect(h.result.current.notes.assumed.goldColor).toBe('');
+    expect(h.result.current.formData.goldColor).toBe('white');
+  });
+
+  it('a hand line the sentence counts differently is kept, and said', async () => {
+    const h = harness();
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: [{ ...TASKS[4], id: 77, quantity: 1 }] })));
+    await read(h, '14k yg ring retip 4 prongs', { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, matchedTasks: [{ id: 'retip', quantity: 4 }] });
+    expect(lines(h)).toBe('retipx1');
+    expect(h.result.current.notes.warnings.join(' ')).toMatch(/"Retip prongs" is on the ticket at 1 by hand; the sentence reads as 4/);
+  });
+
+  it('he deleted the size-up line: a re-read does not leave sizing stock on its own', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size up 5 to 8', { ...yellow, goldColor: 'yellow', currentRingSize: '5' });
+    expect(h.result.current.formData.materials).toHaveLength(1);
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: [] })));
+    await read(h, '14k yg ring size up 5 to 8', { ...yellow, goldColor: 'yellow', currentRingSize: '5' });
+    expect(lines(h)).toBe('');
+    expect(h.result.current.formData.materials).toEqual([]);
+  });
+});
+
+describe('ticketChecks, round 4 — the direction of the sizes, and a task for another metal', () => {
+  const PT = task('upPt', 'Size Up (1 size) — Platinum (laser welded)', { metals: ['platinum'] });
+  const CATALOG = [...TASKS, task('upCust', 'Size Up (Customer Supplied Gold)'), PT];
+  const line = (t, extra = {}) => ({ ...t, id: `${t._id}-line`, quantity: 1, ...extra });
+
+  it('sizes edited to go down with Size Up on the ticket: the check offers Size Down', () => {
+    const checks = ticketChecks({ metalType: 'gold', goldColor: 'yellow', currentRingSize: '6', desiredRingSize: '5', tasks: [line(TASKS[1])] }, CATALOG);
+    expect(checks).toMatchObject([{ key: 'direction-up3-line', action: 'Switch it', swap: { id: 'up3-line', task: { _id: 'down' } } }]);
+    expect(checks[0].message).toBe('The sizes go down (6 → 5), and this ticket has "Size up (1 size) - up to 3mm x 2 mm shank". It should be "Size Down".');
+    // The other way, and the right way.
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', currentRingSize: '5', desiredRingSize: '6', tasks: [line(TASKS[0])] }, CATALOG)[0].swap.task._id).toBe('up3');
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', currentRingSize: '5', desiredRingSize: '6', tasks: [line(TASKS[1])] }, CATALOG)).toEqual([]);
+  });
+
+  it('a platinum task on a ticket changed to gold is said even though three size-ups tie', () => {
+    const checks = ticketChecks({ metalType: 'gold', goldColor: 'yellow', tasks: [line(PT)] }, CATALOG);
+    expect(checks).toMatchObject([{ key: 'metal-upPt-line', swap: { task: { _id: 'up3' } } }]);
+    expect(checks[0].message).toMatch(/is a platinum task, and this ticket is gold\. It should be "Size up \(1 size\) - up to 3mm x 2 mm shank"/);
+  });
+
+  it('stock when the ring is not going up says so in plain words', () => {
+    const check = sizingStockCheck({ currentRingSize: '6', desiredRingSize: '5', tasks: [line(TASKS[1])], materials: [{ id: 9, name: '3x2 mm Flat Sizing Stock', category: 'sizing_material', quantity: 2 }] });
+    expect(check).toMatchObject({ want: 0, have: 2, lineQuantity: 0 });
+  });
+});

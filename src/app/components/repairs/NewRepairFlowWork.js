@@ -1,16 +1,11 @@
-import { Stack, Box, TextField, Typography, Alert, Button } from '@mui/material';
+import { Stack, Box, TextField, Typography } from '@mui/material';
 import { SectionLabel, facelift, SurfaceCard, Segmented, QuietButton } from '@/components/facelift';
 import { isCustomLaborTask, calculatedCustomLaborPrice } from '@/services/repairs/customLabor';
 import { TicketRow, InlineTitleField } from './NewRepairFlowParts';
 import { toNumber } from '@/hooks/repairs/useNewRepairForm';
-import { AI_DOWN_MESSAGE } from '@/hooks/repairs/useSmartIntake';
+import { IntakeChecks, stockCheckMessage } from './IntakeChecks';
 
-/** What the sizing-stock check says, in the jeweler's words. */
-export const stockCheckMessage = ({ want, have, moved }) => (
-  want > have
-    ? `Sizing up ${moved} size${moved === 1 ? '' : 's'} needs ${want} sizing stock. This ticket has ${have}.`
-    : `Sizing up ${moved} size${moved === 1 ? '' : 's'} needs ${want === 0 ? 'no' : want} sizing stock. This ticket has ${have}.`
-);
+export { stockCheckMessage };
 
 export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formData, itemCount, itemsSubtotal, patchCustomLaborTask, quoteIntent, removeItem, setAddSheet, setQuoteIntent, setStep, smartIntakeNotes, step, stockCheck, updateItem }) {
   return (
@@ -18,41 +13,8 @@ export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formDat
       {/* ── Step 3 — Work items (short: ticket + subtotal + add strip) ── */}
       {step === 2 && (
         <Stack spacing={2.5}>
-          {/* The AI was down when the sentence was read: nothing below came from it. Said here, where the work is. */}
-          {smartIntakeNotes?.fallback && <Alert severity="warning">{AI_DOWN_MESSAGE}</Alert>}
-          {/* What the rulings did to this ticket, beside the lines they did it to (it used to show on the Piece step only). */}
-          {(smartIntakeNotes?.warnings || []).length > 0 && (
-            <Alert severity="info" aria-label="What smart intake changed">
-              {smartIntakeNotes.warnings.map((note) => <Box key={note}>{note}</Box>)}
-            </Alert>
-          )}
-          {(checks || []).map((check) => (
-            <Alert
-              key={check.key}
-              severity="warning"
-              action={<Button color="inherit" size="small" onClick={() => applyCheck(check)}>{check.action}</Button>}
-            >
-              {check.message}
-            </Alert>
-          ))}
-          {stockCheck && (
-            <Alert
-              severity="warning"
-              action={stockCheck.line ? (
-                <Button
-                  color="inherit"
-                  size="small"
-                  onClick={() => (stockCheck.lineQuantity > 0
-                    ? updateItem('materials', stockCheck.line.id, 'quantity', stockCheck.lineQuantity)
-                    : removeItem('materials', stockCheck.line.id))}
-                >
-                  {stockCheck.lineQuantity > 0 ? `Make it ${stockCheck.want}` : 'Remove it'}
-                </Button>
-              ) : undefined}
-            >
-              {stockCheckMessage(stockCheck)}{!stockCheck.line && ' Add it under Material.'}
-            </Alert>
-          )}
+          {/* What the read did to this ticket and what no longer fits it, beside the lines. The same block is on Review. */}
+          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} updateItem={updateItem} />
           {itemCount > 0 ? (
             <Box>
               <SectionLabel>On this ticket ({itemCount})</SectionLabel>
@@ -101,7 +63,8 @@ export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formDat
                     kind="Task"
                     hue={facelift.gold}
                     item={task}
-                    fromSentence={Boolean(task.__aiQuantity)}
+                    // The tick means "this line and its count came from your sentence". A count he changed is his.
+                    fromSentence={Boolean(task.__aiQuantity) && Number(task.quantity) === Number(task.__aiQuantity)}
                     ruledWhy={task._smartIntakeRuled}
                     onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
                     onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}

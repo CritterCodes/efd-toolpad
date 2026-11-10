@@ -10,6 +10,9 @@ import { NewRepairFlowWork, stockCheckMessage } from './NewRepairFlowWork';
 
 vi.mock('@/app/components/repairs/SmartIntakeMic', () => ({ default: () => null }));
 vi.mock('@/components/shared/CameraCapture', () => ({ default: () => null }));
+// Review imports the total card from the classic form; the checks are what is under test here.
+vi.mock('@/app/components/repairs/NewRepairForm', () => ({ TotalCostCard: () => null }));
+vi.mock('@/app/components/repairs/PromiseDateSuggestion', () => ({ default: () => null }));
 
 const formData = {
   smartIntakeInput: '14k ring going from 5 to 7', description: '', metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true,
@@ -110,5 +113,38 @@ describe('the Work step, round 3', () => {
     expect(screen.getByText(check.message)).toBeTruthy();
     fireEvent.click(screen.getByText('Add rhodium'));
     expect(applyCheck).toHaveBeenCalledWith(check);
+  });
+});
+
+describe('the checks follow the ticket to Review, round 4', () => {
+  it('Review shows the ticket check and the stock check, with their fixes, above everything else', async () => {
+    const { NewRepairFlowReview } = await import('./NewRepairFlowReview');
+    const applyCheck = vi.fn();
+    const updateItem = vi.fn();
+    const check = { key: 'rhodium-missing', message: 'White gold gets rhodium plating, and this ticket has none.', action: 'Add rhodium', add: { _id: 'rh' } };
+    const stockCheck = { want: 3, have: 1, moved: 4, line: formData.materials[0], lineQuantity: 3 };
+    render(
+      <NewRepairFlowReview
+        step={3} formData={{ ...formData, clientName: 'Test Client', notes: '' }} benchJewelers={[]} getJewelerLabel={() => ''} karatOptions={[]} metalSummary=""
+        itemCount={3} itemsSubtotal={176.98} pricingTotals={{}} pricingSettings={null} promiseDateContext={null} rushJobInfo={{}} reviewTotal={176.98}
+        setFormData={noop} setShowFullBreakdown={noop} setStep={noop} showFullBreakdown={false} submitMode="create"
+        smartIntakeNotes={{ warnings: ['Added "Rhodium Plating": white gold.'], assumed: {}, fallback: false }}
+        checks={[check]} applyCheck={applyCheck} stockCheck={stockCheck} updateItem={updateItem} removeItem={noop}
+      />,
+    );
+    expect(screen.getByText(check.message)).toBeTruthy();
+    fireEvent.click(screen.getByText('Add rhodium'));
+    expect(applyCheck).toHaveBeenCalledWith(check);
+    expect(screen.getByText(stockCheckMessage(stockCheck))).toBeTruthy();
+    fireEvent.click(screen.getByText('Make it 3'));
+    expect(updateItem).toHaveBeenCalledWith('materials', 3, 'quantity', 3);
+  });
+
+  it('a check with no fix shows no button, and the stock message never says "sizing up -1 sizes"', async () => {
+    const { IntakeChecks } = await import('./IntakeChecks');
+    render(<IntakeChecks checks={[{ key: 'metal-1', message: '"Half-Shank — Platinum" is a platinum task, and this ticket is gold. Replace it by hand.' }]} applyCheck={noop} />);
+    expect(screen.getByText(/Replace it by hand/)).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(stockCheckMessage({ want: 0, have: 2, moved: -1 })).toBe('The ring is not going up in size, so it needs no sizing stock. This ticket has 2.');
   });
 });

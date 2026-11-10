@@ -1,7 +1,7 @@
 import { extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { ringSizeNumber } from '@/services/repairs/ringSizing';
-import { sizingStockFor, isSizeUpTask, isCustomerGoldTask, taskRoles } from '@/services/ai/smartIntakeRules';
-import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
+import { sizingStockFor, isSizeUpTask, isSizeDownTask, isCustomerGoldTask, taskRoles } from '@/services/ai/smartIntakeRules';
+import { alignTasksToMetal, taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 // Item categories that might have sizes
 export const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
 
@@ -367,7 +367,10 @@ export function sizingStockCheck(formData = {}) {
  * ticket could leave with no rhodium, or a platinum ring with the gold-solder sizing task, and the save only re-prices
  * the lines it is given (review, 2026-11-09). This is the same idea as sizingStockCheck: say it, and offer the fix.
  *
- * Returns [{ key, message, action, add | remove | swap }]:
+ * Also held against the ticket (round 3 sweep, 2026-11-09): the sizing task against the direction the sizes go — sizes
+ * edited to 6 → 5 left "Size up" on the ticket — and a task made for another metal that has no counterpart to switch to.
+ *
+ * Returns [{ key, message, action, add | remove | swap }] — a check with no \`action\` can only be fixed by hand:
  *   add     the catalog task to add, with `quantity` (rhodium on white gold — owner, 2026-11-09: "All wg gets rhodium")
  *   remove  the id of a line to take off (rhodium the rule added for a metal that is no longer white gold)
  *   swap    { id, task }: this line should be that task (the metal's own version of the same job)
@@ -378,7 +381,18 @@ export function ticketChecks(formData = {}, availableTasks = []) {
   if (!lines.length || !availableTasks.length) return [];
   const out = [];
   const catalog = availableTasks.map((t) => ({ id: String(t._id), title: t.title || t.displayName || '', metals: t.metals }));
-  const { rhodium } = taskRoles(catalog);
+  const { rhodium, sizeUp, sizeDown } = taskRoles(catalog);
+  const catalogTask = (role) => (role ? availableTasks.find((t) => String(t._id) === role.id) : null);
+  const moved = getRingSizeDelta(formData.currentRingSize, formData.desiredRingSize);
+  const direction = moved ? lines.find((l) => (moved < 0 ? isSizeUpTask(l) : isSizeDownTask(l))) : null;
+  if (direction && !lines.some((l) => (moved < 0 ? isSizeDownTask(l) : isSizeUpTask(l)))) {
+    const to = catalogTask(moved < 0 ? sizeDown : sizeUp);
+    out.push({
+      key: `direction-${direction.id}`,
+      message: `The sizes go ${moved < 0 ? 'down' : 'up'} (${formData.currentRingSize} → ${formData.desiredRingSize}), and this ticket has "${direction.title}".${to ? ` It should be "${to.title}".` : ' Replace it by hand.'}`,
+      ...(to ? { action: 'Switch it', swap: { id: direction.id, task: to } } : {}),
+    });
+  }
   const white = formData.metalType === 'gold' && formData.goldColor === 'white';
   const rhodiumLine = rhodium ? lines.find((l) => String(l._id) === rhodium.id) : null;
   if (white && rhodium && !rhodiumLine) {
@@ -400,7 +414,18 @@ export function ticketChecks(formData = {}, availableTasks = []) {
   }
   if (formData.metalType) {
     for (const line of lines) {
+      if (line === direction) continue; // one check per line: the direction first, the metal after it is switched
       const [aligned] = alignTasksToMetal([line], formData.metalType, availableTasks);
+      // Made for another metal, and nothing to switch to by name (three generic size-ups tie): say so anyway.
+      if (!aligned && Array.isArray(line.metals) && line.metals.length && !taskAllowsMetal(line, formData.metalType)) {
+        const to = catalogTask(isSizeUpTask(line) ? sizeUp : (isSizeDownTask(line) ? sizeDown : null));
+        out.push({
+          key: `metal-${line.id}`,
+          message: `"${line.title}" is a ${line.metals.join('/')} task, and this ticket is ${formData.metalType}.${to ? ` It should be "${to.title}".` : ' Replace it by hand.'}`,
+          ...(to ? { action: 'Switch it', swap: { id: line.id, task: to } } : {}),
+        });
+        continue;
+      }
       if (aligned && String(aligned._id) !== String(line._id) && !lines.some((l) => String(l._id) === String(aligned._id))) {
         out.push({ key: `swap-${line.id}`, message: `"${line.title}" is not the ${formData.metalType} version of this job. It should be "${aligned.title}".`, action: 'Switch it', swap: { id: line.id, task: aligned } });
       }
