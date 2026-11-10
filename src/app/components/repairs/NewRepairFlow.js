@@ -234,7 +234,7 @@ export default function NewRepairFlow(props) {
   // `assumed`: nobody said it — it is a default. Shown as such, not with a tick (review, 2026-11-09: "14k ring" showed
   // "✓ yellow gold" under "Picked up from that sentence").
   const extractedChips = [
-    formData.karat && { label: String(formData.karat) },
+    formData.karat && { label: String(formData.karat), assumed: Boolean(smartIntakeNotes?.assumed?.karat) && smartIntakeNotes.assumed.karat === formData.karat },
     formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: Boolean(smartIntakeNotes?.assumed?.goldColor) && smartIntakeNotes.assumed.goldColor === formData.goldColor },
     formData.metalType && formData.metalType !== 'gold' && { label: formData.metalType },
     formData.isRing && { label: 'Ring' },

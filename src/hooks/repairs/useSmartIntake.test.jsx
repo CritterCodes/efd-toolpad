@@ -374,3 +374,58 @@ describe('Codex review of #348', () => {
     expect(checks).toMatchObject([{ key: 'swap-1', swap: { task: { _id: 'upPt' } } }]);
   });
 });
+
+describe('round 4 sweep, 2026-11-09', () => {
+  const up = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '6', desiredRingSize: '8' };
+
+  it('sizing stock with no size-up line is flagged: after a switch to size down, or a deleted size-up', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size 6 to 8', up);
+    expect(stockQty(h)).toBe('s32x1');
+    // He flips the sizes and switches the task.
+    act(() => h.result.current.setFormData((p) => ({ ...p, currentRingSize: '8', desiredRingSize: '6', tasks: [{ ...TASKS[0], id: 5, quantity: 1 }] })));
+    expect(sizingStockCheck(h.result.current.formData)).toMatchObject({ want: 0, have: 1, lineQuantity: 0, orphan: true });
+    // Deleted outright, with other work on the ticket.
+    act(() => h.result.current.setFormData((p) => ({ ...p, currentRingSize: '6', desiredRingSize: '8', tasks: [{ ...TASKS[4], id: 6, quantity: 1 }] })));
+    expect(sizingStockCheck(h.result.current.formData)).toMatchObject({ orphan: true });
+    // And the sizes still change with nothing sizing the ring.
+    expect(ticketChecks(h.result.current.formData, TASKS)).toMatchObject([{ key: 'sizing-missing', action: 'Add size up', add: { _id: 'up3' }, why: 'the ring changes size' }]);
+    // Not on an empty ticket, and not beside shank work he may have added stock for.
+    expect(sizingStockCheck({ tasks: [], materials: h.result.current.formData.materials })).toBeNull();
+    expect(sizingStockCheck({ tasks: [{ title: 'Half-Shank — up to 3mm' }], materials: h.result.current.formData.materials })).toBeNull();
+  });
+
+  it('a size-up he deleted is not put back, and the screen does not say it was added', async () => {
+    const h = harness();
+    await read(h, '14k yg ring retip 2 prongs size 6 to 7', { ...up, desiredRingSize: '7', matchedTasks: [{ id: 'retip', quantity: 2 }] });
+    expect(lines(h)).toBe('up3x1 retipx2');
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: p.tasks.filter((t) => t._id !== 'up3') })));
+    await read(h, '14k yg ring retip 2 prongs size 6 to 9', { ...up, desiredRingSize: '9', matchedTasks: [{ id: 'retip', quantity: 2 }] });
+    expect(lines(h)).toBe('retipx2');
+    expect(h.result.current.notes.warnings.join(' ')).not.toMatch(/Added "Size up/);
+    expect(ticketChecks(h.result.current.formData, TASKS).map((c) => c.key)).toEqual(['sizing-missing']);
+  });
+
+  it('sizes he corrected by hand survive a re-read, and the difference is said', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size 6 to 8', up);
+    act(() => h.result.current.setFormData((p) => ({ ...p, desiredRingSize: '7' })));
+    await read(h, '14k yg ring size 6 to 8 also polish', up);
+    expect(h.result.current.formData).toMatchObject({ currentRingSize: '6', desiredRingSize: '7' });
+    expect(h.result.current.notes.warnings.join(' ')).toMatch(/The sizes were left as you set them \(6 → 7\)\. The sentence reads 6 → 8\./);
+    // Untouched sizes still follow the sentence.
+    const g = harness();
+    await read(g, '14k yg ring size 6 to 8', up);
+    await read(g, '14k yg ring size 6 to 9', { ...up, desiredRingSize: '9' });
+    expect(g.result.current.formData.desiredRingSize).toBe('9');
+  });
+
+  it('a gold karat the note never said is assumed, not ticked', async () => {
+    const h = harness();
+    await read(h, 'gold ring size 6 to 8', up);
+    expect(h.result.current.notes.assumed).toMatchObject({ karat: '14k', goldColor: 'yellow' });
+    const g = harness();
+    await read(g, '14k gold ring size 6 to 8', up);
+    expect(g.result.current.notes.assumed.karat).toBe('');
+  });
+});

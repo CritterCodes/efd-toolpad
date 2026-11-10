@@ -146,5 +146,6 @@ describe('the checks follow the ticket to Review, round 4', () => {
     expect(screen.getByText(/Replace it by hand/)).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
     expect(stockCheckMessage({ want: 0, have: 2, moved: -1 })).toBe('The ring is not going up in size, so it needs no sizing stock. This ticket has 2.');
+    expect(stockCheckMessage({ want: 0, have: 1, moved: 2, orphan: true })).toBe('There is no size-up on this ticket, so it needs no sizing stock. This ticket has 1.');
   });
 });

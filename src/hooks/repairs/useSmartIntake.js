@@ -86,6 +86,11 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
   // The gold colour the last read ASSUMED. While the form still holds it, a re-read must not turn it into a tick —
   // the form "had a colour" only because the first read put it there (review, 2026-11-09).
   const assumedColorRef = useRef('');
+  // The same for a gold karat nobody said ("gold ring" answered 14k): shown as assumed, not ticked.
+  const assumedKaratRef = useRef('');
+  // The sizes the last read put on the form. If the form's differ, he edited them, and a re-read leaves them alone —
+  // the mic re-reads on its own and used to put 6 → 8 back over his 6 → 7 (review, 2026-11-09).
+  const lastSizesRef = useRef(null);
   // The newest read. An answer that is not for it is thrown away.
   const readSeqRef = useRef(0);
 
@@ -133,10 +138,12 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor) || metalChanged)) updates.goldColor = results.goldColor;
       else if (metalChanged && metalType !== 'gold') updates.goldColor = '';
 
-      if (isRing && results.currentRingSize) updates.currentRingSize = normalizeRingSizeValue(results.currentRingSize);
-      else if (replace && hadSizes) updates.currentRingSize = '';
-      if (isRing && results.desiredRingSize) updates.desiredRingSize = normalizeRingSizeValue(results.desiredRingSize);
-      else if (replace && hadSizes) updates.desiredRingSize = '';
+      if (!results.keepSizes) {
+        if (isRing && results.currentRingSize) updates.currentRingSize = normalizeRingSizeValue(results.currentRingSize);
+        else if (replace && hadSizes) updates.currentRingSize = '';
+        if (isRing && results.desiredRingSize) updates.desiredRingSize = normalizeRingSizeValue(results.desiredRingSize);
+        else if (replace && hadSizes) updates.desiredRingSize = '';
+      }
 
       if (results.promiseDate && blank(prev.promiseDate)) {
         const date = normalizeIsoPromiseDate(results.promiseDate);
@@ -194,6 +201,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       materialHints: [],
     }, { replace: true });
     lastAddedRef.current = { taskIds: [], stock: false };
+    lastSizesRef.current = null;
   }, [applySmartIntakeResults]);
 
   const handleAnalyzeSmartIntake = useCallback(async () => {
@@ -272,7 +280,21 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const wideShank = inferredTasks.some((t) => /3\s*(?:mm)?\s*to\s*5\s*mm/i.test(String(t.title || '')));
       const stock = sizingStockItemsFor(parsed.materialHints, availableMaterials,
         { metalType: parsed.metalType || formData.metalType, karat: parsed.karat || formData.karat, goldColor: parsed.goldColor || formData.goldColor }, { wide: wideShank });
-      const warnings = [...(Array.isArray(parsed.warnings) ? parsed.warnings : [])];
+      // A line he deleted is not put back — so the server's "Added …" for it would be untrue here. Drop that sentence.
+      const notPutBack = matched.filter((line) => removedByHandRef.current.taskIds.has(String(line.id)))
+        .map((line) => availableTasks.find((t) => String(t._id) === String(line.id))?.title).filter(Boolean);
+      const warnings = (Array.isArray(parsed.warnings) ? parsed.warnings : [])
+        .filter((w) => !notPutBack.some((title) => w.startsWith(`Added "${title}"`)));
+      // Sizes he edited after the last read stay his.
+      const size = (v) => (v ? normalizeRingSizeValue(v) : '');
+      const last = lastSizesRef.current;
+      const keepSizes = Boolean(last) && (String(formData.currentRingSize || '') !== last.current || String(formData.desiredRingSize || '') !== last.desired);
+      const readSizes = { current: size(parsed.currentRingSize), desired: size(parsed.desiredRingSize) };
+      if (keepSizes && (readSizes.current || readSizes.desired)
+        && (readSizes.current !== String(formData.currentRingSize || '') || readSizes.desired !== String(formData.desiredRingSize || ''))) {
+        warnings.push(`The sizes were left as you set them (${formData.currentRingSize || '—'} → ${formData.desiredRingSize || '—'}). The sentence reads ${readSizes.current || '—'} → ${readSizes.desired || '—'}.`);
+      }
+      if (!keepSizes) lastSizesRef.current = readSizes;
       if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none for this metal. Add it by hand.');
       // A line he put on or changed by hand is kept as his. When the sentence counts it differently, say so.
       for (const line of formData.tasks || []) {
@@ -287,6 +309,10 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const stillAssumed = Boolean(assumedColorRef.current) && assumedColorRef.current === formData.goldColor;
       const assumedColor = parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '';
       assumedColorRef.current = assumedColor;
+      const formHadKarat = Boolean(String(formData.karat || '').trim());
+      const karatStillAssumed = Boolean(assumedKaratRef.current) && assumedKaratRef.current === formData.karat;
+      const assumedKarat = parsed.metalType === 'gold' && !said.karat && (!formHadKarat || karatStillAssumed) ? (parsed.karat || '') : '';
+      assumedKaratRef.current = assumedKarat;
 
       applySmartIntakeResults({
         inputText: parsingText,
@@ -302,6 +328,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         // Sizing stock is computed on the server. An empty list means "none".
         materialHints: Array.isArray(parsed.materialHints) ? parsed.materialHints : [],
         skipStock: removedByHandRef.current.stock,
+        keepSizes,
         wideShank,
         inferredTasks,
       }, { replace: true });
@@ -315,7 +342,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       setSmartIntakeNotes({
         warnings,
         // Gold whose colour nobody said: shown as assumed while it is still the value on the form.
-        assumed: { goldColor: assumedColor },
+        assumed: { goldColor: assumedColor, karat: assumedKarat },
         fallback: false,
       });
     } catch (error) {
@@ -323,6 +350,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       console.error('Smart intake failed:', error?.message);
       runRuleBasedSmartIntake(parsingText);
       assumedColorRef.current = '';
+      assumedKaratRef.current = '';
       setSmartIntakeNotes({ warnings: [], assumed: {}, fallback: true });
       setSmartIntakeError(AI_DOWN_MESSAGE);
     } finally {

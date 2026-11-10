@@ -119,6 +119,12 @@ export async function POST(request) {
     } catch (geminiError) {
       // Provider text stays in the log. The person is told what failed and that the manual path works.
       console.error('Gemini smart intake parse error:', geminiError.message);
+      // A failed read is logged too: without a row, an outage — and every ticket typed by hand because of it — was
+      // invisible on the smart-intake log (reviews, 2026-11-09). Best-effort; it never changes the answer.
+      await recordIntakeSuggestion({
+        session, kind: 'text', input: { text: inputText, description, formMetal },
+        output: { failed: true, status: geminiError.status || 0 }, model: GEMINI_MODEL, ms: Date.now() - startedAt,
+      });
       return NextResponse.json(
         { success: false, error: aiErrorMessage(geminiError, { fallback: SMART_INTAKE_FALLBACK }) },
         { status: geminiError.status === 429 ? 429 : 502 }
@@ -128,6 +134,10 @@ export async function POST(request) {
     const rawText = extractGeminiText(geminiPayload);
     const raw = extractFirstJsonObject(rawText);
     if (!raw) {
+      await recordIntakeSuggestion({
+        session, kind: 'text', input: { text: inputText, description, formMetal },
+        output: { failed: true, status: 'invalid-json' }, model: GEMINI_MODEL, ms: Date.now() - startedAt,
+      });
       return NextResponse.json(
         { success: false, error: 'Gemini returned invalid JSON output.' },
         { status: 502 }
@@ -144,7 +154,8 @@ export async function POST(request) {
     const intakeLogID = await recordIntakeSuggestion({
       session,
       kind: 'text',
-      input: { text: inputText, description },
+      // The form's metal is part of what decided the answer; without it a replay cannot send what production sent.
+      input: { text: inputText, description, formMetal },
       output: {
         ...normalized,
         tasks: (normalized.matchedTasks || []).map((t) => ({ id: t.id, title: titleOf.get(t.id) || '', quantity: t.quantity })),

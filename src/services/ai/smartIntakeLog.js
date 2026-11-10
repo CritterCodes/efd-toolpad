@@ -154,7 +154,9 @@ export function summarizeMisses(entries = []) {
     if (diffs.length) changed += 1;
     for (const d of diffs) byField[d.field] = (byField[d.field] || 0) + 1;
   }
-  return { logged: entries.length, saved: saved.length, changed, byField, tickets: summarizeTickets(entries) };
+  // Reads where the AI call failed (the route logs them with output.failed): the jeweler typed those tickets by hand.
+  const failed = entries.filter((e) => e.output?.failed).length;
+  return { logged: entries.length, saved: saved.length, changed, byField, failed, tickets: summarizeTickets(entries) };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
