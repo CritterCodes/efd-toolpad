@@ -106,6 +106,9 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   what they are: "2 rings, retip 4 prongs each" = retip ×8. Logged cases to pin as fixtures: "size from 8.75 to 7.25,
   Rhodium plating, 2 rings" (saved Size Down ×2 + Rhodium ×2), "Size all 3 to a 6", "Solder together two rings"
   (that one is ONE job on two rings — not a piece count).
+- **B0b — solder together. RULED 2026-11-09, build with B0.** The Solder Together task's quantity is rings − 1
+  ("2 rings is 1x task, 3 rings is 2x"). Decide it in code from the stated ring count; pin "Solder together two
+  rings" (= ×1) and a three-ring case (= ×2) as fixtures.
 - **B1.** Platinum size-up becomes a Half-Shank: `src/services/repairs/metalTaskFilter.js` picks the platinum
   counterpart by title-word overlap. Swap only within the same job family, or store a counterpart id. Confirm against
   the live catalog first — the reviewer used titles from tests.
@@ -155,6 +158,16 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   unavailable — add the work by hand".
 - **E5.** No test covers `useSmartIntake.js`, where the model's answer becomes ticket lines. Add one.
 
+**G — the photo description**
+
+- **G1.** Make the description worth printing (owner, 2026-11-09: "trash, need to be better"). Known faults: the prompt
+  says "the ring" for every item; 9 of 65 logged descriptions that name a metal colour contradict the ticket (6 say
+  "silver-toned" on yellow gold). When the ticket already has a metal, karat and colour, give them to the model
+  rather than letting it guess from the picture, and have it describe only what a customer would recognise: the kind of
+  piece, stones, visible damage. Score it in the replay as "description contradicts the ticket's metal: N of M" —
+  the count must go down. It needs model mode and the stored images; if the images cannot be fetched read-only, say
+  so and score the text fixtures only. Do this after B and C.
+
 **F — hardening, small**
 
 - **F1.** Timeouts: worst case 94s against a 90s function limit; cap the total at 30s, cap `Retry-After`, retry 503.
@@ -169,11 +182,11 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   = (sizes moved, rounded up) − 1. So 5→7 = task ×1 + stock ×1; 4.75→6 = task ×1 + stock ×1; 8.5→12.25 = task ×1 +
   stock ×3. This is what has been live since #336. Saved tickets that differ (task ×2, stock ×8, no stock) were breaks
   or hand entries, not the rule.
-- **O2 — photo descriptions.** 76 saved, none edited, but 9 of 65 that name a metal colour contradict the ticket. Are
-  they read by anyone? Recommendation: decide before spending a round on them.
-
-- **O3 — "solder together two rings".** One job on two rings, and the task is priced "per Ring". Is that ×1 or ×2?
-  Asked 2026-11-09, not answered. Until it is, leave the model's quantity alone and exclude it from the score.
+- **O2 — photo descriptions. ANSWERED 2026-11-09.** Owner: *"The image description is trash, need to be better and we
+  don't use the descriptions at all, just rely on images."* So "76 saved, none edited" meant nobody reads them, not
+  that they are right. They still print as the customer-facing description. Backlog G1.
+- **O3 — "solder together". ANSWERED 2026-11-09.** Owner: *"Solder Together is per ring. 2 rings is 1x task. 3 rings
+  is 2x tasks."* The quantity is the number of joins: rings − 1. It is NOT a piece count (B0 does not apply to it).
 
 ## Declined
 
