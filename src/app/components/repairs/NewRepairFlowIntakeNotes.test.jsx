@@ -151,3 +151,20 @@ describe('the checks follow the ticket to Review, round 4', () => {
     expect(stockCheckMessage({ want: 0, have: 1, moved: 2, orphan: true })).toBe('There is no size-up on this ticket, so it needs no sizing stock. This ticket has 1.');
   });
 });
+
+describe('round 8', () => {
+  it('an "Added …" note goes when its line is gone', async () => {
+    const { IntakeChecks, stillTrue } = await import('./IntakeChecks');
+    const notes = { warnings: ['Added "Rhodium Plating": white gold.', 'No width was plain.'], assumed: {}, fallback: false };
+    render(<IntakeChecks smartIntakeNotes={notes} tasks={[{ title: 'Retip prongs' }]} checks={[]} applyCheck={noop} />);
+    expect(screen.queryByText('Added "Rhodium Plating": white gold.')).toBeNull();
+    expect(screen.getByText('No width was plain.')).toBeTruthy();
+    expect(stillTrue('Added "Rhodium Plating": white gold.', [{ title: 'Rhodium Plating' }])).toBe(true);
+  });
+
+  it('the save bar says how many checks are open', async () => {
+    const { NewRepairFlowStepActions } = await import('./NewRepairFlowStepActions');
+    render(<NewRepairFlowStepActions step={3} errors={{}} checks={[{ key: 'a' }]} stockCheck={{ want: 1, have: 0 }} submitWith={noop} requestQuote={noop} setQuoteIntent={noop} goNext={noop} />);
+    expect(screen.getByText('2 checks are open at the top of this page.')).toBeTruthy();
+  });
+});

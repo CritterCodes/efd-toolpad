@@ -18,7 +18,15 @@ export const saysStoneWeight = (inputText = '') => /\bcarats?\b|\d\s*-?\s*(?:ct|
 const COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
 /** Does the note say this number, as a figure or a word? "retip 4 prongs", "four prongs", "a pair" (2), "both" (2). */
 export const saysCount = (inputText = '', n = 0) => {
-  const text = str(inputText).toLowerCase();
+  // Numbers that are plainly something else are taken out first: a karat ("14k"), a ring-size move ("6 to 8",
+  // "size 7"), a head ("6 prong head"), a millimetre. Any matching digit used to satisfy the check — "retip prongs on
+  // 6 prong head" answered ×6 passed (review, 2026-11-10).
+  const text = str(inputText).toLowerCase()
+    .replace(/\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b/g, ' ')
+    .replace(/(?<![\d.])\d{1,2}(?:\.\d+)?\s*(?:to|->|→)\s*(?:an?\s+)?(?:size\s+)?\d{1,2}(?:\.\d+)?(?![\d.])/g, ' ')
+    .replace(/\b(?:size|sz)\s+\d{1,2}(?:\.\d+)?/g, ' ')
+    .replace(/(?<![\d.])\d+\s*-?\s*prong\s+(?:head|setting|mount\w*|basket|tiffany)\b/g, ' ')
+    .replace(/(?<![\d.])\d+(?:\.\d+)?\s*(?:mm|millimet\w*|ct|carat|inch(?:es)?|in\b|")/g, ' ');
   if (new RegExp(`(?<![\\d.])${n}(?![\\d.])`).test(text)) return true;
   if (COUNT_WORDS[n] && new RegExp(`\\b${COUNT_WORDS[n]}\\b`).test(text)) return true;
   return n === 2 && /\b(?:both|pair|twice|double)\b/.test(text);

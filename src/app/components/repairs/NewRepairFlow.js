@@ -243,7 +243,7 @@ export default function NewRepairFlow(props) {
     formData.currentRingSize && formData.desiredRingSize && { label: `${formData.currentRingSize} → ${formData.desiredRingSize}` },
   ].filter(Boolean);
   // The rulings and the sizing stock, held against the ticket as it stands now — shown on Work AND on Review.
-  const { applyCheck, checks, stockCheck } = ticketCheckActions({ availableTasks, formData, removeItem, setFormData });
+  const { applyCheck, checks, stockCheck } = ticketCheckActions({ availableTasks, formData, pieces: smartIntakeNotes?.pieces, removeItem, setFormData });
 
   const karatOptions = getKaratOptions();
   const isComped = Boolean(formData.compRepair || formData.includedWithSale);

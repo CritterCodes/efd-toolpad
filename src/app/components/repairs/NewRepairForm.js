@@ -786,7 +786,7 @@ export default function NewRepairForm({
                 </Stack>
                 {/* The same checks the stepped flow shows: this form used to show none of them (review, 2026-11-09). */}
                 <Box sx={intakeChecksSx}>
-                  <IntakeChecks {...ticketCheckActions({ availableTasks, formData, removeItem, setFormData })} removeItem={removeItem} smartIntakeNotes={{ ...smartIntakeNotes, fallback: false }} updateItem={updateItem} />
+                  <IntakeChecks {...ticketCheckActions({ availableTasks, formData, pieces: smartIntakeNotes?.pieces, removeItem, setFormData })} removeItem={removeItem} smartIntakeNotes={{ ...smartIntakeNotes, fallback: false }} tasks={formData.tasks} updateItem={updateItem} />
                 </Box>
                 {smartIntakeError ? (
                   <Alert severity="warning" sx={{ mt: 1.5, backgroundColor: UI.bgCard, border: '1px solid', borderColor: UI.border }}>

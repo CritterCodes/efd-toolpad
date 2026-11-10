@@ -33,7 +33,7 @@ const MM_WORDS = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
 // Words that may follow a measurement without being the thing measured: "6mm, size 9", "5mm and polish".
 const CONTINUES = /^(?:and|size|sized|sizing|resize|sz|needs|to|half|comfort|with|so|for|please|up|down|then|also|customer|wants|rush)$/;
 // A band that is someone else's, or denied: "wears it with a wide band", "not a wide band", "her other wide band".
-const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against|wears|wearing)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+const NOT_THIS_BAND = /\b(?:with|not|other|another|match|matches|matching|next to|beside|against|wears|wearing)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
 // "wife has wide band too" is hers; "ring has a wide shank" is this ring (Codex review of #351). Who HAS it decides.
 const SOMEONE_HAS = /\b(?:has|have)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
 const THIS_PIECE_HAS = /\b(?:ring|band|it|piece)\s+(?:has|have)\s+(?:an?\s+|the\s+)?$/;
@@ -99,7 +99,7 @@ export const shankWidthSaid = (inputText = '') => {
   for (const m of text.matchAll(worded)) {
     if (notThisBand(text.slice(Math.max(0, m.index - 24), m.index))) unclear = true; else wide = true;
   }
-  if (/\bcigar band\b/.test(text) || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text)) wide = true;
+  if (/\bcigar band\b/.test(text) || new RegExp(String.raw`\b${SHANK}\s+is\s+(?!not\b|n't\b)(?:(?!not\b)\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text)) wide = true;
   if (wide) return 'wide';
   // "wide" said anywhere else is a width mentioned, and not plainly this shank's.
   return unclear || /\b(?:wide|thick|chunky)\b/.test(text) ? 'unclear' : '';
@@ -169,6 +169,8 @@ export const noteNames = (inputText = '') => {
     // "14ky", "10kw", "14kwg": the karat with its colour stuck on is the shop's commonest shorthand (review, 2026-11-09).
     metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950)\b/.test(text),
     karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950|999|900)\b/.test(text),
-    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b|\b\d{2}\s*-?\s*kt?[ywr]g?\b/.test(text),
+    // "w/g", "y.g.", "wht": written the ways it is written. Unrecognised, the note's white lost to the form's assumed
+    // yellow on a re-read, and the rhodium went with it (review, 2026-11-10).
+    color: /\b(?:yellow|white|wht|rose|pink|yg|wg|rg)\b|\b[ywr]\s*[/.]\s*g\b|\b\d{2}\s*-?\s*kt?[ywr]g?\b/.test(text),
   };
 };

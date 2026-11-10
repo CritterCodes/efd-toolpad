@@ -26,7 +26,7 @@ export function NewRepairFlowReview({ applyCheck, benchJewelers, checks, removeI
         <Stack spacing={2.5}>
           {/* The metal and the sizes are edited on this step, and the save is here: what no longer fits the ticket is
               said here too, not only on Work (review, 2026-11-09). */}
-          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} updateItem={updateItem} />
+          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} tasks={formData.tasks} updateItem={updateItem} />
           {/* Header block: photo thumb + client + the sentence. */}
           <Box sx={{ display: 'flex', gap: 1.5 }}>
             <Box sx={{ flexShrink: 0, width: 58, height: 58, borderRadius: '11px', border: `1px dashed rgba(255,255,255,0.22)`, backgroundColor: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
