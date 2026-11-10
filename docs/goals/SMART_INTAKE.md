@@ -17,7 +17,10 @@ Each round, in this order. Write what happened in **Round log** at the bottom be
    it goes to **Owner questions** with a recommendation, and the round moves on.
 2. **Measure.** Run `npm run intake:replay` (round 1 builds it — see Backlog A1). Record the score in the Round log.
    A round may not merge if any score went down, unless the Round log names the tickets that flipped and why that is right.
-3. **Ship.** PR → checks green → merge → confirm the Vercel production deploy completed. Never push to `main`.
+3. **Ship.** Before the PR: run `npm test`, `npm run lint` and `npm run views` yourself and paste the result lines
+   into the Round log. **GitHub Actions is not running on this repo** (on 2026-11-09 the only PR checks were Vercel's
+   build and GitGuardian), so nothing else will run the tests. Then PR → those checks green → merge → confirm the
+   Vercel production deploy completed. Never push to `main`. A red test is fixed, never skipped or suppressed.
 4. **Sweep.** Start three fresh reviewers with **no context from this file, earlier rounds or each other** — only the
    three briefs in **Reviewer briefs**, verbatim. Save each report to `docs/goals/smart-intake-reviews/r<N>-<lens>.md`.
 5. **Triage.** Every finding becomes exactly one of: a Backlog item (with the report's file:line), an Owner question,
@@ -168,6 +171,9 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   or hand entries, not the rule.
 - **O2 — photo descriptions.** 76 saved, none edited, but 9 of 65 that name a metal colour contradict the ticket. Are
   they read by anyone? Recommendation: decide before spending a round on them.
+
+- **O3 — "solder together two rings".** One job on two rings, and the task is priced "per Ring". Is that ×1 or ×2?
+  Asked 2026-11-09, not answered. Until it is, leave the model's quantity alone and exclude it from the score.
 
 ## Declined
 
