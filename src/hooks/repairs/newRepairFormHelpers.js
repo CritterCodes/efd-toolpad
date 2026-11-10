@@ -384,8 +384,11 @@ export function ticketChecks(formData = {}, availableTasks = []) {
   const { rhodium, sizeUp, sizeDown } = taskRoles(catalog);
   const catalogTask = (role) => (role ? availableTasks.find((t) => String(t._id) === role.id) : null);
   const moved = getRingSizeDelta(formData.currentRingSize, formData.desiredRingSize);
-  const direction = moved ? lines.find((l) => (moved < 0 ? isSizeUpTask(l) : isSizeDownTask(l))) : null;
-  if (direction && !lines.some((l) => (moved < 0 ? isSizeDownTask(l) : isSizeUpTask(l)))) {
+  const wrongWay = moved ? lines.find((l) => (moved < 0 ? isSizeUpTask(l) : isSizeDownTask(l))) : null;
+  // Only when the check is actually raised. With both directions on the ticket nothing is said about direction, and
+  // the wrong-way line must still be held against the metal (Codex review of #348).
+  const direction = wrongWay && !lines.some((l) => (moved < 0 ? isSizeDownTask(l) : isSizeUpTask(l))) ? wrongWay : null;
+  if (direction) {
     const to = catalogTask(moved < 0 ? sizeDown : sizeUp);
     out.push({
       key: `direction-${direction.id}`,

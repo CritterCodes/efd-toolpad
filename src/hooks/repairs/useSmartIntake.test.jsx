@@ -349,3 +349,28 @@ describe('ticketChecks, round 4 — the direction of the sizes, and a task for a
     expect(check).toMatchObject({ want: 0, have: 2, lineQuantity: 0 });
   });
 });
+
+describe('Codex review of #348', () => {
+  it('stock left off because the size-up line was deleted is not "deleted by hand": a corrected sentence gets its stock', async () => {
+    const h = harness();
+    const up = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '5', desiredRingSize: '8' };
+    await read(h, '14k yg ring size up 5 to 8', up);
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: [] })));
+    await read(h, '14k yg ring size up 5 to 8', up);
+    expect(h.result.current.formData.materials).toEqual([]);
+    // Corrected to a wide band: a different size-up task, and it needs its stock.
+    await read(h, '14k yg ring, 5 mm band, size up 5 to 8', { ...up, matchedTasks: [{ id: 'up5', quantity: 1 }] });
+    expect(lines(h)).toBe('up5x1');
+    expect(stockQty(h)).toBe('s52x2');
+  });
+
+  it('both sizing directions on the ticket: no direction check, and the wrong-way line is still held against the metal', () => {
+    const upPt = task('upPt', 'Size Up (1 size) — Platinum (laser welded)', { metals: ['platinum'] });
+    const downPt = task('downPt', 'Size Down — Platinum (laser welded)', { metals: ['platinum'] });
+    const checks = ticketChecks(
+      { metalType: 'platinum', currentRingSize: '8', desiredRingSize: '6', tasks: [{ ...TASKS[1], id: 1, quantity: 1 }, { ...downPt, id: 2, quantity: 1 }] },
+      [...TASKS, upPt, downPt],
+    );
+    expect(checks).toMatchObject([{ key: 'swap-1', swap: { task: { _id: 'upPt' } } }]);
+  });
+});

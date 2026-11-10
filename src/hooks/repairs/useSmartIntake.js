@@ -305,7 +305,12 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         wideShank,
         inferredTasks,
       }, { replace: true });
-      lastAddedRef.current = { taskIds: inferredTasks.map((t) => String(t._id)), stock: stock.items.length > 0 && !removedByHandRef.current.stock };
+      // Stock is only put on beside a size-up line (see applySmartIntakeResults). When it was left off for that reason,
+      // it was not "added" — or the next read would take its absence for his deleting it, and never add stock again
+      // (Codex review of #348).
+      const handLines = (formData.tasks || []).filter((t) => !t.__aiQuantity || Number(t.quantity) !== Number(t.__aiQuantity));
+      const sizingUp = [...handLines, ...inferredTasks].some(isSizeUpTask);
+      lastAddedRef.current = { taskIds: inferredTasks.map((t) => String(t._id)), stock: stock.items.length > 0 && sizingUp && !removedByHandRef.current.stock };
 
       setSmartIntakeNotes({
         warnings,
