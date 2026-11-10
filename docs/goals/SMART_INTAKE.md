@@ -415,6 +415,34 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   log what the form actually showed, after the browser's steps; a log id on failed reads; photo failures; a CI guard
   on `score.json` and on marks.
 
+**Z — from the round 8 sweep** (`docs/goals/smart-intake-reviews/r8-sweep.md`) — NOT fixed: round 8 was the cap
+
+*In the order they should be done. The first two were introduced by this loop and are live.*
+
+- **Z1. Two checks contradict the server's own decision (introduced in rounds 6–7, live now).** After "no rhodium"
+  the ticket is right, and a standing check still says "White gold gets rhodium… [Add rhodium]". After sizing beads,
+  a check offers [Add size down]. Each puts "1 check is open" beside Save on a correct ticket, one tap from an
+  over-charge. Fix: the form must know the read left the line off on purpose (carry it in the read's notes) and not
+  raise the check.
+- **Z2. A reopened ticket loses its saved sizing stock on a new read.** The save strips `__aiQuantity` from tasks
+  but leaves `_smartIntakeHintType` on materials. Strip the `_smartIntake*` markers from materials at save.
+- **Z3.** Someone else's band given as a measurement ("wears with 4mm band", "to match her 5mm wedding band") is
+  read as this ring's width, with no warning. Apply the not-this-band guard to measurements → unclear.
+- **Z4.** A two-tone ring ("yg ring with wg head") gets no rhodium and no warning. Warn when the note names two gold
+  colours.
+- **Z5.** Any line the model returns is ticked "from your sentence", and a current size the note never gave
+  ("size to a 7" answered 5 → 7) is taken as said. Tick only what the note backs: a size whose number is not in the
+  note is "assumed"; for tasks, have the model return the words it matched (a prompt change, so a model re-run).
+- **Z6.** Warning fatigue: 25 of 69 real notes come back with a warning, 6 of them the routine "3x2 default" line,
+  which exists because one sentence of live aiMeta steers the model to the wide task. This is D1's strongest case.
+- **Z7.** Flat-priced tasks: clamp to one per piece instead of only warning. "no plating", "no rh", "declined
+  rhodium". "size one", "the smaller" near the sizing words: do not multiply the sizing. Past promise dates.
+- **Z8.** The stock check has no "Add N" button when there is no stock line (sizes typed after a read with none —
+  the commonest sizing flow). Stale notes other than "Added…" ("2 pieces: …"). A matched task dropped at metal
+  alignment is not said. The read's info notes are not counted in the save-bar line.
+- **Z9.** The apply script: a `--db` flag so it can be rehearsed on DEV, a restore dry run, a null-aiMeta check
+  (Glue Pearl), and keep the backup outside a worktree.
+
 **F — hardening, small**
 
 - **F1.** Timeouts: worst case 94s against a 90s function limit; cap the total at 30s, cap `Retry-After`, retry 503.
@@ -572,7 +600,44 @@ opened in a browser**; they are covered by hook and render tests only.
 
 **Round 8's sweep and the loop's close** are written below this entry once the sweep has reported.
 
-ROUND8_CLOSE
+**Round 8's sweep** (`docs/goals/smart-intake-reviews/r8-sweep.md`) — recorded and triaged (Z1–Z9), not fixed.
+The server reviewer ran everything this time and found two class-(a) cases on today's catalog (another ring's band
+given as a measurement; a two-tone ring with no rhodium) and could not break anything else. The form reviewer could
+not get a wrong stock quantity, direction, rhodium or metal price past a true check through hand edits, re-reads or
+an AI failure; what it found is where the screen vouches for the model's own word (a tick on any line; a size the
+note never gave). It also found two checks this loop introduced that fire on a correct ticket (Z1). The evidence
+reviewer found no wrong price on a saved ticket and no lost data, for the sixth sweep running.
+
+## The loop is closed — 2026-11-10
+
+**Stopped on:** "Round 8 finished (cap)". NOT on the quiet-rounds condition: every one of the eight sweeps
+demonstrated at least one wrong line with nothing true on screen, so the loop never had a quiet round. It was still
+finding things when it stopped — fewer, narrower and further from the price each time.
+
+**What the eight rounds did.**
+- Rounds 1–3 moved the score: 39/63 → 58/63 → 66/69 against the rulings. Those were the code putting wrong lines on
+  tickets: rhodium ×14, white read as yellow, stock from the model's arithmetic, a ticket multiplied by a prong count.
+- Rounds 4–8 moved no saved ticket. They closed cases the 69 tickets do not contain, mostly by making the screen say
+  when it is guessing: the checks at the save, "(assumed)" on what nobody said, his hand kept across a re-read, a
+  question on every pick the note does not back.
+- What three independent sweeps in a row could NOT break: sizing stock arithmetic, the piece-count multiplication,
+  the direction of a sizing task, karat-as-size and the other size guards, an invented task id, a catalog rename
+  (it warns), and anything the browser sends as a price.
+
+**What is still wrong, in order of what it costs.**
+1. Z1 and Z2 above — introduced here, live, small. Do these first.
+2. The three tickets the model still gets wrong are all the task descriptions (D1), and one sentence of that text
+   causes the commonest warning on the screen (Z6). The rewrite is prepared and has never been applied.
+3. The score is a fit to 69 tickets, 26 of them hand-marked the day the rules were written. There is no held-out
+   ticket. Nothing here predicts next month until the fixtures are refreshed with tickets saved after 2026-11-09.
+4. Nothing notices if the live prompt or Google's model changes. The log now records a prompt hash on every read;
+   nothing reads it yet (X10).
+5. No screen this loop changed has been opened in a browser, and `npm run views` was never run.
+
+**The next thing worth doing is not a ninth round of rules.** It is, in this order: fix Z1 and Z2; open the intake
+screens once in a browser; answer D1; then leave it alone for two or three weeks, refresh the fixtures
+(`node scripts/intake/export-logs.mjs`, then `npm run intake:replay -- --model`), and read the FRESH line. That
+number, and not 66/69, says whether any of this worked.
 
 **Waiting on the owner.** O5, O6, O7, O8, O9, D1.
 
