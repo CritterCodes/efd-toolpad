@@ -1,0 +1,4621 @@
+[
+ {
+  "id": "sil-031b74ec-ee6",
+  "at": "2026-10-02",
+  "surface": "counter",
+  "ticket": "repair-6ab2f78a",
+  "text": "14k wg size 8 to 6.5",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "6.5",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "resize",
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring size 8 to 6.5",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned half-eternity band features a row of clear, round brilliant-cut stones. The stones are channel-set, creating a smooth, continuous sparkle across the top of the polished band.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "6.5",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-8cc22554-eb6",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-76d467c6",
+  "text": "14-karat white gold ring, clean and polished, set with three 1-point stones",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring, clean and polish.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant ring showcases a prominent cushion-cut clear stone set in a silver-toned metal. The wide band features three distinct rows of smaller, round clear stones on each side, accented with decorative edging. It presents a substantial and ornate multi-stone design.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    },
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 3
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-d7890849-c24",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-80d7a454",
+  "text": "14-karat white gold, set stone < 1 carat, clean, polish, and rhodium",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "set stone",
+    "polish",
+    "rhodium"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold, set stone less than 1 carat, clean, polish, and rhodium plate.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79b165b3f967bb9e2c02f",
+    "6abe72048cc9154905706a64"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "title": "Set Stone 0.5ct to 0.99ct",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned solitaire ring setting features a polished band and a four-prong head, ready for your chosen center stone.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-06",
+   "tasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "title": "Set Stone 0.5ct to 0.99ct",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-d99d8f41-b3b",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-94dfa72d",
+  "text": "Sterling silver clean polish",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver clean and polish",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned bracelet features a chunky link chain and a toggle clasp engraved with \"LAGOS\". A puffed heart charm with a textured edge hangs from the chain.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-06",
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-1b6ee5d5-e23",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-19be8616",
+  "text": "14-karat yellow gold men's band, 3.5 mm size, from 11.5 to 9",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11.5",
+   "desiredRingSize": "9",
+   "promiseDate": "",
+   "taskHints": [
+    "resize",
+    "size down"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold men's band, size down from 11.5 to 9.",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This simple, classic band ring features a warm yellow-gold tone. It has a domed, half-round profile with a gently worn finish.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11.5",
+   "desiredRingSize": "9",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-ccfd3906-e4c",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-1983d9dc",
+  "text": "14-karat yellow gold pendant, re-tip, 20 prongs. Remove and reset stone.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "retip",
+    "prong",
+    "reset stone"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold pendant needs 20 prongs retipped and stone removed and reset.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e79a9f5b3f967bb9e2c02d"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 20
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "title": "Retip prongs",
+     "quantity": 20
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold ring features a vibrant oval purple center stone. It is surrounded by eight clear stones, alternating between round and pear shapes, forming a beautiful floral cluster design.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "title": "Retip prongs",
+     "quantity": 20
+    },
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "title": "Set Stone 0.5ct to 0.99ct",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-16eb4be9-e3a",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-1a024b39",
+  "text": "14-karat yellow gold ring, 10x retips",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "retip"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14-karat yellow gold ring, 10 retips",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This substantial band ring is crafted from a warm yellow-toned metal. It features a prominent bezel-set, square-cut clear stone at its center. This central stone is flanked by two smaller, bezel-set rectangular clear stones on each side, creating a modern, geometric design.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69efaf5c7f75b87a57492bee",
+     "title": "Reprong",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-824ca413-0bd",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-3ae07033",
+  "text": "14-karat white gold ring, reshape ring, retip 4 prongs. Rhodium plate.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "reshape",
+    "retip",
+    "rhodium plate"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring needs reshaping, retipping 4 prongs, and rhodium plating.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "6a1a5768cc79949f56081514",
+    "69e79a9f5b3f967bb9e2c02d",
+    "6abe72048cc9154905706a64"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "title": "Reshape Ring",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "title": "Retip prongs",
+     "quantity": 4
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant three-piece ring set features a brilliant round clear solitaire stone set in a silver-tone band. It is beautifully complemented by two matching silver-tone bands, each fully adorned with small, clear pave-set stones.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "title": "Reshape Ring",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "title": "Retip prongs",
+     "quantity": 4
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-ead37160-f7e",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-8ed63ddb",
+  "text": "18-karat yellow gold bracelet, one laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "18k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "laser weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "18k yellow gold bracelet, one laser weld",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This jewelry item features a two-tone watch bracelet with alternating gold-toned and silver-toned links. One section includes a gold-toned clasp. Several small, clear, faceted stones are visible scattered on the surface.",
+   "metalType": "gold",
+   "karat": "18k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-131274e2-872",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-ee128da0",
+  "text": "Sterling silver moissanite bracelet laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver moissanite bracelet needs laser weld.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant silver-tone bracelet features a continuous line of sparkling clear, round-cut stones. Each stone is individually set in a flexible link, creating a classic tennis bracelet style. The bracelet is secured with a box clasp closure.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-8dc2fb38-d50",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-ed2a9cba",
+  "text": "14-karat paperclip chain laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "laser weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k gold paperclip chain laser weld",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This gold-toned paperclip chain necklace features elongated oval links and a cross pendant formed by intertwined links.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-4e9a6bbf-743",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-6e03fd60",
+  "text": "Sterling silver bangles hard solder",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver bangles need hard solder.",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This silver-toned open-ended ring features a matte finish. Its outer surface is adorned with etched patterns, including wavy lines and triangular motifs. The piece has a rustic or tribal-inspired style and does not contain any visible stones.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-8c1a2218-803",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-6e03fd60",
+  "text": "Sterling silver bangles hard solder",
+  "description": "This silver-toned open-ended ring features a matte finish. Its outer surface is adorned with etched patterns, including wavy lines and triangular motifs. The piece has a rustic or tribal-inspired style and does not contain any visible stones.",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver ring needs hard solder.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6a1a5763cc79949f56081512"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "title": "Solder Together per Ring",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned open-ended ring features a matte finish. Its outer surface is adorned with etched patterns, including wavy lines and triangular motifs. The piece has a rustic or tribal-inspired style and does not contain any visible stones.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-901f1aa0-f13",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-da886adc",
+  "text": "14-karat yellow gold ring: check and tighten stones, rhodium plate, clean and polish.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "tighten stones",
+    "rhodium plating",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring needs stones checked and tightened, rhodium plated, and cleaned and polished.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79b9d5b3f967bb9e2c031",
+    "6abe72048cc9154905706a64",
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "title": "Check & Tighten < 20 stones",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This classic solitaire ring features a polished yellow gold band with a prominent round, brilliant-cut clear gemstone. The large center stone is securely held by a four-prong setting in a contrasting silver-toned metal.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "title": "Check & Tighten < 20 stones",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-0c47ba53-173",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-069a581a",
+  "text": "14-karat yellow gold chain, shortened chain to 22 in., make bracelet. Three laser welds, two jump rings.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "shorten",
+    "weld",
+    "add jump ring"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold chain to be shortened to 22 inches and made into a bracelet, involving three laser welds and two jump rings.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c",
+    "6a1a576bcc79949f56081515"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 3
+    },
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 3
+    },
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "title": "Add 18gu Jump Ring — 5mm and smaller",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "This is a bright yellow gold chain featuring an intricate Byzantine link style. The polished, interwoven links create a substantial and detailed appearance. A lobster clasp secures the chain.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    },
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "title": "Add 18gu Jump Ring — 5mm and smaller",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-faff3eca-0af",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-6e9e0674",
+  "text": "14 Kar",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "14 Kar",
+   "confidence": 0.5,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This elegant tennis bracelet features a continuous line of brilliant, round, clear stones set in a bright, silvery-white metal. Each stone is individually set, creating a flexible design that secures with a box clasp and a figure-eight safety catch.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-c0d6ef3c-d00",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-6e9e0674",
+  "text": "14-karat white gold tennis bracelet, shortened one laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "shorten",
+    "laser weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold tennis bracelet shortened with one laser weld.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant tennis bracelet features a continuous line of brilliant, round, clear stones set in a bright, silvery-white metal. Each stone is individually set, creating a flexible design that secures with a box clasp and a figure-eight safety catch.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-752ad687-9d9",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-55284257",
+  "text": "14-karat yellow gold bracelet, two laser welds",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold bracelet needs two laser welds.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold bracelet features a chevron link chain design with a two-tone appearance. The prominent box clasp is embellished with multiple pave-set clear stones arranged in a matching chevron pattern.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-65ebd47f-3c0",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-6405dfd5",
+  "text": "14-karat yellow gold ring, size 4.75, needs to be size 6.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "4.75",
+   "desiredRingSize": "6",
+   "promiseDate": "",
+   "taskHints": [
+    "size up",
+    "resize"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 0.25,
+     "reason": "size up"
+    }
+   ],
+   "normalizedSummary": "14k yellow gold ring, size 4.75 to 6",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69efe1943a58b22bf909c4ab"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold bypass ring features a vibrant, prong-set oval-cut ruby as its center stone. The shoulders are adorned with multiple rows of baguette-cut clear stones, complemented by a few round clear accent stones, creating an elegant, flowing design.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "4.75",
+   "desiredRingSize": "6",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 1
+    }
+   ],
+   "materials": [
+    {
+     "name": "3x2 mm Flat Sizing Stock",
+     "quantity": 1
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-29084cbd-819",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-44a6db08",
+  "text": "Sterling silver chain shortened to 16 in. Breaking chain. Add jump ring.",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "shorten",
+    "chain repair",
+    "add jump ring"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver chain shortened to 16 inches, with a break repaired and a jump ring added.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69f226f01cbd0e82e1868d39",
+    "6aa5ba781a046ed935323b8e"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    },
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    },
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "title": "Add 18gu Jump Ring w/ laser — 5mm and smaller",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant necklace features a delicate silver-toned chain suspending an eye-shaped pendant. The pendant showcases a central round purple gemstone, encircled by a halo of small yellow-toned stones, and further embellished with numerous clear stones set in a silver-toned frame.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-48c72aa7-f83",
+  "at": "2026-10-05",
+  "surface": "counter",
+  "ticket": "repair-07c87f5b",
+  "text": "14-karat white gold earrings set with stones over 1 carat, 2 times",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "stone setting"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold earrings with two stones over 1 carat each to be set.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79b535b3f967bb9e2c030"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "title": "Set Stone 1ct or larger",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "This image displays two brilliant, oval-cut, clear gemstones. Also visible are two polished silver-toned jewelry settings, each featuring a four-prong basket design with a post back.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "title": "Set Stone 1ct or larger",
+     "quantity": 2
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-b53a0f29-795",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-1fbe8542",
+  "text": "Sterling silver reglue turquoise",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "reglue"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Reglue turquoise on sterling silver item.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6a1f4575c459178ce8ce18d1"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "title": "Glue Pearl",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned ring features a row of four colorful stones across the top, each separated by small bead accents. From left to right, the stones include a turquoise blue cabochon, a vibrant orange cabochon, an opaque white cabochon, and a dark faceted stone set in a decorative scalloped bezel. This unique arrangement suggests a bohemian or Southwestern-inspired style.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "title": "Glue Pearl",
+     "quantity": 1
+    }
+   ],
+   "materials": [
+    {
+     "name": "3 mm Round Cabochon Natural Blue Turquoise",
+     "quantity": 1
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-cc0fe6ee-2cf",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-59e03a8c",
+  "text": "14-karat yellow gold laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser weld",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold-toned chain features elongated, oval-shaped links with alternating smooth and textured surfaces, creating a distinctive visual appeal. It is secured with a lobster clasp.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-59e83791-a37",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-2e907e40",
+  "text": "14-karat yellow gold laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser weld",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This ornate gold ring features a raised setting adorned with a cluster of small, round-cut red or purple stones. These vibrant gems surround what appears to be a larger central stone, all set within a detailed gold band, giving it a classic or vintage style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-e89f1f16-73d",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-af3100a0",
+  "text": "14-karat yellow gold breaking chain",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "chain repair",
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold chain needs repair for a break.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69f226f01cbd0e82e1868d39"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This delicate gold-tone chain features six round, vibrant purple beads, each capped with small gold-tone accents and spaced along its length. The piece secures with a lobster clasp, suggesting a bracelet or delicate necklace style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-6320cf0e-578",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-b3925d3b",
+  "text": "14-karat yellow gold, size down from 6.5 to 5.5",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6.5",
+   "desiredRingSize": "5.5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "sizing"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, size down from 6.5 to 5.5",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This substantial 14K gold men's ring features a vibrant oval-cut purple-blue gemstone, likely tanzanite or amethyst, set horizontally in a bezel-style setting. The two-tone design combines yellow gold with a contrasting lighter metal, forming broad, angular shoulders for a distinctive look.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6.5",
+   "desiredRingSize": "5.5",
+   "promiseDate": "2026-10-08",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-886a07f1-baa",
+  "at": "2026-10-06",
+  "surface": "counter",
+  "ticket": "repair-c93e722e",
+  "text": "Sterling",
+  "description": "This modern silver-toned ring features an asymmetrical cluster design. It showcases a round, clear faceted stone and a creamy white pearl, alongside an empty round bezel setting. The polished band complements the unique arrangement of elements.",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver-toned ring with a clear faceted stone, a pearl, and an empty bezel setting.",
+   "confidence": 0.8,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This modern silver-toned ring features an asymmetrical cluster design. It showcases a round, clear faceted stone and a creamy white pearl, alongside an empty round bezel setting. The polished band complements the unique arrangement of elements.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-12",
+   "tasks": [],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-6e39c9c0-641",
+  "at": "2026-10-07",
+  "surface": "counter",
+  "ticket": "repair-69943c9d",
+  "text": "14k white gold size from 8.75 to 7.25, Rhodium plating",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.75",
+   "desiredRingSize": "7.25",
+   "promiseDate": "",
+   "taskHints": [
+    "size",
+    "rhodium plating"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring size from 8.75 to 7.25, rhodium plating",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b",
+    "6abe72048cc9154905706a64"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This set includes two silver-toned rings: a half-eternity style band featuring multiple small, round, clear stones, and a solitaire engagement-style ring with a single princess-cut clear stone in a four-prong setting.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.75",
+   "desiredRingSize": "7.25",
+   "promiseDate": "2026-10-09",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 2
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-14c5b12b-6a4",
+  "at": "2026-10-07",
+  "surface": "counter",
+  "ticket": "repair-69943c9d",
+  "text": "14k white gold size from 8.75 to 7.25, Rhodium plating, 2 rings",
+  "description": "This set includes two silver-toned rings: a half-eternity style band featuring multiple small, round, clear stones, and a solitaire engagement-style ring with a single princess-cut clear stone in a four-prong setting.",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.75",
+   "desiredRingSize": "7.25",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "rhodium plating"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold rings, size from 8.75 to 7.25, rhodium plating.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6abe72048cc9154905706a64"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "This set includes two silver-toned rings: a half-eternity style band featuring multiple small, round, clear stones, and a solitaire engagement-style ring with a single princess-cut clear stone in a four-prong setting.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.75",
+   "desiredRingSize": "7.25",
+   "promiseDate": "2026-10-09",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 2
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "title": "Rhodium Plating",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-4681e6c8-b2a",
+  "at": "2026-10-07",
+  "surface": "counter",
+  "ticket": "repair-f9694936",
+  "text": "14k yellow size from 8.25 to 9.5",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.25",
+   "desiredRingSize": "9.5",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 0.25,
+     "reason": "sizing up"
+    }
+   ],
+   "normalizedSummary": "14k yellow gold ring size up from 8.25 to 9.5",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69efe1943a58b22bf909c4ab"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant bypass ring features a polished, light-colored metal band. Two round, clear stones are nestled together at the top, while one shoulder of the band is pavé-set with a row of smaller, clear accent stones.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.25",
+   "desiredRingSize": "9.5",
+   "promiseDate": "2026-10-09",
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-2b3810c1-86e",
+  "at": "2026-10-08",
+  "surface": "counter",
+  "ticket": "repair-e67d5b8c",
+  "text": "Sterling silver break-in chain",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "chain repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver chain break repair.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69f226f01cbd0e82e1868d39"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned necklace features an open heart-shaped pendant. The heart is adorned with a vibrant array of small, round, multi-colored stones, including red, orange, yellow, green, blue, and purple. The pendant is suspended from a delicate box chain.",
+   "metalType": "silver",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-12",
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-26c81981-0ba",
+  "at": "2026-10-09",
+  "surface": "counter",
+  "ticket": "repair-42d1af79",
+  "text": "14-karat white gold needs half shank.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "half shank",
+    "shank repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring needs half shank replacement.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "6a1a575dcc79949f56081510"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "title": "Half-Shank — up to 3mm",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant two-tone ring showcases a prominent emerald-cut, deep teal gemstone, bezel-set as its centerpiece. Sparkling round accent stones are intricately arranged in a halo around the main stone and extend down the shoulders, highlighting the contrasting gold and silver-toned metals for a sophisticated look.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-12",
+   "tasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "title": "Half-Shank — up to 3mm",
+     "quantity": 3
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-77d9b0c1-0f9",
+  "at": "2026-10-09",
+  "surface": "counter",
+  "ticket": "repair-42d1af79",
+  "text": "14-karat white gold needs half shank.",
+  "description": "This elegant two-tone ring showcases a prominent emerald-cut, deep teal gemstone, bezel-set as its centerpiece. Sparkling round accent stones are intricately arranged in a halo around the main stone and extend down the shoulders, highlighting the contrasting gold and silver-toned metals for a sophisticated look.",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "half shank",
+    "repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring with emerald-cut teal gemstone and accent stones needs half shank repair.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "6a1a575dcc79949f56081510"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "title": "Half-Shank — up to 3mm",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant two-tone ring showcases a prominent emerald-cut, deep teal gemstone, bezel-set as its centerpiece. Sparkling round accent stones are intricately arranged in a halo around the main stone and extend down the shoulders, highlighting the contrasting gold and silver-toned metals for a sophisticated look.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-12",
+   "tasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "title": "Half-Shank — up to 3mm",
+     "quantity": 3
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-5642f816-e60",
+  "at": "2026-10-10",
+  "surface": "store",
+  "ticket": "repair-c9369027",
+  "text": "Size 10KY to an 8",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "8",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Size 10k yellow gold ring from size 10 to size 8.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This gold-tone three-stone ring features a prominent round clear center stone, flanked by two smaller round dark red stones, all secured in prong settings on a polished band.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "8",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-fe4e4442-1b4",
+  "at": "2026-10-12",
+  "surface": "store",
+  "ticket": "repair-dda261f7",
+  "text": "14k size down 6 to 5",
+  "description": "No ring is visible in the provided image. The image displays a quilted fabric with patterns including a covered wagon and \"SOONERS\" text, along with argyle and geometric designs in red, black, white, and grey.",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k gold ring size down from 6 to 5",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a quilted fabric with patterns including a covered wagon and \"SOONERS\" text, along with argyle and geometric designs in red, black, white, and grey.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-0dcc0e01-0c8",
+  "at": "2026-10-12",
+  "surface": "store",
+  "ticket": "repair-dda261f7",
+  "text": "14k size down 6 to 5",
+  "description": "No ring is visible in the provided image. The image displays a quilted fabric with patterns including a covered wagon and \"SOONERS\" text, along with argyle and geometric designs in red, black, white, and grey.",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k gold ring size down from 6 to 5.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a quilted fabric with patterns including a covered wagon and \"SOONERS\" text, along with argyle and geometric designs in red, black, white, and grey.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-b85ddb7c-923",
+  "at": "2026-10-12",
+  "surface": "counter",
+  "ticket": "repair-058a0527",
+  "text": "10k White gold, size 6 to 7.5.",
+  "description": "This ring showcases a large, oval-cut light green gemstone as its prominent center stone, held by four prongs. Two smaller, round, clear accent stones flank the main gem, set into the polished silver-toned band, creating a classic three-stone style.",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7.5",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "resize",
+    "size up"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 0.5,
+     "reason": ""
+    }
+   ],
+   "normalizedSummary": "10k white gold ring, size up from 6 to 7.5.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69efe1943a58b22bf909c4ab"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This ring showcases a large, oval-cut light green gemstone as its prominent center stone, held by four prongs. Two smaller, round, clear accent stones flank the main gem, set into the polished silver-toned band, creating a classic three-stone style.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7.5",
+   "promiseDate": "2026-10-13",
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-14aec105-650",
+  "at": "2026-10-13",
+  "surface": "counter",
+  "ticket": "repair-6cd2981e",
+  "text": "14-karat yellow gold laser weld × 1",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser weld",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This hinged bangle bracelet features a prominent rectangular, cabochon-cut purple stone, likely an amethyst, set in a gold-toned bezel with decorative side details. The bracelet band displays both smooth and textured finishes, and a visible clasp mechanism. It presents a classic and elegant style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-5fe69caa-0c1",
+  "at": "2026-10-13",
+  "surface": "counter",
+  "ticket": "repair-60394093",
+  "text": "14-karat yellow gold laser × 1",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "laser weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser",
+   "confidence": 0.8,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This gold-toned jewelry item features a delicate curb link chain. Attached is a small cluster of seven clear, round stones, arranged in a flower-like pattern.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-94b0b88d-ffa",
+  "at": "2026-10-13",
+  "surface": "counter",
+  "ticket": "repair-a4bb8854",
+  "text": "14-karat yellow gold laser weld x2",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser weld x2",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "This jewelry piece showcases a striking design with alternating segments of deep blue, cylindrical stones and bright gold-toned links. A separate gold-toned box clasp, featuring multiple rows of small, possibly clear stones, is included. The overall aesthetic suggests a sophisticated bracelet or necklace.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-15",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-07c65b33-16f",
+  "at": "2026-10-15",
+  "surface": "counter",
+  "ticket": "repair-f6583d0f",
+  "text": "14k yellow gold laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold laser weld",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "Two yellow gold solitaire rings are shown, each featuring a single clear, square-cut stone. The stones are held securely in a four-prong setting on a polished, plain band, offering a classic and elegant style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-20",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-180109d5-c51",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-04331ae3",
+  "text": "14k yellow gold ring missing a diamond set stone: less than 1/2 carat, clean and polish.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "stone setting",
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring needs a small diamond set (less than 0.5ct) and a clean and polish.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e79ad95b3f967bb9e2c02e",
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold ring features a row of six round settings across the top, five of which hold brownish-gray stones. The band has a decorative split shank design on the sides, giving it a classic multi-stone style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-01-02",
+   "tasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-3259f264-5cc",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-e78dd0a5",
+  "text": "14k yellow gold, 5 mm band, size up 2 sizes",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "size up"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 1,
+     "reason": ""
+    }
+   ],
+   "normalizedSummary": "14k yellow gold 5 mm band size up 2 sizes",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69efe1943a58b22bf909c4ab"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This is a classic yellow gold-toned plain band ring with a domed profile. It features a polished finish, reflecting light from its surface.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "8",
+   "promiseDate": "2026-10-19",
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ],
+   "materials": [
+    {
+     "name": "5x2 mm Flat Sizing Stock",
+     "quantity": 1
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-c005753d-f1e",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-b108b195",
+  "text": "14k yg rings size 8 needs to be size 8",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "8",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, current size 8, desired size 8.",
+   "confidence": 1,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This is a plain yellow metal band with a rounded, domed profile. The surface has a slightly dull finish with visible minor scratches. It is a classic comfort-fit style ring with no stones.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "8",
+   "promiseDate": "2026-10-19",
+   "tasks": [
+    {
+     "id": "1792182617588",
+     "title": "Set stones",
+     "quantity": 23
+    },
+    {
+     "id": "1792182909953",
+     "title": "Make ring",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-bd3a159b-ebf",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-aebe6358",
+  "text": "14k yellow gold bracelet, clean and polish",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold bracelet, clean and polish",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This is a yellow gold-toned tennis bracelet featuring a continuous line of round, clear stones. Each stone is individually set within an S-shaped link, creating a distinctive wavy pattern. The bracelet is secured by a box clasp with a safety latch.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-19",
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-3e86cbbb-de7",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-6d75d46b",
+  "text": "14k yellow gold ring needs two tips and one prong straightened.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "retip",
+    "straighten prongs"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring needs two prong tips repaired and one prong straightened.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6a1a5757cc79949f5608150e"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "title": "Straighten Prongs — up to 20 stones",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This ring features a light-colored metal band with a prominent cluster of stones. A central clear stone is surrounded by several smaller clear stones, forming a floral-inspired design. This elegant cluster ring offers a classic and sparkling look.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-19",
+   "tasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "title": "Retip prongs",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-5c674ff2-a01",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-c9dc5361",
+  "text": "14k yellow gold ring, size 8.5, needs to be 12.25.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.5",
+   "desiredRingSize": "12.25",
+   "promiseDate": "",
+   "taskHints": [
+    "size up",
+    "resize"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 2.75,
+     "reason": "sizing up"
+    }
+   ],
+   "normalizedSummary": "14k yellow gold ring, size 8.5, needs to be 12.25.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69efe1943a58b22bf909c4ab"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "title": "Size Up  - 3mm to 5mm shanks",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "A classic yellow gold solitaire ring showcases a prominent round brilliant center stone. Adjacent to it is a white metal component, likely a wedding band or enhancer, featuring multiple smaller round brilliant diamonds arranged in clusters.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.5",
+   "desiredRingSize": "12.25",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 2
+    }
+   ],
+   "materials": [
+    {
+     "name": "3x2 mm Flat Sizing Stock",
+     "quantity": 8
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-809e2e52-032",
+  "at": "2026-10-16",
+  "surface": "counter",
+  "ticket": "repair-d12bf591",
+  "text": "14k yellow gold bracelet, 4 laser welds",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold bracelet, 4 laser welds",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 4
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 4
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elaborate yellow gold ring showcases a central dark blue marquise-cut stone encircled by a halo of clear round stones. Its shoulders are embellished with multiple rows of clear baguette-cut stones, transitioning into a twisted rope-style band also set with clear stones.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 4
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-4befe635-34f",
+  "at": "2026-10-20",
+  "surface": "counter",
+  "ticket": "repair-93864436",
+  "text": "10-karat yellow gold ring, going from a 10 to a 12. Customer supplied gold.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "12",
+   "promiseDate": "",
+   "taskHints": [
+    "size up"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 1,
+     "reason": "extra size beyond base"
+    }
+   ],
+   "normalizedSummary": "10k yellow gold ring, size up from 10 to 12, customer supplied gold.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69fdfaa3f001cd1615b0b516"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "title": "Size Up (Customer Supplied Gold)",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold men's signet ring features a rectangular black onyx inlay. A single round diamond is set in a square bezel within the center of the onyx. The ring's shoulders are detailed with horizontal ribbed grooves.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "12",
+   "promiseDate": "2026-10-21",
+   "tasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "title": "Size Up (Customer Supplied Gold)",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-dd161457-d51",
+  "at": "2026-10-20",
+  "surface": "counter",
+  "ticket": "repair-21cc237e",
+  "text": "10-karat yellow gold ring going down from a 10 to a 7.5",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "7.5",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing down",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "10k yellow gold ring, size down from 10 to 7.5",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This classic domed band ring features a warm, yellow metallic color with a polished sheen. The simple, elegant design is free of stones, and faint markings are visible on the interior surface.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "7.5",
+   "promiseDate": "2026-10-21",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-102aaa77-dbe",
+  "at": "2026-10-21",
+  "surface": "counter",
+  "ticket": "repair-a20bd06c",
+  "text": "14k yellow gold ring, size 9, needs to be a size 8.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "8",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, size 9 to 8",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This ring features a prominent oval purple gemstone, likely an amethyst, set in a warm-toned metal. The band has a bypass design that elegantly cradles the stone.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "8",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-1e3a752d-b52",
+  "at": "2026-10-21",
+  "surface": "counter",
+  "ticket": "repair-cab92667",
+  "text": "14k yellow gold ring, size 10.75, needs to be a size 10.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10.75",
+   "desiredRingSize": "10",
+   "promiseDate": "",
+   "taskHints": [
+    "size down"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, size 10.75 to 10.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This polished golden-toned ring features a sculptural, open-ended design with smooth, fluid waves. Its reflective surface enhances the modern bypass style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10.75",
+   "desiredRingSize": "10",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-2a3b0080-94f",
+  "at": "2026-10-21",
+  "surface": "counter",
+  "ticket": "repair-09a9ecc3",
+  "text": "14k yellow gold, size 11, needs to be a size 9.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11",
+   "desiredRingSize": "9",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "sizing"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, current size 11, desired size 9.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This wide band ring features a warm yellow gold tone with an intricate, openwork design across its domed top. The pattern consists of numerous small, textured square or diamond shapes, creating a detailed and dimensional surface. It presents a classic, possibly vintage, dome ring style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11",
+   "desiredRingSize": "9",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-91e722c5-b72",
+  "at": "2026-10-21",
+  "surface": "counter",
+  "ticket": "repair-db16e4a8",
+  "text": "10-karat white gold ring, size 6.25, needs to be a 5.5.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.25",
+   "desiredRingSize": "5.5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "10k white gold ring, size 6.25 to 5.5",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant ring features a brilliant oval-cut center stone set in a silvery-toned metal. The band is adorned with a delicate vine-like pattern of alternating pear-shaped and small round accent stones. This intricate design creates a sophisticated and sparkling look.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.25",
+   "desiredRingSize": "5.5",
+   "promiseDate": "2026-10-22",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    },
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-a164ae87-560",
+  "at": "2026-10-21",
+  "surface": "counter",
+  "ticket": "repair-1bd651c9",
+  "text": "Sterling silver ring set with three stones, less than 1/2 carat",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver ring set with three stones, each less than 0.5ct.",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This elegant half-eternity band features a continuous row of clear, rectangular baguette-cut stones. The silver-toned band showcases the stones set closely together, accented by small round metal details.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-01-02",
+   "tasks": [
+    {
+     "id": "1792615414015",
+     "title": "Set stones",
+     "quantity": 3
+    }
+   ],
+   "materials": [
+    {
+     "name": "2.75x1.5 mm Straight Baguette Step-Cut White Cubic Zirconia",
+     "quantity": 1
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-8a834af2-f78",
+  "at": "2026-10-22",
+  "surface": "counter",
+  "ticket": "repair-1139e246",
+  "text": "Sterling silver, two laser welds",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "sterling silver, two laser welds",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "There is no ring visible in the image. The image displays a broken silver-toned bracelet or necklace with clear round stones, and two silver-toned open quatrefoil-shaped earrings.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-23",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-46749b95-82f",
+  "at": "2026-10-23",
+  "surface": "counter",
+  "ticket": "repair-f3aea019",
+  "text": "Solder together two rings.",
+  "description": "",
+  "ai": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Solder together two rings.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "6a1a5763cc79949f56081512"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "title": "Solder Together per Ring",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a metal vise or clamp on a workbench.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-29",
+   "tasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "title": "Solder Together per Ring",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-6c5f0c21-412",
+  "at": "2026-10-23",
+  "surface": "counter",
+  "ticket": "repair-f3aea019",
+  "text": "Solder together two rings. 14k yellow gold",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "solder"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Solder together two 14k yellow gold rings.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6a1a5763cc79949f56081512"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "title": "Solder Together per Ring",
+     "quantity": 2
+    }
+   ]
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a metal vise or clamp on a workbench.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-29",
+   "tasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "title": "Solder Together per Ring",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-0dca4ebc-68d",
+  "at": "2026-10-23",
+  "surface": "counter",
+  "ticket": "repair-8952b4a8",
+  "text": "14k yellow gold ring set with one stone smaller than 1/2 carat",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "set stone"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring with one stone smaller than 0.5ct.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79ad95b3f967bb9e2c02e"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "The image displays a dark, curved object that appears to be a simple ring band. Its surface is a deep blue-black color with a subtle sheen. No stones or intricate details are discernible due to the image's blurriness.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-10-29",
+   "tasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "title": "Set Stone less than0.49ct",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-875eb2df-679",
+  "at": "2026-10-28",
+  "surface": "counter",
+  "ticket": "repair-020726dd",
+  "text": "14k yellow gold ring size down to clean and polish. Size down from 5.75 to a 5.5.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "5.5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring size down from 5.75 to 5.5, clean and polish.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b",
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This image features a stacked bridal set, including a prominent round clear solitaire ring in a silver-tone setting, accompanied by a channel-set band of clear stones and a plain gold-tone band. Also shown is a separate gold-tone half-eternity band, adorned with a continuous row of round clear stones.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "5.5",
+   "promiseDate": "2026-11-03",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-87cb31e0-287",
+  "at": "2026-10-30",
+  "surface": "counter",
+  "ticket": "repair-bd83a5d4",
+  "text": "Sterling silver ring size from 5.75 to a 7",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "7",
+   "promiseDate": "",
+   "taskHints": [
+    "size"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 0.25,
+     "reason": ""
+    }
+   ],
+   "normalizedSummary": "Sterling silver ring size from 5.75 to 7",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79a3d5b3f967bb9e2c02c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This elegant ring features a prominent round dark green center stone set in a silver-toned metal. Intertwining bands, pavé-set with numerous smaller dark green stones, form a sophisticated knot design around the center. The ring's band is also adorned with these accent green stones.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "7",
+   "promiseDate": "2026-11-02",
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-1cd08dab-012",
+  "at": "2026-10-30",
+  "surface": "counter",
+  "ticket": "repair-eb1cad8f",
+  "text": "14k yellow gold earrings, laser weld",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "laser weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold earrings, laser weld",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This pair of silver-toned rings features a twisted band design, with small, round, clear stones embedded along the curves for a continuous sparkling effect. They appear to be a stackable or matching set.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-05",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-7c66d0ed-ee1",
+  "at": "2026-10-30",
+  "surface": "counter",
+  "ticket": "repair-66727de7",
+  "text": "14k white gold, 3 laser welds",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "3 laser welds on 14k white gold item.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 3
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 3
+    }
+   ]
+  },
+  "saved": {
+   "description": "These elegant silver-toned jewelry pieces feature a large, faceted, pear-shaped dark brown stone, encircled by a halo of sparkling clear round stones. A curved bail, also adorned with clear stones, connects to the main design, suggesting they are sophisticated pendants or earring drops.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-05",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 3
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-ed5f1a43-271",
+  "at": "2026-10-30",
+  "surface": "counter",
+  "ticket": "repair-8056cc28",
+  "text": "14k yellow gold paperclip bracelet, one, laser-welded",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "weld",
+    "repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold paperclip bracelet, laser-welded",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "The image does not display a ring. Instead, it shows several small, elongated, gold-toned metal links, likely components for a chain, contained within a clear plastic bag.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-02",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-0bfd337a-1c9",
+  "at": "2026-10-30",
+  "surface": "counter",
+  "ticket": "repair-a8785db5",
+  "text": "Replace watch battery.",
+  "description": "",
+  "ai": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "battery replacement",
+    "watch repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Replace watch battery.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6a0759f07265fec006d997ce"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "title": "Watch Battery",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a close-up of a wooden surface.",
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-02",
+   "tasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "title": "Watch Battery",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-e7bf5168-7b7",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-d821ed17",
+  "text": "10k yg break in shank",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "solder",
+    "repair"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "10k yellow gold ring with a break in the shank.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69fa0fc0823ba83dc8644136"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "title": "Break in Shank",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold ring features a striking, sculptural swirl design. It is richly adorned with numerous clear, sparkling stones, including both round brilliant and baguette cuts, set in bright, contrasting channels. The intricate cluster arrangement creates a dazzling, multi-dimensional effect.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-05",
+   "tasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "title": "Break in Shank",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-0ddf3e81-a4a",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-0ace4943",
+  "text": "10-karat yellow gold ring going from a 5 to a 7",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "7",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "size up"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 1,
+     "reason": ""
+    }
+   ],
+   "normalizedSummary": "10k yellow gold ring size up from 5 to 7",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This set includes two yellow gold rings. One ring features a bypass design with three central round clear stones, complemented by smaller clear stones along its curved bands. The second ring is a delicate eternity band, fully adorned with small clear stones.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "7",
+   "promiseDate": "2026-11-05",
+   "tasks": [
+    {
+     "id": "69e79a3d5b3f967bb9e2c02c",
+     "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+     "quantity": 2
+    }
+   ],
+   "materials": [
+    {
+     "name": "3x2 mm Flat Sizing Stock",
+     "quantity": 2
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-d1594176-b66",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-791d906b",
+  "text": "Sterling silver ring: 7.25 needs to be 6.75.",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7.25",
+   "desiredRingSize": "6.75",
+   "promiseDate": "",
+   "taskHints": [
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver ring, size 7.25 to 6.75.",
+   "confidence": 1,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "The ring features a wide, rectangular top surface densely set with numerous small, sparkling colorless stones in a bright silver-toned metal. Its sides are crafted from a warm gold-toned metal, displaying a ribbed texture and delicate bead detailing along the edges. This creates a distinctive two-tone, pave-style statement ring.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7.25",
+   "desiredRingSize": "6.75",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-03d5f297-85b",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-791d906b",
+  "text": "Sterling silver ring: 7.25 needs to be 6.75.",
+  "description": "The ring features a wide, rectangular top surface densely set with numerous small, sparkling colorless stones in a bright silver-toned metal. Its sides are crafted from a warm gold-toned metal, displaying a ribbed texture and delicate bead detailing along the edges. This creates a distinctive two-tone, pave-style statement ring.",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7.25",
+   "desiredRingSize": "6.75",
+   "promiseDate": "",
+   "taskHints": [
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver ring needs to be sized down from 7.25 to 6.75.",
+   "confidence": 1,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "The ring features a wide, rectangular top surface densely set with numerous small, sparkling colorless stones in a bright silver-toned metal. Its sides are crafted from a warm gold-toned metal, displaying a ribbed texture and delicate bead detailing along the edges. This creates a distinctive two-tone, pave-style statement ring.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7.25",
+   "desiredRingSize": "6.75",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-6af447e3-94d",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-6b451a0c",
+  "text": "Sterling silver laser weld x1, clean and polish.",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "laser weld",
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver item needs laser welding and cleaning and polishing.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69ea8082622ce84034440e3c",
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned eternity band ring is completely encircled with numerous small, clear round stones. The stones are closely set, creating a continuous sparkling surface around the entire band.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-45f9cd4c-cfe",
+  "at": "2026-11-04",
+  "surface": "counter",
+  "ticket": "repair-ae7f0f6e",
+  "text": "14k wg ring going from 6.75 to 8.75, customer-supplied gold",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.75",
+   "desiredRingSize": "8.75",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k white gold ring sizing up from 6.75 to 8.75 using customer-supplied gold.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69fdfaa3f001cd1615b0b516"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "title": "Size Up (Customer Supplied Gold)",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned dome ring features a sparkling pavé setting of numerous small, clear stones covering its entire top surface. The smooth band transitions into the domed, stone-encrusted top, creating a brilliant and elegant style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.75",
+   "desiredRingSize": "8.75",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "title": "Size Up (Customer Supplied Gold)",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-e0054c6b-efa",
+  "at": "2026-11-05",
+  "surface": "counter",
+  "ticket": "repair-bca00698",
+  "text": "14k yg",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold",
+   "confidence": 1,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This set includes a silvery-toned engagement-style ring featuring a prominent round clear stone in a four-prong setting, flanked by two smaller clear stones on the band. The accompanying yellow-toned band ring displays an etched pattern, including the letters 'B.E.H.', with both pieces exhibiting a handcrafted aesthetic.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-06",
+   "tasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "title": "Size Up (Customer Supplied Gold)",
+     "quantity": 2
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-c9d70108-752",
+  "at": "2026-11-05",
+  "surface": "store",
+  "ticket": "repair-a869b99a",
+  "text": "14k white gold. Size all 3 to a 6",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "3",
+   "desiredRingSize": "6",
+   "promiseDate": "",
+   "taskHints": [
+    "sizing"
+   ],
+   "materialHints": [
+    {
+     "type": "sizing_material",
+     "quantity": 2,
+     "reason": "size up"
+    }
+   ],
+   "normalizedSummary": "14k white gold ring, size from 3 to 6.",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "This silver-toned bridal set features a prominent princess-cut center stone in a four-prong setting. Both the engagement ring and the matching wedding band are adorned with pave-set round accent stones, creating a brilliant and cohesive sparkle.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "3",
+   "desiredRingSize": "6",
+   "promiseDate": "2026-11-10",
+   "tasks": [],
+   "materials": [
+    {
+     "name": "3x2 mm Flat Sizing Stock",
+     "quantity": 2
+    }
+   ]
+  }
+ },
+ {
+  "id": "sil-57083edd-c33",
+  "at": "2026-11-05",
+  "surface": "counter",
+  "ticket": "repair-a94d6774",
+  "text": "14-karat yellow gold ring, size 5, needs to be size 4.5.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "4.5",
+   "promiseDate": "",
+   "taskHints": [
+    "size down",
+    "resize"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold ring, size 5 to 4.5.",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e799c65b3f967bb9e2c02b"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This yellow gold-toned ring features a detailed snake design, with textured scales forming the band. The snake's head is adorned with three small, round, clear stones. This piece presents a distinctive animal-motif style.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "4.5",
+   "promiseDate": "2026-11-06",
+   "tasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "title": "Size Down",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-70151d97-c9c",
+  "at": "2026-11-06",
+  "surface": "counter",
+  "ticket": "repair-112e6d8b",
+  "text": "Sterling silver",
+  "description": "",
+  "ai": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "Sterling silver",
+   "confidence": 1,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "No ring is visible in the provided image. The image displays a plain, light grey background.",
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-09",
+   "tasks": [
+    {
+     "id": "1793976899080",
+     "title": "Reshap ring",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-e7204d13-e0d",
+  "at": "2026-11-06",
+  "surface": "counter",
+  "ticket": "repair-5d71ec83",
+  "text": "10k yg clean and polish",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "clean",
+    "polish"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "10k yellow gold clean and polish",
+   "confidence": 1,
+   "matchedTaskIds": [
+    "69e79bdf5b3f967bb9e2c032"
+   ],
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This silver-toned Claddagh ring features a central heart held by two sculpted hands, topped with a detailed crown. The crown displays etched patterns, and an inscription is visible on the inside of the band.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-09",
+   "tasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "title": "Clean and Polish",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-bd6a88c3-ecf",
+  "at": "2026-11-06",
+  "surface": "counter",
+  "ticket": "repair-30d8d806",
+  "text": "10-karat yellow gold, add lobster claw.",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [
+    "add clasp"
+   ],
+   "materialHints": [],
+   "normalizedSummary": "10k yellow gold, add lobster claw.",
+   "confidence": 0.9,
+   "matchedTaskIds": [
+    "6aa5ba781a046ed935323b8e"
+   ],
+   "matchedTasks": [
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "quantity": 1
+    }
+   ],
+   "tasks": [
+    {
+     "id": "6aa5ba781a046ed935323b8e",
+     "title": "Add 18gu Jump Ring w/ laser — 5mm and smaller",
+     "quantity": 1
+    }
+   ]
+  },
+  "saved": {
+   "description": "This necklace features a delicate chain and a multi-part pendant. The pendant is adorned with numerous faceted dark red stones, arranged in three distinct floral-like clusters. A separate lobster clasp is also visible next to the chain.",
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-10",
+   "tasks": [],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-d40ae53a-da6",
+  "at": "2026-11-09",
+  "surface": "counter",
+  "ticket": "repair-08fbae3d",
+  "text": "14-karat yellow gold bracelet and chain",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold bracelet and chain",
+   "confidence": 0.8,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "No ring is visible in the image. The image displays several gold chains with various pendants, including a spherical floral cluster, a heart-shaped pendant with engraved leaves, and an abstract charm.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 2
+    },
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ },
+ {
+  "id": "sil-393b90d3-421",
+  "at": "2026-11-09",
+  "surface": "counter",
+  "ticket": "repair-08fbae3d",
+  "text": "14-karat yellow gold bracelet and chain",
+  "description": "",
+  "ai": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "",
+   "taskHints": [],
+   "materialHints": [],
+   "normalizedSummary": "14k yellow gold bracelet and chain",
+   "confidence": 0.9,
+   "matchedTaskIds": [],
+   "matchedTasks": [],
+   "tasks": []
+  },
+  "saved": {
+   "description": "No ring is visible in the image. The image displays several gold chains with various pendants, including a spherical floral cluster, a heart-shaped pendant with engraved leaves, and an abstract charm.",
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "promiseDate": "2026-11-10",
+   "tasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "title": "Break in chain",
+     "quantity": 2
+    },
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "title": "Laser Weld",
+     "quantity": 1
+    }
+   ],
+   "materials": []
+  }
+ }
+]

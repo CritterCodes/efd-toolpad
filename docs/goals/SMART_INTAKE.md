@@ -85,7 +85,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 **A — measurement first (nothing else is trustworthy without it)**
 
-- **A1.** Build `npm run intake:replay` as described above. Commit sanitized fixtures (`input.text`, `input.description`,
+- ✅ r1 **A1.** Build `npm run intake:replay` as described above. Commit sanitized fixtures (`input.text`, `input.description`,
   `output`, `outcome`, `createdAt`, and the task catalog as the model saw it) under `test/fixtures/smart-intake/`, plus
   a read-only `scripts/intake/export-logs.mjs` that refreshes them. Hand-mark the ~13 tickets whose final work was
   never said in the sentence ("14 Kar" → Laser Weld) as `unknowable` and exclude them from the headline.
@@ -93,11 +93,11 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   per log; split typed from photo; include materials; log AI failures and invalid JSON (today they return before the
   log write); store the task ids offered, a prompt hash and the model version; add a date range (the page loads the
   newest 200 and there are already 194).
-- **A3.** A test that every title-keyed rule resolves to exactly one task in the committed catalog fixture.
+- ✅ r1 **A3.** A test that every title-keyed rule resolves to exactly one task in the committed catalog fixture.
 
 **B — wrong price, nobody notices**
 
-- **B0 — several pieces on one job. RULED 2026-11-09, build first.** Owner: *"Sometimes there are 2 rings in a single
+- ✅ r1 **B0 — several pieces on one job. RULED 2026-11-09, build first.** Owner: *"Sometimes there are 2 rings in a single
   job. If there are 2 rings then there are 2x task and 2x materials. Each ring gets a task and a material."* So the
   piece count multiplies every task AND every material: 2 rings sized 5→7 = size-up ×2 + sizing stock ×2 (1 per
   ring × 2); with white gold, rhodium ×2. Today only the prompt asks for it, the sizing task added in code is always
@@ -106,25 +106,25 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   what they are: "2 rings, retip 4 prongs each" = retip ×8. Logged cases to pin as fixtures: "size from 8.75 to 7.25,
   Rhodium plating, 2 rings" (saved Size Down ×2 + Rhodium ×2), "Size all 3 to a 6", "Solder together two rings"
   (that one is ONE job on two rings — not a piece count).
-- **B0b — solder together. RULED 2026-11-09, build with B0.** The Solder Together task's quantity is rings − 1
+- ✅ r1 **B0b — solder together. RULED 2026-11-09, build with B0.** The Solder Together task's quantity is rings − 1
   ("2 rings is 1x task, 3 rings is 2x"). Decide it in code from the stated ring count; pin "Solder together two
   rings" (= ×1) and a three-ring case (= ×2) as fixtures.
-- **B1.** Platinum size-up becomes a Half-Shank: `src/services/repairs/metalTaskFilter.js` picks the platinum
+- ✅ r1 **B1.** Platinum size-up becomes a Half-Shank: `src/services/repairs/metalTaskFilter.js` picks the platinum
   counterpart by title-word overlap. Swap only within the same job family, or store a counterpart id. Confirm against
   the live catalog first — the reviewer used titles from tests.
-- **B2.** A fraction becomes a promise date: "set 1/2 ct diamond" → January 2 (`newRepairFormHelpers.js`, the regex
+- ✅ r1 **B2.** A fraction becomes a promise date: "set 1/2 ct diamond" → January 2 (`newRepairFormHelpers.js`, the regex
   date fallback used when the model returns none). Seen twice in the production log. Remove it from the AI path; in
   the rule path require "due/by/ready" and reject past dates.
-- **B3.** Sizing stock is taken from the model's number when it sends one (`useSmartIntake.js`). Always compute it
+- ✅ r1 **B3.** Sizing stock is taken from the model's number when it sends one (`useSmartIntake.js`). Always compute it
   from the two sizes; drop material hints other than `sizing_material`.
-- **B4.** Fractional and worded sizes: "7 1/2" and "size 7" are misread by `parseFloat` in the server rules; share one
+- ✅ r1 **B4.** Fractional and worded sizes: "7 1/2" and "size 7" are misread by `parseFloat` in the server rules; share one
   size parser between server and form.
-- **B5.** `statesWideShank`: "6mm stone" and "heavy wear" read as a wide shank; "4 millimeter band" does not; the
+- ✅ r1 **B5.** `statesWideShank`: "6mm stone" and "heavy wear" read as a wide shank; "4 millimeter band" does not; the
   description field is never checked.
-- **B6.** A fourth job is dropped silently (cap of 3 server-side, 2 in the fallback). Raise the cap to about 6 and
+- ✅ r1 **B6.** A fourth job is dropped silently (cap of 3 server-side, 2 in the fallback). Raise the cap to about 6 and
   say when something was cut.
-- **B7.** Duplicate lines when a generic and a platinum task are both matched; duplicate task ids kept.
-- **B8.** The dictation normaliser also rewrites typed text: "size 7 half shank" → "size 7.5 shank".
+- ✅ r1 **B7.** Duplicate lines when a generic and a platinum task are both matched; duplicate task ids kept.
+- ✅ r1 **B8.** The dictation normaliser also rewrites typed text: "size 7 half shank" → "size 7.5 shank".
 
 **C — rules that break on a catalog edit**
 
@@ -132,7 +132,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   and a width band — set in Admin → Tasks. Until then, A3 guards them. Needs a production write to set the fields:
   prepare it, dry-run it, and wait for the owner's yes.
 - **C2.** The model name is hard-coded in four files and `build-task` is on an older model. One constant.
-- **C3.** Use Gemini `responseSchema` with enums; remove the prompt's contradictions ("extract only what is explicit"
+- ◐ r1 (prompt rewritten, contradictions and phantom task names gone; `responseSchema` not yet) **C3.** Use Gemini `responseSchema` with enums; remove the prompt's contradictions ("extract only what is explicit"
   vs three defaults; "up to 3 tasks" vs "cover every job"; `matchedTasks` vs `matchedTaskIds`) and the task names that
   do not exist in the catalog ("Ring Sizing with Stones", "Chain Repair").
 
@@ -153,7 +153,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **E2.** A ticket can be saved without seeing its tasks: the green chips skip Work, Review shows "3 · $185.00", and the
   chips are built from form state so a default reads as "picked up from that sentence". List the lines on Review; mark
   defaults as defaults.
-- **E3.** Return `warnings` from the server ("rhodium added: white gold rule", "unknown task id dropped") and show them.
+- ◐ r1 (the server returns `warnings`; the form does not show them yet) **E3.** Return `warnings` from the server ("rhodium added: white gold rule", "unknown task id dropped") and show them.
 - **E4.** When the AI is down the regex fallback fills in a weaker ticket. Shrink it to metal and sizes, with "AI
   unavailable — add the work by hand".
 - **E5.** No test covers `useSmartIntake.js`, where the model's answer becomes ticket lines. Add one.
@@ -167,6 +167,21 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   piece, stones, visible damage. Score it in the replay as "description contradicts the ticket's metal: N of M" —
   the count must go down. It needs model mode and the stored images; if the images cannot be fetched read-only, say
   so and score the text fixtures only. Do this after B and C.
+
+**H — found while building the replay (round 1)**
+
+- **H1.** The two jump-ring tasks have identical aiMeta, so the model picks between them by chance; the owner removed
+  the "w/ laser" one all 3 times it was suggested. Part of D1.
+- **H2.** "Sterling silver bangles hard solder" → saved as Laser Weld. The model returns nothing or Solder Together.
+  Shop knowledge (silver is laser welded) that belongs in Laser Weld's aiMeta. Part of D1.
+- **H3.** A reset stone with no size said ("Remove and reset stone"): the model picks the smallest band, the ticket
+  had 0.5–0.99ct. Unknowable from the sentence; the form should ask rather than guess. With E2.
+- **H4.** Model-mode answers vary run to run on a few tickets ("Sterling silver clean polish" matched in one run and
+  not the next). Score a model run only against another model run, and consider `responseSchema` (C3) and
+  temperature 0.
+- **H5.** `npm run views` needs a production build with `NEXT_PUBLIC_URL=http://localhost:4300`; not run in round 1.
+  Three production test files cannot load `mongodb-memory-server` in a worktree. Neither is smart intake's, both
+  mean the local gate is weaker than the goal file assumes.
 
 **F — hardening, small**
 
@@ -187,6 +202,13 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   that they are right. They still print as the customer-facing description. Backlog G1.
 - **O3 — "solder together". ANSWERED 2026-11-09.** Owner: *"Solder Together is per ring. 2 rings is 1x task. 3 rings
   is 2x tasks."* The quantity is the number of joins: rings − 1. It is NOT a piece count (B0 does not apply to it).
+
+- **O4 — rhodium on white gold that is not a ring.** *"yes all white gold get rhodium"* is applied to every white
+  gold job. But his own tickets leave it off a white gold tennis bracelet with one laser weld, and off "14k white
+  gold, 3 laser welds". Rings only, or everything? Until answered: everything, as ruled. (Opened round 1.)
+- **O5 — a pair of earrings.** Is a pair one piece or two? "14k white gold earrings set with stones over 1 carat,
+  2 times" was saved as Set Stone ×2 + Rhodium ×1; "14k yellow gold earrings, laser weld" as Laser Weld ×2. The model
+  is told a pair is one piece unless the note counts them. (Opened round 1.)
 
 ## Declined
 
@@ -216,3 +238,43 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 1 — 2026-11-09 — `claude/smart-intake-r1`
+
+**Built.** The replay (A1): `scripts/intake/export-logs.mjs` (read-only export), fixtures under
+`test/fixtures/smart-intake/` (79 saved typed intakes = 71 tickets, 77 photos, the 32-task catalog, hand-written
+`marks.json`), `test/smart-intake/replay.test.js` (rules mode, in `npm test`, a ratchet on `score.json`),
+`replay.model.test.js` (model mode, aborts on any API error) and `npm run intake:replay [-- --model] [-- --update]`.
+The catalog guard (A3): `test/smart-intake/catalog.test.js`. All pure logic moved to
+`src/services/ai/smartIntakeRules.js` behind one entry point, `decideIntake`, used by the route and the replay.
+
+**Fixed.** B0 piece count (model's `pieceCount` or the sentence, whichever is larger; tasks, stock and rhodium per
+piece) · B0b solder together = rings − 1 · B1 platinum counterpart must be the same job (`jobOf`) · B2 no regex date
+fallback after an AI answer · B3 stock always computed, model hints ignored, none with the customer's gold · B4 one
+ring-size parser (`parseRingSize`) · B5 `statesWideShank` reads the description and ignores stones and wear · B6 cap
+raised to 6, with a warning · B7 duplicate lines merged, server and form · B8 "size 7 half shank" left alone · unknown
+task ids dropped · the raw model answer is now logged (`output.raw`) so later replays are exact · "size up 2 sizes"
+with no sizes said (`sizeChange`) now sizes and adds stock. Also: three inline styles hoisted in the customs
+Images tab, which had pushed the inline-sx ratchet over its baseline on main.
+
+**Score** (63 tickets scored, 8 marked unknowable; headline = same tasks and quantities):
+
+| | Before this round | After |
+|---|---|---|
+| What the form was told at the time (old prompt, 15-task prefilter, no rulings) | **39 / 63** | — |
+| Rules mode: the logged model answers through today's rulings | — | **55 / 63** |
+| Model mode: today's prompt → gemini-2.5-flash → today's rulings | — | **58 / 63** (everything right: 58) |
+
+Model mode ran three times this round (53 → 58 after one prompt change: the title is the authority, not the
+customer-voice `whenToUse`). Sizes 63/63, metal 63/63, stock 63/63 in the recorded run. Photos: 5 of 61 descriptions
+that name a metal colour contradict the ticket (text regex; G1 not started).
+
+**Still wrong in model mode (5):** "Sterling silver clean polish" (no task — run-to-run variance, H4) · reset stone
+with no size (H3) · silver bangles hard solder (H2) · chain shortened to a bracelet: an extra Break in chain ×2
+· earrings: rhodium ×2 (O5).
+
+**Local gate.** `npm test`: 277 files pass; 3 production files cannot load `mongodb-memory-server` in this worktree
+(fail the same on main here). `npm run lint`: clean. `npm run views`: not run — it needs a production build (H5); no
+screen changed this round.
+
+**Waiting on the owner.** O4, O5. Prepared-and-waiting production writes: none yet (D1, C1 not started).

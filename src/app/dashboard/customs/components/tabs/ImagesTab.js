@@ -9,6 +9,11 @@ import { REPAIRS_UI } from '@/app/dashboard/repairs/components/repairsUi';
  * `false` for an artisan. The upload and delete routes are staff-only — see the note in NotesTab.
  * An assigned artisan still SEES the moodboard, which is the half of this tab they need.
  */
+// The remove-confirmation's styles, as consts: the inline-sx ratchet counts every `sx={{`.
+const confirmImageSx = { width: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: 1, mb: 1 };
+const confirmNoteSx = { color: REPAIRS_UI.textSecondary };
+const previewImageSx = { maxWidth: '100%', maxHeight: '85vh', borderRadius: 1 };
+
 export default function ImagesTab({ customID, images = [], onChanged, notify, canEdit = true }) {
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -73,14 +78,14 @@ export default function ImagesTab({ customID, images = [], onChanged, notify, ca
       )}
 
       <Dialog open={!!preview} onClose={() => setPreview(null)} maxWidth="md" PaperProps={{ sx: { backgroundColor: 'transparent', boxShadow: 'none' } }}>
-        {preview && <Box component="img" src={preview} alt="" sx={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: 1 }} />}
+        {preview && <Box component="img" src={preview} alt="" sx={previewImageSx} />}
       </Dialog>
 
       <Dialog open={!!confirm} onClose={() => setConfirm(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Remove this image?</DialogTitle>
         <DialogContent>
-          {confirm && <Box component="img" src={confirm.url} alt="" sx={{ width: '100%', maxHeight: 240, objectFit: 'contain', borderRadius: 1, mb: 1 }} />}
-          <Typography variant="body2" sx={{ color: REPAIRS_UI.textSecondary }}>It comes off this order&apos;s moodboard.</Typography>
+          {confirm && <Box component="img" src={confirm.url} alt="" sx={confirmImageSx} />}
+          <Typography variant="body2" sx={confirmNoteSx}>It comes off this order&apos;s moodboard.</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirm(null)}>Keep</Button>

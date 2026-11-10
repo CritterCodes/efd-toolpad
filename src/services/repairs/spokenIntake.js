@@ -33,10 +33,13 @@ export function normalizeSpokenIntake(input = '') {
   const joiner = '\\s*(?:and\\s*)?(?:a\\s*)?';
   // (`(?!\\w)` rather than `\\b`: the fraction glyphs are not word characters, so `\\b` never
   // sits after "8¾".)
+  // Not when the fraction belongs to the NEXT word: "size 7 half shank" is a size 7 ring needing a half shank, and
+  // "1 quarter carat" is a stone — folding those rewrote typed text into a different job (review, 2026-11-09).
+  const notANoun = '(?![\\s-]*(?:shank|round|carat|ct\\b|point|pt\\b|inch|in\\b|dozen|moon|hoop))';
   text = text
-    .replace(new RegExp(`\\b${size}${joiner}(?:half|1/2|½)(?!\\w)`, 'gi'), '$1.5')
-    .replace(new RegExp(`\\b${size}${joiner}(?:three[\\s-]*quarters?|3/4|¾)(?!\\w)`, 'gi'), '$1.75')
-    .replace(new RegExp(`\\b${size}${joiner}(?:(?:a\\s*)?quarter|1/4|¼)(?!\\w)`, 'gi'), '$1.25');
+    .replace(new RegExp(`\\b${size}${joiner}(?:half|1/2|½)(?!\\w)${notANoun}`, 'gi'), '$1.5')
+    .replace(new RegExp(`\\b${size}${joiner}(?:three[\\s-]*quarters?|3/4|¾)(?!\\w)${notANoun}`, 'gi'), '$1.75')
+    .replace(new RegExp(`\\b${size}${joiner}(?:(?:a\\s*)?quarter|1/4|¼)(?!\\w)${notANoun}`, 'gi'), '$1.25');
   // A bare "and a half" right after "size": "size seven and a half" arrives as "size 7 and a half" from
   // most recognizers, already handled above. "half size" ("down a half size") stays as said.
 

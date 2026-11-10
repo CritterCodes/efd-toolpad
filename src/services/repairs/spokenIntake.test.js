@@ -35,3 +35,15 @@ describe('normalizeSpokenIntake — dictated text into the written forms the ext
     expect(extractRingSizesFromDescription(spoken)).toMatchObject({ currentRingSize: '7.5', desiredRingSize: '6' });
   });
 });
+
+describe('typed text is left alone where the fraction belongs to the next word (review, 2026-11-09)', () => {
+  it('"size 7 half shank" stays a size 7 ring needing a half shank', () => {
+    expect(normalizeSpokenIntake('14k yg size 7 half shank')).toBe('14k yg size 7 half shank');
+    expect(normalizeSpokenIntake('set 1 quarter carat stone')).toBe('set 1 quarter carat stone');
+    expect(normalizeSpokenIntake('1 1/2 ct diamond')).toBe('1 1/2 ct diamond');
+  });
+  it('a real fraction size still folds', () => {
+    expect(normalizeSpokenIntake('size 7 and a half to 6')).toBe('size 7.5 to 6');
+    expect(normalizeSpokenIntake('7 1/2 needs to be 8 3/4')).toBe('7.5 needs to be 8.75');
+  });
+});

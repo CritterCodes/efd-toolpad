@@ -35,9 +35,12 @@ describe('normalizeKaratValue', () => {
 });
 
 describe('normalizeParsedPayload', () => {
-  it('caps matched tasks at 3 — the same number the prompt promises', () => {
-    const out = normalizeParsedPayload({ matchedTaskIds: ['a', 'b', 'c', 'd', 'e'] });
-    expect(out.matchedTaskIds).toEqual(['a', 'b', 'c']);
+  it('caps matched tasks at 6, says how many were cut, and merges a task named twice', () => {
+    const out = normalizeParsedPayload({ matchedTaskIds: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] });
+    expect(out.matchedTaskIds).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    expect(out.overCap).toBe(2);
+    expect(normalizeParsedPayload({ matchedTasks: [{ id: 'a', quantity: 1 }, { id: 'a', quantity: 4 }] }).matchedTasks)
+      .toEqual([{ id: 'a', quantity: 4 }]);
   });
 
   it('normalizes the karat it passes to the form', () => {
@@ -94,13 +97,16 @@ describe('buildIntakePrompt', () => {
   it('lists every task and the input', () => {
     expect(prompt).toContain('id:down');
     expect(prompt).toContain('id:weld');
-    expect(prompt).toContain('Input text: 14k white gold. Size all 3 to a 6');
+    expect(prompt).toContain('Note: 14k white gold. Size all 3 to a 6');
   });
 
   it('carries the rules the logged misses called for', () => {
-    expect(prompt).toMatch(/SEVERAL PIECES/);        // "size all 3 to a 6" was read as size 3 -> 6
-    expect(prompt).toMatch(/SIZE WITH NO WORD "SIZE"/); // "7.25 needs to be 6.75" got no sizing task
-    expect(prompt).toMatch(/SHANK WIDTH/);           // a 3-5mm sizing task picked with no width stated
+    expect(prompt).toMatch(/count of pieces is never a ring size/); // "size all 3 to a 6" was read as size 3 -> 6
+    expect(prompt).toMatch(/sizing job even when the word "size" is missing/); // "7.25 needs to be 6.75" got no task
+    expect(prompt).toMatch(/pick the narrowest band/);           // a 3-5mm sizing task picked with no width stated
+    expect(prompt).toMatch(/never a date/);                      // "1/2 ct" became January 2
+    // Nothing that names a task the catalog may not have, and one name for the task list.
+    expect(prompt).not.toMatch(/Ring Sizing with Stones|Chain Repair|matchedTaskIds|materialHints/);
   });
 });
 
@@ -111,12 +117,8 @@ describe('owner rulings, 2026-11-09', () => {
     expect(normalizeParsedPayload({ metalType: 'silver' }).goldColor).toBe('');
   });
 
-  it('sizing stock is whole sizes, rounded up — never a quarter of a piece', () => {
-    const hints = normalizeParsedPayload({ materialHints: [{ type: 'sizing_material', quantity: 0.25 }, { type: 'solder', quantity: 0.5 }] }).materialHints;
-    expect(hints).toEqual([
-      { type: 'sizing_material', quantity: 1, reason: '' },
-      { type: 'solder', quantity: 0.5, reason: '' },
-    ]);
+  it('material hints from the model are never used: stock is computed (see smartIntakeRules.test.js)', () => {
+    expect(normalizeParsedPayload({ materialHints: [{ type: 'sizing_material', quantity: 0.25 }, { type: 'solder', quantity: 0.5 }] }).materialHints).toEqual([]);
   });
 
   describe('every white gold job gets rhodium', () => {

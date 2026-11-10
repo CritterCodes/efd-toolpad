@@ -1,0 +1,26 @@
+{
+ "logged": {
+  "tickets": 63,
+  "skipped": 8,
+  "tasks": 55,
+  "taskSet": 55,
+  "sizes": 63,
+  "metal": 63,
+  "stock": 62,
+  "all": 54
+ },
+ "model": {
+  "tickets": 63,
+  "skipped": 8,
+  "tasks": 58,
+  "taskSet": 59,
+  "sizes": 63,
+  "metal": 63,
+  "stock": 63,
+  "all": 58
+ },
+ "photos": {
+  "named": 61,
+  "contradict": 5
+ }
+}

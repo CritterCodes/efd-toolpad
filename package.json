@@ -25,6 +25,7 @@
     "lint": "eslint src scripts --quiet",
     "lint:prune": "eslint src scripts --quiet --prune-suppressions",
     "guardrails:report": "node scripts/guardrails-report.mjs",
+    "intake:replay": "node scripts/intake/replay.mjs",
     "design:report": "node scripts/design-report.mjs",
     "views": "node scripts/views.mjs",
     "deadcode": "knip",

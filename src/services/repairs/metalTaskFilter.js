@@ -57,12 +57,29 @@ function bestTitleMatch(task, candidates = []) {
   return bestScore > 0 && !tied ? best : null;
 }
 
+/**
+ * The JOB a title names: the words before its first qualifier. "Size up (1 size) - up to 3mm x 2 mm shank" and
+ * "Size Up (1 size) — Platinum (laser welded)" are both "size up"; "Half-Shank — Platinum, up to 3mm" is "half shank".
+ *
+ * A counterpart must be the same job. Word overlap alone sent a platinum size-up to "Half-Shank — Platinum, up to
+ * 3mm", because "up to 3mm … shank" outscored "Size Up" (review, 2026-11-09) — a Half-Shank line, a green chip, and
+ * the wrong price.
+ */
+export const jobOf = (title) => norm(title).split(/\s+[-–—]\s+|\(|,/)[0].replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** Among candidates for the same job: the only one, or the best title match. Never a different job. */
+function sameJobMatch(task, candidates = []) {
+  const same = candidates.filter((c) => jobOf(c.title) === jobOf(task?.title));
+  if (same.length <= 1) return same[0] || null;
+  return bestTitleMatch(task, same);
+}
+
 /** The metal-specific counterpart of a generic task, or null. */
 export function metalCounterpartFor(task, metalType, availableTasks = []) {
   if (!norm(metalType)) return null;
   const candidates = (availableTasks || []).filter((t) =>
     Array.isArray(t?.metals) && t.metals.length > 0 && taskAllowsMetal(t, metalType));
-  return bestTitleMatch(task, candidates);
+  return sameJobMatch(task, candidates);
 }
 
 /**
@@ -80,7 +97,7 @@ export function alignTasksToMetal(tasks = [], metalType = '', availableTasks = [
   for (const task of tasks) {
     let resolved = task;
     if (!taskAllowsMetal(task, metalType)) {
-      const bestGeneric = bestTitleMatch(task, generics);
+      const bestGeneric = sameJobMatch(task, generics);
       if (!bestGeneric) continue; // wrong recipe for the metal and no sibling — drop
       resolved = bestGeneric;
     } else if (!(Array.isArray(task?.metals) && task.metals.length)) {

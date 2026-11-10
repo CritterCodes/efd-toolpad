@@ -293,7 +293,14 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
           if (!aligned) return null;
           return { ...aligned, __aiQuantity: quantityByTaskId.get(String(task._id)) || 1 };
         })
-        .filter(Boolean);
+        .filter(Boolean)
+        // Two matches can align to the same task (a generic and its platinum sibling): one line, the larger quantity.
+        .reduce((lines, task) => {
+          const same = lines.find((l) => String(l._id) === String(task._id));
+          if (same) same.__aiQuantity = Math.max(same.__aiQuantity, task.__aiQuantity);
+          else lines.push(task);
+          return lines;
+        }, []);
 
       applySmartIntakeResults({
         inputText: parsingText,
@@ -303,15 +310,12 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         goldColor: parsed.goldColor || '',
         currentRingSize: parsed.currentRingSize || '',
         desiredRingSize: parsed.desiredRingSize || '',
-        promiseDate: parsed.promiseDate || parsePromiseDateFromDescription(parsingText),
-        materialHints: Array.isArray(parsed.materialHints) && parsed.materialHints.length > 0
-          ? parsed.materialHints
-          : inferMaterialHintsFromSmartIntake({
-              inputText: parsingText,
-              isRing: typeof parsed.isRing === 'boolean' ? parsed.isRing : false,
-              currentRingSize: parsed.currentRingSize || '',
-              desiredRingSize: parsed.desiredRingSize || ''
-            }),
+        // The date is the model's or nothing. The regex fallback read "set 1/2 ct diamond" as January 2 (seen twice
+        // in the production log, review 2026-11-09); the form supplies its own default date.
+        promiseDate: parsed.promiseDate || '',
+        // Sizing stock is computed on the server from the sizes and the piece count (smartIntakeRules.withSizingStock).
+        // An empty list is an answer — "no extra stock" — not a reason to guess again here.
+        materialHints: Array.isArray(parsed.materialHints) ? parsed.materialHints : [],
         inferredTasks: aiMatchedTasks
       });
     } catch (error) {
