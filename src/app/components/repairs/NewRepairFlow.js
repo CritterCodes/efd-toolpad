@@ -246,7 +246,9 @@ export default function NewRepairFlow(props) {
   // The owner's rulings against the ticket as it stands now: rhodium on white gold, the metal's own task.
   const checks = ticketChecks(formData, availableTasks);
   const applyCheck = (check) => {
-    if (check.add) addTask(check.add);
+    if (check.add) {
+      setFormData((prev) => ({ ...prev, tasks: [...prev.tasks, { ...stripComputedPrices(check.add), id: Date.now(), quantity: check.quantity || 1, _smartIntakeRuled: 'white gold' }] }));
+    }
     else if (check.remove != null) removeItem('tasks', check.remove);
     else if (check.swap) {
       setFormData((prev) => ({

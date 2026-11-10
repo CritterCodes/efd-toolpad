@@ -262,7 +262,9 @@ describe('ticketChecks — the rulings against the ticket as it stands now', () 
   it('white gold picked after the read: rhodium is missing, and the check offers it', () => {
     const checks = ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [line(TASKS[1])] }, CATALOG);
     expect(checks.map((c) => c.key)).toEqual(['rhodium-missing']);
-    expect(checks[0].add._id).toBe('rh');
+    expect(checks[0]).toMatchObject({ add: { _id: 'rh' }, quantity: 1, action: 'Add rhodium' });
+    // Two rings: two rhodiums (Codex review of #347).
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [line(TASKS[1], { quantity: 2 })] }, CATALOG)[0]).toMatchObject({ quantity: 2, action: 'Add rhodium x2' });
     expect(ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [line(TASKS[1]), line(TASKS[3])] }, CATALOG)).toEqual([]);
   });
 

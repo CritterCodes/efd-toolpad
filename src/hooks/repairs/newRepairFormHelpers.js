@@ -368,7 +368,7 @@ export function sizingStockCheck(formData = {}) {
  * the lines it is given (review, 2026-11-09). This is the same idea as sizingStockCheck: say it, and offer the fix.
  *
  * Returns [{ key, message, action, add | remove | swap }]:
- *   add     the catalog task to add (rhodium on white gold — owner, 2026-11-09: "All wg gets rhodium")
+ *   add     the catalog task to add, with `quantity` (rhodium on white gold — owner, 2026-11-09: "All wg gets rhodium")
  *   remove  the id of a line to take off (rhodium the rule added for a metal that is no longer white gold)
  *   swap    { id, task }: this line should be that task (the metal's own version of the same job)
  * Never changes the ticket itself.
@@ -382,7 +382,17 @@ export function ticketChecks(formData = {}, availableTasks = []) {
   const white = formData.metalType === 'gold' && formData.goldColor === 'white';
   const rhodiumLine = rhodium ? lines.find((l) => String(l._id) === rhodium.id) : null;
   if (white && rhodium && !rhodiumLine) {
-    out.push({ key: 'rhodium-missing', message: 'White gold gets rhodium plating, and this ticket has none.', action: 'Add rhodium', add: availableTasks.find((t) => String(t._id) === rhodium.id) });
+    // One per piece. A sizing line is one per ring, so its quantity is the piece count; adding a single rhodium to a
+    // two-ring ticket left the second ring uncharged (Codex review of #347).
+    const sizing = lines.find((l) => /\bsize (?:up|down)\b/i.test(String(l.title || '')));
+    const quantity = Math.max(1, Number(sizing?.quantity) || 1);
+    out.push({
+      key: 'rhodium-missing',
+      message: `White gold gets rhodium plating, and this ticket has none${quantity > 1 ? ` (${quantity} pieces)` : ''}.`,
+      action: quantity > 1 ? `Add rhodium x${quantity}` : 'Add rhodium',
+      add: availableTasks.find((t) => String(t._id) === rhodium.id),
+      quantity,
+    });
   }
   // Only rhodium the RULE added: on yellow gold he may have added it on purpose.
   if (!white && rhodiumLine?._smartIntakeRuled) {
