@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keepAlive } from "@/lib/keepAlive";
 import { uploadRepairImage } from "@/utils/s3.util";
 import RepairsController from "./controller";
 import RepairLaborLogsModel from "@/app/api/repairLaborLogs/model";
@@ -401,9 +402,9 @@ export const POST = async (request) => {
         });
       }
     };
-    notifyRepairLead().catch((notifyError) => {
-      console.error("R1 repair-lead notification failed (non-fatal):", notifyError.message);
-    });
+    // Not awaited — the repair is saved and that is the answer — but kept alive until it finishes. Started and
+    // dropped, 28 of the 43 lead emails since 2026-10-01 were frozen with the function and never sent.
+    keepAlive(notifyRepairLead(), "R1 repair-lead notification");
 
     return NextResponse.json(
       {

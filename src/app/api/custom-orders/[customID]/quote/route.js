@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import { keepAlive } from '@/lib/keepAlive';
+
+// Room for the email started after the answer to finish, or to fail and be recorded (see lib/keepAlive.js).
+export const maxDuration = 60;
 import { requireRole } from '@/lib/apiAuth';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { syncQuoteToWorkOrders } from '@/services/customs/customProduction';
@@ -74,7 +78,7 @@ export const PUT = async (req, { params }) => {
     if (advanced.advanced) updated = advanced.order;
   }
   if (!existing.quote?.quotePublished && updated.quote?.quotePublished && updated.clientID) {
-    NotificationService.createNotification({
+    keepAlive(NotificationService.createNotification({
       userId: updated.clientID,
       type: 'custom-quote-ready',
       title: 'Your quote is ready',
@@ -83,7 +87,7 @@ export const PUT = async (req, { params }) => {
       recipientEmail: updated.customerEmail,
       priority: 'high',
       data: { actionUrl: portalLink(customID, 'quote'), customID },
-    }).catch((e) => console.error('custom-quote-ready notification failed:', e.message));
+    }), 'custom-quote-ready notification');
     // A quote the client can't sign in to see is a quote they can't accept or pay —
     // re-invite anyone still passwordless (the shop no-ops for claimed accounts).
     await sendShopAccountInvite(updated.clientID, 'quote');

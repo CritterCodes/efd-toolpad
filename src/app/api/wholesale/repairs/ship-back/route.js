@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import { keepAlive } from '@/lib/keepAlive';
+
+// Room for the email started after the answer to finish, or to fail and be recorded (see lib/keepAlive.js).
+export const maxDuration = 60;
 import WorkOrdersModel from '@/app/api/workOrders/model';
 import { db } from '@/lib/database';
 import { requireRepairOpsAny } from '@/lib/apiAuth';
@@ -225,7 +229,7 @@ export async function POST(request) {
         ? deliveryDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
         : '';
       for (const { user, ids } of byRecipient.values()) {
-        NotificationService.createNotification({
+        keepAlive(NotificationService.createNotification({
           userId: user.userID,
           recipientEmail: user.email || '',
           type: 'wholesale-shipped-back',
@@ -246,7 +250,7 @@ export async function POST(request) {
             actionUrl: adminLink('/dashboard/wholesaler/shipments'),
             actionLabel: 'View Shipment',
           },
-        }).catch((e) => console.error('ship-back notification failed:', e?.message));
+        }), 'ship-back notification');
       }
     }
 
