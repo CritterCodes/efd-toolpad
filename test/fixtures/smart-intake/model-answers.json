@@ -1,0 +1,1208 @@
+{
+ "model": "gemini-2.5-flash",
+ "promptHash": "3007796a3cba",
+ "at": "2026-11-10",
+ "answers": {
+  "sil-031b74ec-ee6": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8",
+   "desiredRingSize": "6.5",
+   "sizeChange": -1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, current size 8, desired size 6.5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-03d5f297-85b": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "7.25",
+   "desiredRingSize": "6.75",
+   "sizeChange": -0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring needs to be sized from 7.25 to 6.75.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-07c65b33-16f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-0bfd337a-1c9": {
+   "metalType": "",
+   "karat": "",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Replace watch battery.",
+   "matchedTasks": [
+    {
+     "id": "6a0759f07265fec006d997ce",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-0c47ba53-173": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Shorten 14k yellow gold chain to 22 inches, make a bracelet from the removed chain, perform three laser welds, and add two jump rings.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    },
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    },
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 3
+    },
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-0dca4ebc-68d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring set with one stone smaller than 0.5 carat",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-0dcc0e01-0c8": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "5",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k gold ring, size down from 6 to 5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-0ddf3e81-a4a": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "7",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold ring, size from 5 to 7.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-102aaa77-dbe": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "9",
+   "desiredRingSize": "8",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size 9, needs to be a size 8.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-131274e2-872": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver bracelet needs laser weld.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-14aec105-650": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-14c5b12b-6a4": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "8.75",
+   "desiredRingSize": "7.25",
+   "sizeChange": -1.5,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold, size from 8.75 to 7.25, rhodium plating, 2 rings.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 2
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-180109d5-c51": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs a diamond (less than 0.5ct) set and a clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-1b6ee5d5-e23": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11.5",
+   "desiredRingSize": "9",
+   "sizeChange": -2.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold men's band, current size 11.5, desired size 9.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-1cd08dab-012": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold earrings, laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-1e3a752d-b52": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10.75",
+   "desiredRingSize": "10",
+   "sizeChange": -0.75,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 10.75, desired size 10.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-29084cbd-819": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver chain shortened to 16 inches. Repair break in chain. Add jump ring.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    },
+    {
+     "id": "6a1a576bcc79949f56081515",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-2a3b0080-94f": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "11",
+   "desiredRingSize": "9",
+   "sizeChange": -2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 11, needs to be size 9.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-2b3810c1-86e": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver chain with a break.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-3259f264-5cc": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size up 14k yellow gold 5mm band by 2 sizes.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-3e86cbbb-de7": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs 2 prongs retipped and 1 prong straightened.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 2
+    },
+    {
+     "id": "6a1a5757cc79949f5608150e",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-45f9cd4c-cfe": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.75",
+   "desiredRingSize": "8.75",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring, size from 6.75 to 8.75, with customer-supplied gold.",
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-4681e6c8-b2a": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.25",
+   "desiredRingSize": "9.5",
+   "sizeChange": 1.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size from 8.25 to 9.5",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-48c72aa7-f83": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Two 14k white gold earrings, each needing a stone over 1 carat set.",
+   "matchedTasks": [
+    {
+     "id": "69e79b535b3f967bb9e2c030",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-4befe635-34f": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "12",
+   "sizeChange": 2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold ring, size up from 10 to 12, customer supplied gold.",
+   "matchedTasks": [
+    {
+     "id": "69fdfaa3f001cd1615b0b516",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-5642f816-e60": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "8",
+   "sizeChange": -2,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Size 10k yellow gold ring from size 10 to size 8.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-57083edd-c33": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5",
+   "desiredRingSize": "4.5",
+   "sizeChange": -0.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size 5 to 4.5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-59e83791-a37": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-5c674ff2-a01": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "8.5",
+   "desiredRingSize": "12.25",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 8.5, desired size 12.25.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-5fe69caa-0c1": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld, 1 piece",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-6320cf0e-578": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "6.5",
+   "desiredRingSize": "5.5",
+   "sizeChange": -1,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, size down from 6.5 to 5.5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-65ebd47f-3c0": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "4.75",
+   "desiredRingSize": "6",
+   "sizeChange": 1.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring, current size 4.75, desired size 6.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-6af447e3-94d": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver laser weld x1, clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-6c5f0c21-412": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 2,
+   "promiseDate": "",
+   "normalizedSummary": "Solder together two rings. 14k yellow gold.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5763cc79949f56081512",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-752ad687-9d9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold bracelet with 2 laser welds.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-77d9b0c1-0f9": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring needs half shank replacement.",
+   "matchedTasks": [
+    {
+     "id": "6a1a575dcc79949f56081510",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-7c66d0ed-ee1": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold, 3 laser welds",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 3
+    }
+   ]
+  },
+  "sil-809e2e52-032": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold bracelet, 4 laser welds",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 4
+    }
+   ]
+  },
+  "sil-824ca413-0bd": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Reshape ring, retip 4 prongs, rhodium plate.",
+   "matchedTasks": [
+    {
+     "id": "6a1a5768cc79949f56081514",
+     "quantity": 1
+    },
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 4
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-875eb2df-679": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "5.5",
+   "sizeChange": -0.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring needs sizing down from 5.75 to 5.5 and a clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-87cb31e0-287": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "5.75",
+   "desiredRingSize": "7",
+   "sizeChange": 1.25,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring size from 5.75 to 7",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-8a834af2-f78": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver, two laser welds",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-8c1a2218-803": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "",
+   "matchedTasks": []
+  },
+  "sil-8cc22554-eb6": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold ring. Clean and polish. Set three 1-point stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    },
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 3
+    }
+   ]
+  },
+  "sil-8dc2fb38-d50": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k gold paperclip chain laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-901f1aa0-f13": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold ring: check and tighten stones, rhodium plate, clean and polish.",
+   "matchedTasks": [
+    {
+     "id": "69e79b9d5b3f967bb9e2c031",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-91e722c5-b72": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6.25",
+   "desiredRingSize": "5.5",
+   "sizeChange": -0.75,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k white gold ring, size 6.25 to 5.5.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-94b0b88d-ffa": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld x2",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 2
+    }
+   ]
+  },
+  "sil-a164ae87-560": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver ring with three small stones.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 3
+    }
+   ]
+  },
+  "sil-b53a0f29-795": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Reglue turquoise on sterling silver.",
+   "matchedTasks": [
+    {
+     "id": "6a1f4575c459178ce8ce18d1",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-b85ddb7c-923": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "white",
+   "isRing": true,
+   "currentRingSize": "6",
+   "desiredRingSize": "7.5",
+   "sizeChange": 1.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k White gold ring with a large oval-cut light green gemstone as its prominent center stone, held by four prongs. Two smaller, round, clear accent stones flank the main gem, set into the polished silver-toned band, creating a classic three-stone style. Needs sizing from 6 to 7.5.",
+   "matchedTasks": [
+    {
+     "id": "69efe1943a58b22bf909c4ab",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-bd3a159b-ebf": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Clean and polish 14k yellow gold bracelet.",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-c0d6ef3c-d00": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k white gold tennis bracelet, shortened with one laser weld.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-cc0fe6ee-2cf": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold laser weld",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-ccfd3906-e4c": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold pendant. Retip 20 prongs. Remove and reset stone.",
+   "matchedTasks": [
+    {
+     "id": "69e79a9f5b3f967bb9e2c02d",
+     "quantity": 20
+    },
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-d7890849-c24": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "white",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14-karat white gold item needs a stone set (under 1 carat), cleaned, polished, and rhodium plated.",
+   "matchedTasks": [
+    {
+     "id": "69e79b165b3f967bb9e2c02f",
+     "quantity": 1
+    },
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    },
+    {
+     "id": "6abe72048cc9154905706a64",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-d99d8f41-b3b": {
+   "metalType": "silver",
+   "karat": "925",
+   "goldColor": "",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "Sterling silver clean polish",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-dd161457-d51": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "10",
+   "desiredRingSize": "7.5",
+   "sizeChange": -2.5,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold ring size down from 10 to 7.5",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-e7204d13-e0d": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold clean and polish",
+   "matchedTasks": [
+    {
+     "id": "69e79bdf5b3f967bb9e2c032",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-e7bf5168-7b7": {
+   "metalType": "gold",
+   "karat": "10k",
+   "goldColor": "yellow",
+   "isRing": true,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "10k yellow gold ring with a break in the shank.",
+   "matchedTasks": [
+    {
+     "id": "69fa0fc0823ba83dc8644136",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-e89f1f16-73d": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold chain with a break.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-ead37160-f7e": {
+   "metalType": "gold",
+   "karat": "18k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "18k yellow gold bracelet with one laser weld.",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  },
+  "sil-ed5f1a43-271": {
+   "metalType": "gold",
+   "karat": "14k",
+   "goldColor": "yellow",
+   "isRing": false,
+   "currentRingSize": "",
+   "desiredRingSize": "",
+   "sizeChange": 0,
+   "pieceCount": 1,
+   "promiseDate": "",
+   "normalizedSummary": "14k yellow gold paperclip bracelet, laser-welded",
+   "matchedTasks": [
+    {
+     "id": "69ea8082622ce84034440e3c",
+     "quantity": 1
+    }
+   ]
+  }
+ }
+}

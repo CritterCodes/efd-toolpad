@@ -108,7 +108,7 @@ describe('POST /api/ai/parse-smart-intake', () => {
     expect(res._data.success).toBe(true)
     expect(res._data.data.parsed.metalType).toBe('gold')
     expect(res._data.data.parsed.isRing).toBe(true)
-    expect(res._data.data.parsed.taskHints).toContain('resize')
+    expect(res._data.data.parsed.warnings).toEqual([])
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 

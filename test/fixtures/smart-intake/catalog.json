@@ -1,0 +1,434 @@
+[
+ {
+  "id": "69e799c65b3f967bb9e2c02b",
+  "title": "Size Down",
+  "symptoms": [
+   "my ring is too big",
+   "ring keeps slipping off",
+   "i need my ring made smaller",
+   "ring is too loose",
+   "i lost weight and my ring doesn't fit",
+   "can you size my ring down"
+  ],
+  "whenToUse": "Use when the customer's plain ring is too big and needs to be made smaller by cutting and re-soldering the shank. For rings with no gemstones.",
+  "neverUseWhen": "Do not use for rings that need to be made larger (use a Size Up task) or for eternity bands and stone-set shanks where sizing affects the stones."
+ },
+ {
+  "id": "69e79a3d5b3f967bb9e2c02c",
+  "title": "Size up (1 size) - up to 3mm x 2 mm shank",
+  "symptoms": [
+   "my ring is a little too tight",
+   "i need my ring one size bigger",
+   "ring won't go over my knuckle",
+   "my finger got bigger",
+   "can you make my band a bit larger",
+   "ring feels snug"
+  ],
+  "whenToUse": "Use when a plain ring is slightly too tight and needs to go up one size, on a thin shank up to 3mm wide and 2mm thick, with no gemstones.",
+  "neverUseWhen": "Do not use if the shank is wider than 3mm x 2mm (use Size Up 3mm to 5mm), if more than one size up is needed, or if the customer supplies their own gold (use Size Up Customer Supplied Gold)."
+ },
+ {
+  "id": "69e79a9f5b3f967bb9e2c02d",
+  "title": "Retip prongs",
+  "symptoms": [
+   "my prong is worn down",
+   "the tip of a prong broke off",
+   "the metal holding my stone looks thin",
+   "my diamond feels loose",
+   "i'm worried about losing my stone",
+   "a prong snapped"
+  ],
+  "whenToUse": "Use when one or more prongs are worn thin, short, or broken at the tip and need metal added back to securely hold an existing stone.",
+  "neverUseWhen": "Do not use if the entire prong or head must be rebuilt (use Reprong) or if the stone is already missing."
+ },
+ {
+  "id": "69e79ad95b3f967bb9e2c02e",
+  "title": "Set Stone less than0.49ct",
+  "symptoms": [
+   "i need a small stone set",
+   "set this little diamond for me",
+   "my melee stone fell out and i have it",
+   "set a stone in this empty setting",
+   "i have a tiny replacement stone to put in"
+  ],
+  "whenToUse": "Use when the customer needs a single small stone (under 0.49ct) set into a mounting or empty setting they already have.",
+  "neverUseWhen": "Do not use for stones 0.5ct or larger (use the matching Set Stone size tier) or when multiple stones need tightening rather than setting."
+ },
+ {
+  "id": "69e79b165b3f967bb9e2c02f",
+  "title": "Set Stone 0.5ct to 0.99ct",
+  "symptoms": [
+   "set my half carat stone",
+   "i have a three quarter carat diamond to set",
+   "my center stone fell out and i have it",
+   "set this stone in my empty setting",
+   "i have a 0.6 carat replacement stone"
+  ],
+  "whenToUse": "Use when the customer needs a single stone between 0.5ct and 0.99ct set into a mounting or empty setting they already have.",
+  "neverUseWhen": "Do not use for stones under 0.5ct or over 1ct (use the matching Set Stone tier), or when the shop must source the stone."
+ },
+ {
+  "id": "69e79b535b3f967bb9e2c030",
+  "title": "Set Stone 1ct or larger",
+  "symptoms": [
+   "set my big diamond",
+   "i have a 1.5 carat stone to set",
+   "my large center stone fell out and i have it",
+   "set this loose stone in my ring",
+   "i want my one carat plus stone put back in"
+  ],
+  "whenToUse": "Use when the customer needs a single stone over 1ct set into a mounting or empty setting they already have.",
+  "neverUseWhen": "Do not use for stones under 1ct (use a smaller Set Stone tier) or when setting multiple small accent stones."
+ },
+ {
+  "id": "69e79b9d5b3f967bb9e2c031",
+  "title": "Check & Tighten < 20 stones",
+  "symptoms": [
+   "my stone feels loose",
+   "i hear my diamond rattling",
+   "can you check my stones are secure",
+   "my stone is wobbly",
+   "make sure my stones are tight",
+   "one of my small stones moves"
+  ],
+  "whenToUse": "Use when stones in a piece feel loose or wobbly and need to be checked and tightened, on items with fewer than 20 stones.",
+  "neverUseWhen": "Do not use if a stone is already missing (use a Set Stone task), if the piece has 20 or more stones (use Check & Tighten over 20 stones), or if prongs are broken (use Retip prongs or Reprong)."
+ },
+ {
+  "id": "69e79bdf5b3f967bb9e2c032",
+  "title": "Clean and Polish",
+  "symptoms": [
+   "my ring looks dull",
+   "it lost its shine",
+   "make it look new again",
+   "it's really dirty",
+   "it has light scratches",
+   "can you polish my necklace",
+   "it needs a good cleaning"
+  ],
+  "whenToUse": "Use when the customer wants a piece cleaned and polished to restore shine and remove dirt, dullness, or light surface scratches.",
+  "neverUseWhen": "Do not use when the piece needs structural repair, resizing, or stone work — this is surface restoration only."
+ },
+ {
+  "id": "69ea8082622ce84034440e3c",
+  "title": "Laser Weld",
+  "symptoms": [
+   "my ring cracked near the stone",
+   "there's a hairline crack in my band",
+   "fix this without removing my stone",
+   "the metal is split",
+   "my ring broke close to the diamond",
+   "i need a delicate repair near my gemstone"
+  ],
+  "whenToUse": "Use for a precise, low-heat weld of a crack or break in metal, especially near heat-sensitive stones or where soldering would risk damage.",
+  "neverUseWhen": "Do not use when the shank is broken clean through and needs rejoining (use Solder Together per Ring or Break in Shank) or when a section must be replaced (use a Half-Shank task)."
+ },
+ {
+  "id": "69efaf5c7f75b87a57492bee",
+  "title": "Reprong",
+  "symptoms": [
+   "my prongs are badly worn",
+   "a whole prong broke off",
+   "the prongs are bent and damaged",
+   "my stone is barely held in",
+   "my ring keeps catching and the prongs look gone",
+   "rebuild the prongs on my ring"
+  ],
+  "whenToUse": "Use when one or more prongs are too damaged to retip and the prong or head must be rebuilt to securely hold the stone.",
+  "neverUseWhen": "Do not use if only the prong tips need metal added (use Retip prongs) or if the stone is already lost."
+ },
+ {
+  "id": "69efe1943a58b22bf909c4ab",
+  "title": "Size Up  - 3mm to 5mm shanks",
+  "symptoms": [
+   "my wide band is too tight",
+   "size up my thick ring",
+   "my chunky band won't fit anymore",
+   "i need my wide ring made bigger",
+   "make my heavy band larger"
+  ],
+  "whenToUse": "Use when a plain ring needs to be sized up on a medium-to-wide shank between 3mm and 5mm wide, where more metal is required than a thin band.",
+  "neverUseWhen": "Do not use for thin shanks up to 3mm (use the Size Up 1 size task), for sizing down, or when the customer supplies their own gold."
+ },
+ {
+  "id": "69f226f01cbd0e82e1868d39",
+  "title": "Break in chain",
+  "symptoms": [
+   "my chain broke",
+   "my necklace snapped",
+   "there's a broken link in my chain",
+   "my bracelet came apart",
+   "the chain pulled apart",
+   "a link in my necklace separated"
+  ],
+  "whenToUse": "Use when a chain or necklace has broken or pulled apart at a link and needs the break repaired and rejoined.",
+  "neverUseWhen": "Do not use when only the clasp is broken (use Clasp Repair) or when a jump ring needs adding (use Add Jump Ring)."
+ },
+ {
+  "id": "69fa0fc0823ba83dc8644136",
+  "title": "Break in Shank",
+  "symptoms": [
+   "my ring band broke in half",
+   "my ring cracked all the way through",
+   "the band split open",
+   "my ring snapped",
+   "there's a gap where my ring broke"
+  ],
+  "whenToUse": "Use when a ring shank has broken or cracked clean through and needs to be welded back together at the break.",
+  "neverUseWhen": "Do not use when a worn section must be replaced (use a Half-Shank task) or when the repair is a fine crack near a stone better suited to Laser Weld."
+ },
+ {
+  "id": "69fdfaa3f001cd1615b0b516",
+  "title": "Size Up (Customer Supplied Gold)",
+  "symptoms": [
+   "i have my own gold to add",
+   "size up my ring using my gold",
+   "use the gold i'm bringing in",
+   "i want my ring bigger with my own metal",
+   "add my gold to make my ring fit"
+  ],
+  "whenToUse": "Use when sizing a gold ring up and the customer supplies their own gold for the added material instead of the shop providing it.",
+  "neverUseWhen": "Do not use when the shop supplies the gold (use the standard Size Up task) or when sizing down."
+ },
+ {
+  "id": "6a0759f07265fec006d997ce",
+  "title": "Watch Battery",
+  "symptoms": [
+   "my watch stopped",
+   "my watch needs a new battery",
+   "the watch isn't running",
+   "my watch died",
+   "can you replace my watch battery"
+  ],
+  "whenToUse": "Use when a customer's watch has stopped and needs a new battery installed.",
+  "neverUseWhen": "Do not use for resizing a watch band (use Watch Link Removal) or for mechanical/automatic watch repair."
+ },
+ {
+  "id": "6a1a5757cc79949f5608150e",
+  "title": "Straighten Prongs — up to 20 stones",
+  "symptoms": [
+   "my prongs are bent",
+   "the prongs are sticking out",
+   "my prongs got knocked sideways",
+   "the setting is bent and catching",
+   "straighten the prongs on my ring",
+   "a prong is bent away from the stone"
+  ],
+  "whenToUse": "Use when prongs on a setting are bent or splayed out of position and need to be straightened back; includes a check and tighten, for pieces with up to 20 stones.",
+  "neverUseWhen": "Do not use when prongs are worn or broken and need metal added or rebuilt (use Retip prongs or Reprong) or for pieces with more than 20 stones."
+ },
+ {
+  "id": "6a1a5759cc79949f5608150f",
+  "title": "Check & Tighten — over 20 stones",
+  "symptoms": [
+   "my pave ring has loose stones",
+   "my eternity band feels rattly",
+   "check all the small stones on my ring",
+   "i have lots of little stones and some feel loose",
+   "tighten the stones across my band"
+  ],
+  "whenToUse": "Use when stones in a piece feel loose and need checking and tightening, on items with more than 20 stones (pavé, eternity bands, heavily set pieces).",
+  "neverUseWhen": "Do not use for pieces with fewer than 20 stones (use Check & Tighten < 20 stones) or when a stone is already missing."
+ },
+ {
+  "id": "6a1a575dcc79949f56081510",
+  "title": "Half-Shank — up to 3mm",
+  "symptoms": [
+   "the bottom of my ring is worn thin",
+   "the back of my band is paper thin",
+   "the lower part of my ring cracked",
+   "replace the worn bottom of my ring",
+   "my ring is wearing through at the bottom"
+  ],
+  "whenToUse": "Use when the lower half of a ring shank is worn thin, cracked, or broken and needs replacing, on bands up to 3mm wide.",
+  "neverUseWhen": "Do not use when the shank is wider than 3mm (use Half-Shank 3 to 5mm) or when only a clean break needs rejoining (use Solder Together per Ring)."
+ },
+ {
+  "id": "6a1a5760cc79949f56081511",
+  "title": "Half-Shank — 3 to 5mm",
+  "symptoms": [
+   "the bottom of my wide band is worn thin",
+   "the back of my thick ring cracked",
+   "replace the worn bottom of my heavy ring",
+   "my wide band is wearing through at the bottom",
+   "the lower half of my chunky ring needs replacing"
+  ],
+  "whenToUse": "Use when the lower half of a ring shank is worn thin, cracked, or broken and needs replacing, on bands 3mm to 5mm wide.",
+  "neverUseWhen": "Do not use for bands up to 3mm wide (use Half-Shank up to 3mm) or when only a clean break needs rejoining (use Solder Together per Ring)."
+ },
+ {
+  "id": "6a1a5763cc79949f56081512",
+  "title": "Solder Together per Ring",
+  "symptoms": [
+   "solder my ring back together",
+   "join my two rings",
+   "my ring came apart at a clean break",
+   "fuse my bands together",
+   "put the pieces of my ring back together"
+  ],
+  "whenToUse": "Use when two pieces of a ring shank need to be soldered back together, such as rejoining a clean break or joining two rings side by side.",
+  "neverUseWhen": "Do not use when a worn section must be replaced (use a Half-Shank task) or for a delicate crack near a stone (use Laser Weld)."
+ },
+ {
+  "id": "6a1a5766cc79949f56081513",
+  "title": "Sizing Beads",
+  "symptoms": [
+   "my ring spins on my finger",
+   "my ring is just a little loose",
+   "stop my ring from turning",
+   "i don't want a full resize, just a snugger fit",
+   "my knuckle is big but the ring is loose",
+   "add something to make my ring fit tighter"
+  ],
+  "whenToUse": "Use when a customer wants their ring to fit more snugly without a full resize, by adding sizing beads inside the shank to reduce size and stop spinning.",
+  "neverUseWhen": "Do not use when the ring needs a true permanent size reduction (use Size Down) or when sizing up."
+ },
+ {
+  "id": "6a1a5768cc79949f56081514",
+  "title": "Reshape Ring",
+  "symptoms": [
+   "my ring is bent",
+   "my ring is no longer round",
+   "my ring got squished oval",
+   "i sat on my ring and it's misshapen",
+   "reshape my bent ring",
+   "my ring won't fit because it's out of round"
+  ],
+  "whenToUse": "Use when a ring is bent or out of round and needs to be reshaped back to a true circle.",
+  "neverUseWhen": "Do not use when the shank is cracked or broken (use Solder Together per Ring or Break in Shank) or when the ring needs resizing."
+ },
+ {
+  "id": "6a1a576bcc79949f56081515",
+  "title": "Add 18gu Jump Ring — 5mm and smaller",
+  "symptoms": [
+   "add a jump ring to my pendant",
+   "i need a small ring to attach my charm",
+   "my pendant has no loop to hang it",
+   "add a little ring so i can put this on my chain",
+   "attach my charm with a jump ring"
+  ],
+  "whenToUse": "Use when a chain or pendant needs a jump ring (5mm or smaller) added, such as attaching a charm or pendant or creating an attachment point.",
+  "neverUseWhen": "Do not use when a broken chain link needs repair (use Break in chain) or when a clasp needs fixing (use Clasp Repair)."
+ },
+ {
+  "id": "6a1a618dcc79949f56081516",
+  "title": "Clasp Repair",
+  "symptoms": [
+   "my clasp broke",
+   "my necklace won't stay closed",
+   "the clasp won't open",
+   "my bracelet clasp is stuck",
+   "the clasp keeps coming undone",
+   "i need a new clasp on my chain"
+  ],
+  "whenToUse": "Use when the clasp on a chain, necklace, or bracelet is broken, sticky, or won't fasten and needs repair or replacement.",
+  "neverUseWhen": "Do not use when the chain itself is broken at a link (use Break in chain) or when only adding a jump ring (use Add Jump Ring)."
+ },
+ {
+  "id": "6a1a62d4cc79949f56081518",
+  "title": "Watch Link Removal",
+  "symptoms": [
+   "my watch is too loose",
+   "remove links from my watch band",
+   "my watch slides around",
+   "take some links out of my watch",
+   "my watch band is too big",
+   "size my watch to fit"
+  ],
+  "whenToUse": "Use when a metal watch band is too large and links need to be removed to fit the customer's wrist.",
+  "neverUseWhen": "Do not use for watch battery replacement (use Watch Battery) or for leather/non-link bands."
+ },
+ {
+  "id": "6a1f4575c459178ce8ce18d1",
+  "title": "Glue Pearl",
+  "symptoms": [],
+  "whenToUse": "",
+  "neverUseWhen": ""
+ },
+ {
+  "id": "6a95cd288e8d468ac7162dfa",
+  "title": "Size Down — Platinum (laser welded)",
+  "symptoms": [
+   "platinum ring sizing",
+   "platinum shank repair",
+   "platinum ring too big",
+   "platinum ring too small"
+  ],
+  "whenToUse": "Use for sizing a platinum ring down. Platinum is laser welded, never gold-soldered — this task carries the weld labor and no solder.",
+  "neverUseWhen": "Do not use for gold or silver rings — use the standard (soldered) task for those metals.",
+  "metals": [
+   "platinum"
+  ]
+ },
+ {
+  "id": "6a95cd288e8d468ac7162dfb",
+  "title": "Size Up (1 size) — Platinum (laser welded)",
+  "symptoms": [
+   "platinum ring sizing",
+   "platinum shank repair",
+   "platinum ring too big",
+   "platinum ring too small"
+  ],
+  "whenToUse": "Use for sizing a platinum ring up one size (shank up to 3x2mm). Platinum sizing stock, laser welded.",
+  "neverUseWhen": "Do not use for gold or silver rings — use the standard (soldered) task for those metals.",
+  "metals": [
+   "platinum"
+  ]
+ },
+ {
+  "id": "6a95cd288e8d468ac7162dfc",
+  "title": "Half-Shank — Platinum, up to 3mm (laser welded)",
+  "symptoms": [
+   "platinum ring sizing",
+   "platinum shank repair",
+   "platinum ring too big",
+   "platinum ring too small"
+  ],
+  "whenToUse": "Use for replacing the lower half of a platinum shank up to 3mm wide. Platinum sizing stock, laser welded.",
+  "neverUseWhen": "Do not use for gold or silver rings — use the standard (soldered) task for those metals.",
+  "metals": [
+   "platinum"
+  ]
+ },
+ {
+  "id": "6a95cd288e8d468ac7162dfd",
+  "title": "Half-Shank — Platinum, 3 to 5mm (laser welded)",
+  "symptoms": [
+   "platinum ring sizing",
+   "platinum shank repair",
+   "platinum ring too big",
+   "platinum ring too small"
+  ],
+  "whenToUse": "Use for replacing the lower half of a platinum shank 3 to 5mm wide. Platinum sizing stock, laser welded.",
+  "neverUseWhen": "Do not use for gold or silver rings — use the standard (soldered) task for those metals.",
+  "metals": [
+   "platinum"
+  ]
+ },
+ {
+  "id": "6aa5ba781a046ed935323b8e",
+  "title": "Add 18gu Jump Ring w/ laser — 5mm and smaller",
+  "symptoms": [
+   "add a jump ring to my pendant",
+   "i need a small ring to attach my charm",
+   "my pendant has no loop to hang it",
+   "add a little ring so i can put this on my chain",
+   "attach my charm with a jump ring"
+  ],
+  "whenToUse": "Use when a chain or pendant needs a jump ring (5mm or smaller) added, such as attaching a charm or pendant or creating an attachment point.",
+  "neverUseWhen": "Do not use when a broken chain link needs repair (use Break in chain) or when a clasp needs fixing (use Clasp Repair)."
+ },
+ {
+  "id": "6abe72048cc9154905706a64",
+  "title": "Rhodium Plating",
+  "symptoms": [
+   "white gold looks yellow",
+   "ring looks dull or grey",
+   "wants it whiter / brighter",
+   "replate",
+   "rhodium"
+  ],
+  "whenToUse": "Use when a ring needs rhodium plating: white gold that has turned yellow or dull, or a customer asking for a brighter white finish.",
+  "neverUseWhen": "Do not use for yellow or rose gold unless the customer explicitly wants a white finish."
+ }
+]
