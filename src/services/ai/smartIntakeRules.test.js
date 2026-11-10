@@ -57,7 +57,10 @@ describe('statedPieceCount', () => {
   });
   it('a size, a measurement or a count of parts is not a count of pieces', () => {
     for (const t of ['Three laser welds, two jump rings', '14k yg rings size 8 needs to be size 8', 'size 8 ring to a 6',
-      '14k yellow gold, 5 mm band, size up 2 sizes', '20 inch chain', '14 karat ring', 'retip 4 prongs', 'set 3 stones']) {
+      '14k yellow gold, 5 mm band, size up 2 sizes', '20 inch chain', '14 karat ring', 'retip 4 prongs', 'set 3 stones',
+      // Codex review of #344: the "5" of 7.5, and a count of prongs with a ring later in the sentence.
+      'size 7.5 ring down to 6', 'retip 4 prongs on a ring', '6.25 ring needs to be 5.5', 'set 3 stones in the ring',
+      '2 laser welds on a bracelet', 'size 10 band to an 8']) {
       expect(statedPieceCount(t), t).toBe(1);
     }
   });

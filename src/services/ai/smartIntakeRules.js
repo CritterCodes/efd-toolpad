@@ -215,11 +215,12 @@ const PIECE_NOUNS = '(?:rings?|bands?|chains?|bracelets?|pendants?|necklaces?|pi
 export const statedPieceCount = (inputText = '') => {
   const text = str(inputText).toLowerCase();
   const found = [];
-  // Up to three describing words between the count and the noun ("two white gold rings") — but "two jump rings"
-  // counts jump rings, not pieces.
-  // A number with a unit is a measurement, never a count: "5 mm band", "20 inch chain", "1 ct ring".
-  const UNIT = '(?:mm|millimet|cm|in\\b|inch|ct\\b|carat|karat|kt?\\b|pt\\b|point|gu\\b|gauge|dwt|g\\b|gram)';
-  for (const m of text.matchAll(new RegExp(`\\b(\\d{1,2}|two|both|three|four|five|six)\\s+(?!${UNIT})(?:(?!jump\\b)[a-z0-9-]+\\s+){0,3}?${PIECE_NOUNS}\\b`, 'g'))) {
+  // The count must sit right against the noun, with only words that DESCRIBE the piece in between ("two white gold
+  // rings"). Anything else in between means the number counts something else: "retip 4 prongs on a ring" is four
+  // prongs, "two jump rings" is two jump rings. And the number must be a whole number of its own — the "5" in
+  // "size 7.5 ring" is half a size, not five rings (Codex review of #344, 2026-11-09: both inflated every quantity).
+  const DESCRIBES = '(?:white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|wedding|engagement|matching|stacking|plain|diamond|mens|ladies|\\d{2}k|\\d{2}-?karat)';
+  for (const m of text.matchAll(new RegExp(`(?<![\\d.])(\\d{1,2}|two|both|three|four|five|six)\\s+(?:${DESCRIBES}\\s+){0,4}${PIECE_NOUNS}\\b`, 'g'))) {
     // "size 8 ring", "to a 6 ring": a size in front of a noun is not a count.
     if (/(?:size|sz|to|a)\s*$/.test(text.slice(Math.max(0, m.index - 6), m.index))) continue;
     found.push(NUMBER_WORDS[m[1]] || Number(m[1]));
