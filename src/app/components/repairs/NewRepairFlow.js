@@ -32,6 +32,7 @@ import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { canSkipIntakeClient, intakeClientSettled } from '@/services/repairs/intakeClientRule';
 import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
+import { sizingStockCheck } from '@/hooks/repairs/newRepairFormHelpers';
 import { STEPS, StepHeader, initials } from './NewRepairFlowParts';
 import { NewRepairFlowClientDialog } from './NewRepairFlowClientDialog';
 import { NewRepairFlowAddSheets } from './NewRepairFlowAddSheets';
@@ -59,7 +60,7 @@ export default function NewRepairFlow(props) {
     formData, setFormData,
     loading, errors,
     showNewClientDialog, setShowNewClientDialog,
-    analyzingSmartIntake, smartIntakeError, setSmartIntakeError,
+    analyzingSmartIntake, smartIntakeError, setSmartIntakeError, smartIntakeNotes,
     generatingImageDescription, imageDescriptionError, setImageDescriptionError,
     newClientData, setNewClientData, newClientLoading,
     picturePreviewUrl,
@@ -230,13 +231,17 @@ export default function NewRepairFlow(props) {
     ...formData.customLineItems.map((c) => toNumber(c.price) * (c.quantity || 1)),
   ].reduce((sum, v) => sum + v, 0);
 
+  // `assumed`: nobody said it — it is a default. Shown as such, not with a tick (review, 2026-11-09: "14k ring" showed
+  // "✓ yellow gold" under "Picked up from that sentence").
   const extractedChips = [
-    formData.karat && String(formData.karat),
-    formData.metalType === 'gold' && formData.goldColor && `${formData.goldColor} gold`,
-    formData.metalType && formData.metalType !== 'gold' && formData.metalType,
-    formData.isRing && 'Ring',
-    formData.currentRingSize && formData.desiredRingSize && `${formData.currentRingSize} → ${formData.desiredRingSize}`,
+    formData.karat && { label: String(formData.karat) },
+    formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: Boolean(smartIntakeNotes?.assumed?.goldColor) },
+    formData.metalType && formData.metalType !== 'gold' && { label: formData.metalType },
+    formData.isRing && { label: 'Ring' },
+    formData.currentRingSize && formData.desiredRingSize && { label: `${formData.currentRingSize} → ${formData.desiredRingSize}` },
   ].filter(Boolean);
+  // Sizing stock that no longer matches the sizes (a size edited after the read, a size-up added by hand).
+  const stockCheck = sizingStockCheck(formData);
 
   const karatOptions = getKaratOptions();
   const isComped = Boolean(formData.compRepair || formData.includedWithSale);
@@ -313,7 +318,7 @@ export default function NewRepairFlow(props) {
     setAddSheet, setClientPickerOpen, setClientQuery, setCustomDraft, setFormData, setImageDescriptionError,
     setLaborDraft, setMaterialQuery, setNewClientData, setQuoteIntent, setShowFullBreakdown,
     setShowNewClientDialog, setSmartIntakeError, setStep, setStorePickerOpen, setStoreQuery, setStullerSku,
-    setTaskQuery, showFullBreakdown, showNewClientDialog, smartIntakeError, step, stepBlocker, storePickerOpen,
+    setTaskQuery, showFullBreakdown, showNewClientDialog, smartIntakeError, smartIntakeNotes, step, stepBlocker, stockCheck, storePickerOpen,
     storePreset, storeQuery, stullerError, stullerSku, submitErrorRef, submitLabel, submitMode, submitWith,
     taskQuery, taskResults, updateItem, users, wholesaleStores, wholesalerPricingSettings,
   };

@@ -10,13 +10,24 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { describe, it } from 'vitest';
 import { buildIntakePrompt } from '@/services/ai/smartIntakeRules';
-import { FIXTURES, loadFixtures, lastAttemptPerTicket, expectedFor, scoreReplay, report } from './replay.js';
+import { FIXTURES, loadFixtures, lastAttemptPerTicket, expectedFor, scoreReplay, report, promptHashFor } from './replay.js';
 
 const MODEL = 'gemini-2.5-flash';
 const RUN = process.env.INTAKE_MODEL === '1';
+// `--proposal`: score the PROPOSED aiMeta (scripts/intake/aimeta-proposal.json) laid over the live catalog, without
+// writing anything. This is how a metadata rewrite is measured before the owner is asked to approve it.
+const PROPOSAL = process.env.INTAKE_PROPOSAL === '1';
+
+const withProposal = (catalog) => {
+  const proposal = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'scripts/intake/aimeta-proposal.json'), 'utf8'));
+  const titles = new Set(catalog.map((t) => t.title));
+  for (const title of Object.keys(proposal)) {
+    if (!title.startsWith('_') && !titles.has(title)) throw new Error(`aimeta-proposal.json: no task titled "${title}" in catalog.json`);
+  }
+  return catalog.map((t) => (proposal[t.title] ? { ...t, ...proposal[t.title] } : t));
+};
 
 const apiKey = () => {
   if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
@@ -33,7 +44,7 @@ async function ask(prompt, key) {
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 8000, responseMimeType: 'application/json' },
+        generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json' }, // as the route sends it
       }),
     });
     const body = await res.json();
@@ -57,6 +68,7 @@ describe.skipIf(!RUN)('smart intake replay (model mode)', () => {
     const key = apiKey();
     if (!key) throw new Error('No GEMINI_API_KEY. See docs/goals/SMART_INTAKE.md, "The score", for where to get it.');
     const fx = loadFixtures();
+    const catalog = PROPOSAL ? withProposal(fx.catalog) : fx.catalog;
     const todo = lastAttemptPerTicket(fx.intakes).filter((i) => !expectedFor(i, fx.marks, fx.catalog).skip);
     const answers = {};
     let version = MODEL;
@@ -64,7 +76,7 @@ describe.skipIf(!RUN)('smart intake replay (model mode)', () => {
     const worker = async () => {
       while (queue.length) {
         const intake = queue.shift();
-        const prompt = buildIntakePrompt({ inputText: intake.text, description: intake.description, tasks: fx.catalog, todayIso: intake.at });
+        const prompt = buildIntakePrompt({ inputText: intake.text, description: intake.description, tasks: catalog, todayIso: intake.at });
         const got = await ask(prompt, key);
         answers[intake.id] = got.answer;
         version = got.version;
@@ -72,13 +84,16 @@ describe.skipIf(!RUN)('smart intake replay (model mode)', () => {
     };
     await Promise.all(Array.from({ length: 5 }, worker));
 
-    const promptHash = crypto.createHash('sha256')
-      .update(buildIntakePrompt({ inputText: '', description: '', tasks: fx.catalog, todayIso: '' })).digest('hex').slice(0, 12);
+    const run = scoreReplay(fx, (intake) => answers[intake.id]);
+    if (PROPOSAL) {
+      console.log(report(`PROPOSED aiMeta (${version}) — nothing written`, run, fx.recorded.model || null));
+      return;
+    }
+    const promptHash = promptHashFor(fx.catalog);
     const sorted = Object.fromEntries(Object.keys(answers).sort().map((id) => [id, answers[id]]));
     fs.writeFileSync(path.join(FIXTURES, 'model-answers.json'),
       `${JSON.stringify({ model: version, promptHash, at: new Date().toISOString().slice(0, 10), answers: sorted }, null, 1)}\n`);
 
-    const run = scoreReplay(fx, (intake) => answers[intake.id]);
     console.log(report(`model (${version}, prompt ${promptHash})`, run, fx.recorded.model || null));
     console.log('\nmodel-answers.json written. Run `npm run intake:replay -- --update` to record the score.');
   }, 900000);

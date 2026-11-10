@@ -1,15 +1,43 @@
-import { Stack, Box, TextField, Typography } from '@mui/material';
+import { Stack, Box, TextField, Typography, Alert, Button } from '@mui/material';
 import { SectionLabel, facelift, SurfaceCard, Segmented, QuietButton } from '@/components/facelift';
 import { isCustomLaborTask, calculatedCustomLaborPrice } from '@/services/repairs/customLabor';
 import { TicketRow, InlineTitleField } from './NewRepairFlowParts';
 import { toNumber } from '@/hooks/repairs/useNewRepairForm';
+import { AI_DOWN_MESSAGE } from '@/hooks/repairs/useSmartIntake';
 
-export function NewRepairFlowWork({ canRequestQuote, formData, itemCount, itemsSubtotal, patchCustomLaborTask, quoteIntent, removeItem, setAddSheet, setQuoteIntent, setStep, step, updateItem }) {
+/** What the sizing-stock check says, in the jeweler's words. */
+export const stockCheckMessage = ({ want, have, moved }) => (
+  want > have
+    ? `Sizing up ${moved} size${moved === 1 ? '' : 's'} needs ${want} sizing stock. This ticket has ${have}.`
+    : `Sizing up ${moved} size${moved === 1 ? '' : 's'} needs ${want === 0 ? 'no' : want} sizing stock. This ticket has ${have}.`
+);
+
+export function NewRepairFlowWork({ canRequestQuote, formData, itemCount, itemsSubtotal, patchCustomLaborTask, quoteIntent, removeItem, setAddSheet, setQuoteIntent, setStep, smartIntakeNotes, step, stockCheck, updateItem }) {
   return (
     <>
       {/* ── Step 3 — Work items (short: ticket + subtotal + add strip) ── */}
       {step === 2 && (
         <Stack spacing={2.5}>
+          {/* The AI was down when the sentence was read: nothing below came from it. Said here, where the work is. */}
+          {smartIntakeNotes?.fallback && formData.tasks.length === 0 && <Alert severity="warning">{AI_DOWN_MESSAGE}</Alert>}
+          {stockCheck && (
+            <Alert
+              severity="warning"
+              action={stockCheck.line ? (
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => (stockCheck.lineQuantity > 0
+                    ? updateItem('materials', stockCheck.line.id, 'quantity', stockCheck.lineQuantity)
+                    : removeItem('materials', stockCheck.line.id))}
+                >
+                  {stockCheck.lineQuantity > 0 ? `Make it ${stockCheck.want}` : 'Remove it'}
+                </Button>
+              ) : undefined}
+            >
+              {stockCheckMessage(stockCheck)}{!stockCheck.line && ' Add it under Material.'}
+            </Alert>
+          )}
           {itemCount > 0 ? (
             <Box>
               <SectionLabel>On this ticket ({itemCount})</SectionLabel>
@@ -59,6 +87,7 @@ export function NewRepairFlowWork({ canRequestQuote, formData, itemCount, itemsS
                     hue={facelift.gold}
                     item={task}
                     fromSentence={Boolean(task.__aiQuantity)}
+                    ruledWhy={task._smartIntakeRuled}
                     onQuantityChange={(qty) => updateItem('tasks', task.id, 'quantity', qty)}
                     onPriceChange={(price) => updateItem('tasks', task.id, 'price', price)}
                     priceEditable={false}

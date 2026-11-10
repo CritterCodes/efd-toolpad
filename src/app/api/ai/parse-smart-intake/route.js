@@ -53,8 +53,9 @@ const callGemini = async ({ apiKey, prompt }) => {
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.1,
-              topP: 0.9,
+              // 0: the same note should get the same ticket. At 0.1 a replay of real notes flipped a few tickets
+              // from one run to the next (docs/goals/SMART_INTAKE.md, round 1).
+              temperature: 0,
               maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
               responseMimeType: 'application/json'
             }
@@ -101,6 +102,8 @@ export async function POST(request) {
     const inputText = String(body?.inputText || '').trim();
     const description = String(body?.description || '').trim();
     const tasks = Array.isArray(body?.tasks) ? body.tasks : [];
+    // The metal already chosen on the form. The note often leaves the colour out; the form knows it.
+    const formMetal = body?.metal && typeof body.metal === 'object' ? body.metal : {};
 
     if (!inputText) {
       return NextResponse.json({ success: false, error: 'inputText is required.' }, { status: 400 });
@@ -132,7 +135,7 @@ export async function POST(request) {
     }
 
     // The model suggests; the rulings decide (services/ai/smartIntakeRules.js).
-    const normalized = decideIntake(raw, { tasks, inputText, description });
+    const normalized = decideIntake(raw, { tasks, inputText, formMetal });
 
     // Smart-intake log (OPEN-QUESTIONS Q13): what was typed, what the model answered (`raw`), and what the form was
     // told. The save adds what the ticket became. Task ids are kept with their titles so the log reads without a
