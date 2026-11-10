@@ -13,6 +13,7 @@
 | Catalog, Collections, Designs, Pieces, casting, custom orders | `docs/manufacturing/CLAUDE_HANDOFF_2026-07-17.md`, `README.md`, `data-model.md`, `PRODUCTION_PIPELINE_VISION.md` (all in `docs/manufacturing/`) |
 | Any UI: a page, a component, styling | `DESIGN.md` (the brand: black and white, one gold — refine, don't re-theme) and `PRODUCT.md`; the `/impeccable` skill (`audit`, `critique`, `polish`) reads both. `npm run design:report` lists drift (report-only) |
 | Pricing | `src/services/pricing/engine.js` and `catalog.js` headers — one engine, no stored prices, no fallbacks |
+| Smart intake (AI repair intake, task `aiMeta`) | `docs/goals/SMART_INTAKE.md` — the goal, the backlog, the replay score, the round log |
 | Artisan terms, apprenticeship | `docs/policies/` |
 | A decision that isn't yours | `docs/OPEN-QUESTIONS.md` — add it there with a recommendation; don't decide it |
 | Something slowed you down | `docs/FRICTION-LOG.md` — add a line |
