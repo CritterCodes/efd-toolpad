@@ -442,6 +442,18 @@ export function ticketChecks(formData = {}, availableTasks = []) {
       why: 'white gold',
     });
   }
+  // One plating per piece: rhodium the rule added follows the sizing line's count. He corrected "2 rings" to 1 and the
+  // rhodium stayed at 2 with nothing said (review, 2026-11-10).
+  const sizingLine = lines.find((l) => isSizeUpTask(l) || isSizeDownTask(l));
+  if (white && rhodiumLine?._smartIntakeRuled && sizingLine && Number(rhodiumLine.quantity) !== Number(sizingLine.quantity)) {
+    const quantity = Math.max(1, Number(sizingLine.quantity) || 1);
+    out.push({
+      key: 'rhodium-count',
+      message: `Rhodium plating is ${rhodiumLine.quantity}, and "${sizingLine.title}" is ${quantity}: it is one plating per piece.`,
+      action: `Make it ${quantity}`,
+      setQuantity: { id: rhodiumLine.id, quantity },
+    });
+  }
   // Only rhodium the RULE added: on yellow gold he may have added it on purpose.
   if (!white && rhodiumLine?._smartIntakeRuled) {
     out.push({ key: 'rhodium-extra', message: 'Rhodium plating was added because the metal read as white gold. It is not white gold now.', action: 'Remove it', remove: rhodiumLine.id });

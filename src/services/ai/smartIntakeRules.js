@@ -11,6 +11,7 @@
  */
 
 import { TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
+import { ticketNotes, saysNoRhodium } from './smartIntakeNotes';
 
 export { INTAKE_MODEL, TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
 
@@ -365,25 +366,11 @@ export const withUnknownDirection = (parsed, tasks = [], inputText = '') => {
   return warn(parsed, `The note does not say both sizes or which way the ring goes, so "${sizing.title}" is a guess. Check it, and enter the sizes.`);
 };
 
-// A task priced for the whole piece, whatever the count: "Check & Tighten < 20 stones", "Straighten Prongs — up to 20 stones".
-const isFlatTask = (t) => /(?:<|up to|over|less than)\s*\d+\s*stones/.test(titleOf(t));
-/**
- * Two things said out loud rather than left for him to notice (review, 2026-11-09):
- *  - nothing was matched — an empty ticket after a note that named work looked the same as a note with no work;
- *  - a count on a task that is priced for the whole piece ("check and tighten 5 stones" ×5).
- */
-export const withPlainSpeaking = (parsed, tasks = []) => {
-  const matched = parsed.matchedTasks || [];
-  if (!matched.length) return tasks.length ? warn(parsed, 'No work was matched from this note. Add the work by hand.') : parsed;
+/** What is worth saying about the finished ticket (smartIntakeNotes.js): nothing matched, a doubtful count, a guessed tier. */
+export const withPlainSpeaking = (parsed, tasks = [], inputText = '') => {
   const byId = byIdOf(tasks);
-  let out = parsed;
-  for (const m of matched) {
-    const task = byId.get(m.id);
-    if (task && isFlatTask(task) && m.quantity > (parsed.pieces || 1)) {
-      out = warn(out, `"${task.title}" is priced for the whole piece, and ${m.quantity} were suggested. Check the quantity.`);
-    }
-  }
-  return out;
+  const lines = (parsed.matchedTasks || []).map((m) => ({ task: byId.get(m.id), quantity: m.quantity, sizing: isSizing(byId.get(m.id)) }));
+  return ticketNotes(lines, { pieces: parsed.pieces || 1, inputText, hasCatalog: tasks.length > 0 }).reduce(warn, parsed);
 };
 
 /**
@@ -423,7 +410,7 @@ export const withShankWidth = (parsed, tasks = [], inputText = '') => {
   const out = swapped
     ? warn(withLines(parsed, mergeLines(lines)), wide
       ? `Used "${swapped}": a wide shank was stated.`
-      : `Used "${swapped}": no width was read in the note, so the 3x2 default applies. If the shank is over 3mm, switch it.`)
+      : `Used "${swapped}": no width was plain in the note, so the 3x2 default applies. If the shank is over 3mm, switch it.`)
     : parsed;
   return noWidePlatinum
     ? warn(out, 'A wide shank was stated, and there is no 3mm-to-5mm platinum size-up task: the platinum task is priced for a narrow shank. Check the price by hand.')
@@ -502,7 +489,7 @@ export const withRhodiumForWhiteGold = (parsed, tasks = [], inputText = '') => {
   if (!rhodium) return warn(parsed, missingRole('rhodium'));
   if (matched.some((m) => m.id === String(rhodium.id))) return parsed;
   // His instruction on this ticket beats the standing rule.
-  if (/\b(?:no|without|skip|don'?t|do not)\s+(?:the\s+|any\s+)?rhodium\b/.test(str(inputText).toLowerCase())) {
+  if (saysNoRhodium(inputText)) {
     return warn(parsed, 'Rhodium plating was left off: the note says no rhodium.');
   }
   const byId = byIdOf(tasks);
@@ -557,7 +544,7 @@ export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} }
   p = withPieceCount(p, tasks, inputText);
   p = withRhodiumForWhiteGold(p, tasks, inputText);
   p = withSizingStock(p, tasks);
-  p = withPlainSpeaking(p, tasks);
+  p = withPlainSpeaking(p, tasks, inputText);
   const { overCap: _overCap, pieces: _pieces, sizingUnknown: _unknown, ...out } = p;
   // What the NOTE itself stated, as opposed to what a default or the form supplied. The form uses it to decide what a
   // re-read may overwrite, and to show a default as "(assumed)" rather than as something it picked up.

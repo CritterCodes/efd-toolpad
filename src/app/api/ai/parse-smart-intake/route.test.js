@@ -108,7 +108,8 @@ describe('POST /api/ai/parse-smart-intake', () => {
     expect(res._data.success).toBe(true)
     expect(res._data.data.parsed.metalType).toBe('gold')
     expect(res._data.data.parsed.isRing).toBe(true)
-    expect(res._data.data.parsed.warnings).toEqual([])
+    // No task list was sent: that is said, not left as an empty ticket (review, 2026-11-10).
+    expect(res._data.data.parsed.warnings).toEqual(['The task list did not load, so no work could be matched. Add the work by hand.'])
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 

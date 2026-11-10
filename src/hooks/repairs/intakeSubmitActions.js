@@ -80,7 +80,9 @@ export function intakeSubmitActions({ addRepair, benchJewelers, formData, getJew
         ...formData,
         // The derived lines — every price on them is the engine's, for this ticket. A saved ticket's
         // unchanged lines keep `ticketPrice: true` so the server knows they hold their written price.
-        tasks: pricedRepair.tasks,
+        // `__aiQuantity` marks a line smart intake put on THIS form. Saved with the ticket, it made a later read on
+        // the reopened ticket treat the saved lines as its own and drop them (review, 2026-11-10).
+        tasks: pricedRepair.tasks.map(({ __aiQuantity: _mark, ...task }) => task),
         materials: pricedRepair.materials,
         customLineItems: pricedRepair.customLineItems,
         ...(requestQuote ? { quoteRequested: true } : {}),
