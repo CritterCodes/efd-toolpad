@@ -2,7 +2,9 @@ import { Box, Typography, Stack, Alert } from '@mui/material';
 import { STEPS, PrintGlyph } from './NewRepairFlowParts';
 import { ActionBar, facelift, GoldButton, QuietButton } from '@/components/facelift';
 
-export function NewRepairFlowStepActions({ canRequestQuote, errors, goNext, loading, quoteIntent, requestQuote, setQuoteIntent, step, stepBlocker, submitErrorRef, submitLabel, submitMode, submitWith }) {
+const openChecksSx = { py: 0 };
+
+export function NewRepairFlowStepActions({ canRequestQuote, checks, stockCheck, errors, goNext, loading, quoteIntent, requestQuote, setQuoteIntent, step, stepBlocker, submitErrorRef, submitLabel, submitMode, submitWith }) {
   return (
     <>
       {/* ── Step actions — sticky, primary under the thumb ─────────────── */}
@@ -35,6 +37,13 @@ export function NewRepairFlowStepActions({ canRequestQuote, errors, goNext, load
           <ActionBar>
             <Stack spacing={0.75} sx={{ width: '100%' }}>
               {errors.submit && <Alert ref={submitErrorRef} severity="error" sx={{ py: 0 }}>{errors.submit}</Alert>}
+              {/* The checks are at the top of this step and the save is down here, a screen apart on a phone. Say they
+                  are there. It does not hold the save: whether it should is the owner's (O9). */}
+              {((checks || []).length + (stockCheck ? 1 : 0)) > 0 && (
+                <Alert severity="warning" sx={openChecksSx}>
+                  {(checks || []).length + (stockCheck ? 1 : 0) === 1 ? '1 check is open' : `${(checks || []).length + (stockCheck ? 1 : 0)} checks are open`} at the top of this page.
+                </Alert>
+              )}
               {quoteIntent && canRequestQuote ? (
                 <>
                   <GoldButton onClick={requestQuote} disabled={loading} aria-label="Request quote and print ticket">

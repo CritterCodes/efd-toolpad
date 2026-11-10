@@ -5,6 +5,7 @@ import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
 import { aiErrorMessage, userFacingAiError, SMART_INTAKE_FALLBACK } from '@/services/ai/aiErrorMessage';
 import { buildIntakePrompt, decideIntake, INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
+import { intakePromptFingerprint } from '@/services/ai/smartIntakePrompt';
 
 // The pure half lives in services/ai/smartIntakeRules.js. Re-exported so older imports keep working.
 export {
@@ -114,7 +115,7 @@ export async function POST(request) {
     const prompt = buildIntakePrompt({ inputText, description, tasks, todayIso });
     // The instructions and the task list this read was made with, as a short hash — so a change to either (an aiMeta
     // edit in Admin, a prompt change) can be told apart in the log afterwards (reviews, 2026-11-09 and 11-10).
-    const promptHash = createHash('sha256').update(buildIntakePrompt({ inputText: '', description: '', tasks, todayIso: '' })).digest('hex').slice(0, 12);
+    const promptHash = createHash('sha256').update(intakePromptFingerprint(tasks)).digest('hex').slice(0, 12);
 
     let geminiPayload = null;
 

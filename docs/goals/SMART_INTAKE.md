@@ -375,7 +375,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - ✅ r7 **X8.** `__aiQuantity` is no longer saved with the ticket, so a read on a reopened ticket does not take the
   saved lines for its own. An empty task list says so.
 - ✅ r7 **X9.** Every read logs a hash of the instructions and task list it was made with (`input.promptHash`).
-- **X10.** Use it: split the admin trend by `promptHash`, and show a drift alarm when the live catalog's hash is not
+- ◐ r8 (the route and the replay now hash with ONE function, `intakePromptFingerprint`; they still differ in practice until the form sends the task list in the fixture's shape and order) **X10.** Use it: split the admin trend by `promptHash`, and show a drift alarm when the live catalog's hash is not
   the one the replay measured.
 - **X11.** "Closest task" picks ("hard solder" → Break in chain) carry no mark. Wants the model to say when a pick is
   a stretch — a prompt change — or the aiMeta fix (D1).
@@ -385,6 +385,35 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   four platinum tasks all have siblings).
 - **X14.** Stores see "fix the task names in Admin → Tasks", which they cannot act on.
 - **X15.** One-tap "AI was wrong / my call" on changed rows in the admin log, in place of hand-edited marks.
+
+**Y — from the round 7 sweep** (`docs/goals/smart-intake-reviews/r7-sweep.md`)
+
+- ✅ r8 **Y1.** The count check was satisfied by any matching digit: "retip prongs on 6 prong head" answered ×6
+  passed. Karats, size moves, "N prong head" and millimetres are taken out of the note before it is searched.
+- ✅ r8 **Y2.** White gold written "w/g" lost to an ASSUMED yellow on a re-read, and the rhodium went with it. "w/g",
+  "y.g.", "wht" are read as colours, and an assumed karat, colour or metal is no longer sent back as "what the form
+  knows".
+- ✅ r8 **Y3.** "pick up friday" no longer counts as a sizing direction. "band is not wide" is not wide; "to match
+  her wide band" is hers.
+- ✅ r8 **Y4.** A stock quantity he set by hand survives a re-read, as task quantities do, and loses its tick.
+- ✅ r8 **Y5.** The AI goes down on a ring whose sizes the fallback cannot read: the sizes the last read set stay,
+  so the "no sizing task" check can speak.
+- ✅ r8 **Y6.** A corrected piece count names the other lines still at the old count (a check, no button).
+- ✅ r8 **Y7.** An `Added "X"` note goes when X is no longer on the ticket.
+- ✅ r8 **Y8.** The save bar on Review says how many checks are open at the top of the page. It does not hold the
+  save (O9).
+- **Y9.** Review still shows "3 · $185.00" and not the lines (= E2, S14). The largest thing left on the form.
+- **Y10.** The checks read task titles (`isSizeUpTask`, the width regexes): a rename of a live task turns the stock
+  and direction checks off at the form, as it does the rulings at the server (= C1, S13).
+- **Y11.** A wide task with narrow stock has a check with no "Switch stock" button.
+- **Y12.** Tasks the model takes from the photo's description are ticked "from your sentence".
+- **Y13.** The model: `gemini-2.5-flash` will be retired. An env override, a reminder, and a replay run after any
+  swap — every ruling here was tuned to this model's habits. The aiMeta generator still hard-codes its own model
+  and still asks for customer speech (= U12).
+- **Y14.** "Today" is UTC and the model is not told the weekday (= F4).
+- **Y15.** Measurement (= W12, X15): a one-tap "AI wrong / my call" at save when tasks differ from the suggestion;
+  log what the form actually showed, after the browser's steps; a log id on failed reads; photo failures; a CI guard
+  on `score.json` and on marks.
 
 **F — hardening, small**
 
@@ -510,6 +539,42 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 8 — 2026-11-10 — `claude/smart-intake-r8` — the cap
+
+**Round 7's sweep** (`docs/goals/smart-intake-reviews/r7-sweep.md`). For the first time the reviewer who drives the
+form reported: "I could not reach a wrong line or quantity with nothing true on screen." Every wrong state it
+produced had a true warning or check beside it. The evidence reviewer found no wrong price and no lost data, for the
+fifth sweep running. The server reviewer's harness failed and it reported hand traces only; the loop ran four of
+them, and three class-(a) cases reproduced (a count backed by an unrelated digit; "w/g" losing to an assumed yellow
+on a re-read; "pick up friday" silencing the direction warning). So round 7's sweep was not quiet either. Triage:
+Y1–Y15.
+
+**Fixed.** Y1–Y8 (see Backlog), and X10 in part. New in code: `saysCount` strips what is plainly not a count; the
+form no longer sends assumed values as its metal; `_smartIntakeQuantity` on the stock line; the `piece-count`
+check; `stillTrue` for stale notes; the open-check count in the save bar; `intakePromptFingerprint`.
+
+**Score** (69 tickets, 2 skipped; the stored model answers — the prompt did not change):
+
+| | Before any work | End of round 1 | End of round 3 | End of round 8 |
+|---|---|---|---|---|
+| vs the rulings — same tasks and quantities | 39 / 63 | 58 / 63 | 66 / 69 | **66 / 69** |
+| vs what he saved | — | — | 45 / 69 | **45 / 69** |
+| Sizes · metal · sizing stock | — | — | 69 · 69 · 69 | **68** · 69 · 69 |
+| Fresh tickets (saved after 2026-11-09) | — | — | none yet | none yet |
+
+**The score has not moved since round 3.** Rounds 4–8 changed no ticket for the better; one (sizes, "Size 10KY to an
+8") was made worse on purpose and is Owner question O6.
+
+**Local gate.** `npm test`: 279 files pass; the same 3 production files cannot load `mongodb-memory-server` here.
+`npm run lint`: clean. `npm run views`: never run in this loop (H5). **No screen changed in rounds 1–8 was ever
+opened in a browser**; they are covered by hook and render tests only.
+
+**Round 8's sweep and the loop's close** are written below this entry once the sweep has reported.
+
+ROUND8_CLOSE
+
+**Waiting on the owner.** O5, O6, O7, O8, O9, D1.
 
 ### Round 7 — 2026-11-10 — `claude/smart-intake-r7`
 

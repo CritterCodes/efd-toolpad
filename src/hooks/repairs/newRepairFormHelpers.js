@@ -396,7 +396,7 @@ export function sizingStockCheck(formData = {}) {
  *   swap    { id, task }: this line should be that task (the metal's own version of the same job)
  * Never changes the ticket itself.
  */
-export function ticketChecks(formData = {}, availableTasks = []) {
+export function ticketChecks(formData = {}, availableTasks = [], { pieces = 1 } = {}) {
   const lines = formData.tasks || [];
   if (!lines.length || !availableTasks.length) return [];
   const out = [];
@@ -453,6 +453,17 @@ export function ticketChecks(formData = {}, availableTasks = []) {
       action: `Make it ${quantity}`,
       setQuantity: { id: rhodiumLine.id, quantity },
     });
+  }
+  // The read multiplied the ticket by N pieces and he has since corrected the sizing line: the other lines the read
+  // put at N are still at N, ticked, under a note that says everything was counted N times (review, 2026-11-10).
+  if (pieces > 1 && sizingLine && Number(sizingLine.quantity) < pieces) {
+    const still = lines.filter((l) => l !== sizingLine && l !== rhodiumLine && l.__aiQuantity && Number(l.quantity) === pieces);
+    if (still.length) {
+      out.push({
+        key: 'piece-count',
+        message: `This was read as ${pieces} pieces and "${sizingLine.title}" is now ${sizingLine.quantity}. Still at ${pieces}: ${still.map((l) => `"${l.title}"`).join(', ')}. Check each count.`,
+      });
+    }
   }
   // Only rhodium the RULE added: on yellow gold he may have added it on purpose.
   if (!white && rhodiumLine?._smartIntakeRuled) {

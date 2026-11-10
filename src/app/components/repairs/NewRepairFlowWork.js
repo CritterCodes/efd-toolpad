@@ -14,7 +14,7 @@ export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formDat
       {step === 2 && (
         <Stack spacing={2.5}>
           {/* What the read did to this ticket and what no longer fits it, beside the lines. The same block is on Review. */}
-          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} updateItem={updateItem} />
+          <IntakeChecks applyCheck={applyCheck} checks={checks} removeItem={removeItem} smartIntakeNotes={smartIntakeNotes} stockCheck={stockCheck} tasks={formData.tasks} updateItem={updateItem} />
           {itemCount > 0 ? (
             <Box>
               <SectionLabel>On this ticket ({itemCount})</SectionLabel>
@@ -78,7 +78,7 @@ export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formDat
                     kind="Material"
                     hue="#7DD3FC"
                     item={material}
-                    fromSentence={Boolean(material._smartIntakeHintType)}
+                    fromSentence={Boolean(material._smartIntakeHintType) && (material._smartIntakeQuantity == null || Number(material.quantity) === Number(material._smartIntakeQuantity))}
                     onQuantityChange={(qty) => updateItem('materials', material.id, 'quantity', qty)}
                     onPriceChange={(price) => updateItem('materials', material.id, 'price', price)}
                     priceEditable={false}

@@ -577,6 +577,34 @@ describe('round 6 sweep, 2026-11-10', () => {
   });
 });
 
+describe('round 7 sweep, 2026-11-10', () => {
+  it('a number that is plainly something else does not back a count', () => {
+    for (const [note, n] of [['14k yg ring retip prongs on 6 prong head', 6], ['14k yg ring retip prongs', 14], ['retip prongs, size 6 to 8', 8], ['retip prongs on 5mm stone', 5]]) {
+      const out = decide({ metalType: 'gold', karat: '14k', goldColor: 'yellow', matchedTasks: [{ id: 'retip', quantity: n }] }, note);
+      expect(out.warnings.join(' '), note).toMatch(new RegExp(`came back as ${n}, and the note does not say ${n}`));
+    }
+    expect(decide({ metalType: 'gold', matchedTasks: [{ id: 'retip', quantity: 6 }] }, 'retip 6 prongs on 6 prong head').warnings.join(' ')).not.toMatch(/came back as/);
+  });
+
+  it('white gold written "w/g" beats an assumed yellow on the form, and gets its rhodium', () => {
+    const out = decide({ metalType: 'gold', karat: '14k', goldColor: 'white', isRing: true, currentRingSize: '7', desiredRingSize: '6', matchedTasks: [{ id: 'down', quantity: 1 }] },
+      '14k w/g ring size 7 to 6', { metalType: 'gold', karat: '14k', goldColor: 'yellow' });
+    expect(out.goldColor).toBe('white');
+    expect(lines(out)).toBe('downx1 rhx1');
+  });
+
+  it('"pick up friday" is not a direction; "band is not wide" is not wide; "to match her wide band" is hers', () => {
+    const guess = decide({ metalType: 'gold', karat: '14k', isRing: true, desiredRingSize: '7', matchedTasks: [{ id: 'down', quantity: 1 }] }, '14k yg ring size to a 7, pick up friday');
+    expect(guess.warnings.join(' ')).toMatch(/is a guess/);
+    for (const t of ['size down to a 7', 'going up to a 7', 'up a half size', 'make it smaller']) {
+      expect(decide({ metalType: 'gold', isRing: true, matchedTasks: [{ id: 'down', quantity: 1 }] }, t).warnings.join(' '), t).not.toMatch(/is a guess/);
+    }
+    expect(shankWidthSaid('14k yg ring size 6 to 7.5, band is not wide')).not.toBe('wide');
+    expect(shankWidthSaid('size 6 to 7 to match her wide band')).toBe('unclear');
+    expect(shankWidthSaid('the band is very wide')).toBe('wide');
+  });
+});
+
 describe('Codex review of #351', () => {
   it('"ring has a wide shank" is this ring; "wife has wide band" is hers', () => {
     for (const t of ['14k yg ring has a wide shank size 6 to 8', 'it has a thick band, size 9 to 10']) expect(shankWidthSaid(t), t).toBe('wide');

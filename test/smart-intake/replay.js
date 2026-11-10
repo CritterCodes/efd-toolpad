@@ -15,7 +15,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { decideIntake, parseRingSize, buildIntakePrompt } from '@/services/ai/smartIntakeRules';
+import { decideIntake, parseRingSize } from '@/services/ai/smartIntakeRules';
+import { intakePromptFingerprint } from '@/services/ai/smartIntakePrompt';
 
 export const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/smart-intake');
 const read = (name, fallback) => {
@@ -36,7 +37,7 @@ export function loadFixtures() {
 
 /** A fingerprint of everything the model is sent except the note itself: every word of the prompt, and the task list. */
 export const promptHashFor = (catalog) => crypto.createHash('sha256')
-  .update(buildIntakePrompt({ inputText: 'NOTE', description: 'DESCRIPTION', tasks: catalog, todayIso: 'TODAY' })).digest('hex').slice(0, 12);
+  .update(intakePromptFingerprint(catalog)).digest('hex').slice(0, 12);
 
 /**
  * The tuning set ends here. The rulings, the marks and the prompt were all written against the tickets up to this

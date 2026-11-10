@@ -20,8 +20,14 @@ export const stockCheckMessage = ({ want, have, moved, orphan, width }) => {
  * metal and the sizes are edited on Review, which is also where the save buttons are, and the classic form showed
  * none of it. A check that fires on a screen nobody is looking at is not a check (review, 2026-11-09).
  */
-export function IntakeChecks({ applyCheck, checks, removeItem, showWarnings = true, smartIntakeNotes, stockCheck, updateItem }) {
-  const warnings = showWarnings ? (smartIntakeNotes?.warnings || []) : [];
+/** `Added "X": …` is only true while X is on the ticket. Once he deletes the line the sentence goes too. */
+export const stillTrue = (note, tasks) => {
+  const added = String(note).match(/^Added "(.+?)"/);
+  return !added || !Array.isArray(tasks) || tasks.some((t) => String(t.title || '') === added[1]);
+};
+
+export function IntakeChecks({ applyCheck, checks, removeItem, showWarnings = true, smartIntakeNotes, stockCheck, tasks, updateItem }) {
+  const warnings = showWarnings ? (smartIntakeNotes?.warnings || []).filter((note) => stillTrue(note, tasks)) : [];
   if (!smartIntakeNotes?.fallback && !warnings.length && !(checks || []).length && !stockCheck) return null;
   return (
     <Stack spacing={1.25}>

@@ -7,11 +7,11 @@ import { sizingStockCheck, ticketChecks } from './newRepairFormHelpers';
  *
  * Nothing here changes the ticket on its own: `applyCheck` runs only when the jeweler taps a check's button.
  */
-export function ticketCheckActions({ availableTasks = [], formData = {}, removeItem, setFormData }) {
+export function ticketCheckActions({ availableTasks = [], formData = {}, pieces = 1, removeItem, setFormData }) {
   // Sizing stock that no longer matches the sizes (a size edited after the read, a size-up added by hand).
   const stockCheck = sizingStockCheck(formData);
   // The owner's rulings against the ticket as it stands now.
-  const checks = ticketChecks(formData, availableTasks);
+  const checks = ticketChecks(formData, availableTasks, { pieces });
   const applyCheck = (check) => {
     if (check.add) {
       setFormData((prev) => ({ ...prev, tasks: [...prev.tasks, { ...stripComputedPrices(check.add), id: Date.now(), quantity: check.quantity || 1, _smartIntakeRuled: check.why || 'added from a check' }] }));

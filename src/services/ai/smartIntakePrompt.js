@@ -86,3 +86,12 @@ export function buildIntakePrompt({ inputText, description = '', tasks = [], tod
     description ? `How the piece looks (written from a photo — use it only to tell what kind of piece it is; NEVER take the metal, karat, color, sizes or any work from it): ${description}` : '',
   ].join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
 }
+
+/**
+ * A fingerprint of everything the model is sent except the note itself: every word of the instructions, and the task
+ * list. ONE function for the route (which logs it with each read) and the replay (which holds the stored answers to
+ * it) — two formulas could never be compared (review, 2026-11-10). Returns the text to hash; each caller takes sha256 of it and keeps 12 hex characters.
+ */
+export function intakePromptFingerprint(tasks = []) {
+  return buildIntakePrompt({ inputText: 'NOTE', description: 'DESCRIPTION', tasks, todayIso: 'TODAY' });
+}

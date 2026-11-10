@@ -362,7 +362,9 @@ export const withUnknownDirection = (parsed, tasks = [], inputText = '') => {
   if (parsed.sizingUnknown || sizesMoved(parsed)) return parsed;
   const byId = byIdOf(tasks);
   const sizing = (parsed.matchedTasks || []).map((m) => byId.get(m.id)).find((t) => t && isSizing(t));
-  if (!sizing || /\b(?:up|down|larger|smaller|bigger|tighter|looser)\b/.test(str(inputText).toLowerCase())) return parsed;
+  // A direction is "size down", "going up", "up a size" — not the "up" in "pick up friday" (review, 2026-11-10).
+  const saysDirection = /\b(?:siz\w*|resiz\w*|go|goes|going|make it|take it|bring it)\s+(?:it\s+)?(?:up|down)\b|\b(?:up|down)\s+(?:\w+\s+){0,2}sizes?\b|\b(?:larger|smaller|bigger|tighter|looser)\b/.test(str(inputText).toLowerCase());
+  if (!sizing || saysDirection) return parsed;
   return warn(parsed, `The note does not say both sizes or which way the ring goes, so "${sizing.title}" is a guess. Check it, and enter the sizes.`);
 };
 

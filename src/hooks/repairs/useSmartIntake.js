@@ -57,6 +57,7 @@ export function sizingStockItemsFor(materialHints = [], availableMaterials = [],
       ...stripComputedPrices(scored[0].material),
       id: now,
       quantity: Math.ceil(Number(hint.quantity)),
+      _smartIntakeQuantity: Math.ceil(Number(hint.quantity)),
       _smartIntakeHintType: 'sizing_material',
       _smartIntakeReason: hint.reason || '',
     }],
@@ -186,7 +187,15 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         const changed = fresh.length || keptTasks.length !== (prev.tasks || []).length || (prev.tasks || []).some((t) => t.__aiQuantity && byHand(t));
         if (changed) updates.tasks = [...keptTasks, ...fresh];
 
-        const keptMaterials = (prev.materials || []).filter((m) => !m._smartIntakeHintType);
+        // His hand stays on materials as it does on tasks: stock whose quantity he changed (he tapped "Make it 3") is
+        // his line now, and a re-read does not put the sentence's quantity back (review, 2026-11-10).
+        const stockByHand = (m) => m._smartIntakeHintType && m._smartIntakeQuantity != null && Number(m.quantity) !== Number(m._smartIntakeQuantity);
+        const keptMaterials = (prev.materials || []).filter((m) => !m._smartIntakeHintType || stockByHand(m))
+          .map((m) => {
+            if (!m._smartIntakeHintType) return m;
+            const { _smartIntakeHintType: _t, _smartIntakeQuantity: _q, _smartIntakeReason: _r, ...mine } = m;
+            return mine;
+          });
         // Stock goes with a size-up line. If he deleted that line, a re-read must not leave stock on its own.
         const sizingUp = [...keptTasks, ...fresh].some(isSizeUpTask);
         const stock = results.skipStock || !sizingUp
@@ -222,6 +231,9 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       goldColor: metal.goldColor || '',
       currentRingSize: sizes.currentRingSize,
       desiredRingSize: sizes.desiredRingSize,
+      // "size up 6 to 8" is not a form the regex reads. Blanking the sizes then lost the sizing job without a word:
+      // with no sizes, the "no sizing task" check cannot fire (review, 2026-11-10). They stay, and the check speaks.
+      keepSizes: ring && !sizes.currentRingSize && !sizes.desiredRingSize,
       said: { metal: Boolean(metal.metalType), karat: Boolean(metal.karat), color: Boolean(metal.goldColor) },
       inferredTasks: [],
       materialHints: [],
@@ -266,7 +278,13 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
           description: String(formData.description || '').trim(),
           tasks: strippedTasks,
           // What the form already knows. The note often leaves the colour out, and rhodium depends on it.
-          metal: { metalType: formData.metalType || '', karat: formData.karat || '', goldColor: formData.goldColor || '' },
+          // An ASSUMED value is not something the form knows: sent back as the form's metal, an assumed yellow beat a
+          // white the note wrote as "w/g" (review, 2026-11-10).
+          metal: {
+            metalType: (assumedMetalRef.current && assumedMetalRef.current === formData.metalType) ? '' : (formData.metalType || ''),
+            karat: (assumedKaratRef.current && assumedKaratRef.current === formData.karat) ? '' : (formData.karat || ''),
+            goldColor: (assumedColorRef.current && assumedColorRef.current === formData.goldColor) ? '' : (formData.goldColor || ''),
+          },
         })
       });
 
@@ -394,6 +412,8 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         // Gold whose colour nobody said: shown as assumed while it is still the value on the form.
         assumed: { goldColor: assumedColor, karat: assumedKarat, metal: assumedMetal },
         fallback: false,
+        // How many pieces the read multiplied by — so a later correction can be held against the other lines.
+        pieces: Number(parsed.pieceCount) || 1,
       });
     } catch (error) {
       if (!latest()) return;

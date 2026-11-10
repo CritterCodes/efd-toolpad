@@ -543,3 +543,44 @@ describe('round 6 sweep, 2026-11-10', () => {
     expect(ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [{ ...TASKS[1], id: 1, quantity: 1 }, { ...TASKS[3], id: 2, quantity: 2 }] }, TASKS)).toEqual([]);
   });
 });
+
+describe('round 7 sweep, 2026-11-10', () => {
+  const up = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '6', desiredRingSize: '8' };
+
+  it('a stock quantity he set by hand survives a re-read', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size 6 to 8', up);
+    act(() => h.result.current.setFormData((p) => ({ ...p, desiredRingSize: '9.5', materials: p.materials.map((m) => ({ ...m, quantity: 3 })) })));
+    await read(h, '14k yg ring size 6 to 8 and polish', up);
+    expect(stockQty(h)).toBe('s32x3');
+    expect(sizingStockCheck(h.result.current.formData)).toBeNull();
+  });
+
+  it('the AI goes down on a ring: the sizes the last read set stay, so the missing sizing job is flagged', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size up 6 to 8, retip 4 prongs', { ...up, matchedTasks: [{ id: 'retip', quantity: 4 }] });
+    fail = true;
+    await read(h, '14k yg ring size up 6 to 8, retip 4 prongs and polish', {});
+    expect(h.result.current.formData).toMatchObject({ currentRingSize: '6', desiredRingSize: '8' });
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: [{ ...TASKS[4], id: 9, quantity: 4 }] })));
+    expect(ticketChecks(h.result.current.formData, TASKS).map((c) => c.key)).toEqual(['sizing-missing']);
+  });
+
+  it('an assumed colour is not sent back as the form\'s metal, so the note\'s "w/g" wins on a re-read', async () => {
+    const h = harness();
+    await read(h, '14k ring size 7 to 6', { metalType: 'gold', karat: '14k', isRing: true, currentRingSize: '7', desiredRingSize: '6' });
+    expect(h.result.current.notes.assumed.goldColor).toBe('yellow');
+    await read(h, '14k w/g ring size 7 to 6', { metalType: 'gold', karat: '14k', goldColor: 'white', isRing: true, currentRingSize: '7', desiredRingSize: '6' });
+    expect(JSON.parse(global.fetch.mock.calls.at(-1)[1].body).metal.goldColor).toBe('');
+    expect(h.result.current.formData.goldColor).toBe('white');
+    expect(lines(h)).toBe('downx1 rhx1');
+  });
+
+  it('a corrected piece count names the lines still at the old count', () => {
+    const tasks = [{ ...TASKS[1], id: 1, quantity: 1, __aiQuantity: 2 }, { ...TASKS[5], id: 2, quantity: 2, __aiQuantity: 2 }];
+    const checks = ticketChecks({ metalType: 'gold', goldColor: 'yellow', tasks }, TASKS, { pieces: 2 });
+    expect(checks.map((c) => c.key)).toEqual(['piece-count']);
+    expect(checks[0].message).toMatch(/read as 2 pieces .* is now 1\. Still at 2: "Laser Weld"/);
+    expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', tasks: [{ ...tasks[0], quantity: 2 }, tasks[1]] }, TASKS, { pieces: 2 })).toEqual([]);
+  });
+});
