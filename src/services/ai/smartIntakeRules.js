@@ -10,8 +10,9 @@
  * that reads a title; `test/smart-intake/catalog.test.js` fails when the committed catalog stops resolving.
  */
 
-export const TASK_CAP = 6;
-export const MAX_PIECES = 20;
+import { TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
+
+export { INTAKE_MODEL, TASK_CAP, MAX_PIECES } from './smartIntakeLimits';
 
 const str = (v) => String(v ?? '').trim();
 const titleOf = (t) => str(t?.title).toLowerCase();
@@ -55,7 +56,9 @@ const sizeText = (value) => { const n = parseRingSize(value); return n === null 
 export const normalizeKaratValue = (value) => {
   const raw = str(value).toLowerCase().replace(/\s+/g, '');
   if (!raw) return '';
-  if (/^\d{3}$/.test(raw)) return raw;            // 925 / 950 / 999
+  // Only the purities the form's Select has. "585" and "750" are karats in another notation; passing them through
+  // gave the form a value it cannot show (review, 2026-11-09).
+  if (/^\d{3}$/.test(raw)) return ['925', '950', '999', '900'].includes(raw) ? raw : '';
   const m = raw.match(/^(\d{1,2})k?t?$/);          // 14, 14k, 14kt
   return m ? `${m[1]}k` : '';
 };
@@ -76,11 +79,23 @@ export const applyDefaultPurity = (metalType, karat) => (karat ? karat : (DEFAUL
  */
 export const normalizeGoldColor = (value) => {
   const raw = str(value).toLowerCase();
-  if (/\bwhite\b|^wg$/.test(raw)) return 'white';
-  if (/\brose\b|\bpink\b|^rg$/.test(raw)) return 'rose';
-  if (/\byellow\b|^yg$/.test(raw)) return 'yellow';
+  // The FIRST colour named: "yellow gold with white gold head" is a yellow ring (review, 2026-11-09).
+  const found = [['white', /\bwhite\b|^wg$/], ['rose', /\brose\b|\bpink\b|^rg$/], ['yellow', /\byellow\b|^yg$/]]
+    .map(([colour, re]) => [colour, raw.search(re)]).filter(([, at]) => at >= 0).sort((a, b) => a[1] - b[1]);
+  return found.length ? found[0][0] : '';
+};
+
+/** The model's metal in the form's vocabulary. It answers "white gold" or "sterling" as readily as "gold" or "silver". */
+export const normalizeMetalType = (value) => {
+  const raw = str(value).toLowerCase();
+  if (/\bplat/.test(raw) || raw === 'pt') return 'platinum';
+  if (/\bgold\b|^[ywr]g$/.test(raw)) return 'gold';
+  if (/\bsilver\b|\bsterling\b|^ss$/.test(raw)) return 'silver';
+  if (/\bcostume\b/.test(raw)) return 'costume';
   return '';
 };
+
+const QUANTITY_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1 };
 
 /* -------------------------------------------------------------- normalize */
 
@@ -102,7 +117,9 @@ const isoDate = (value) => {
 };
 
 const wholeNumber = (value, min, max, fallback) => {
-  const n = Math.round(Number(value));
+  // "four" is 4, not the fallback: a word for a count silently became 1 (review, 2026-11-09).
+  const word = QUANTITY_WORDS[str(value).toLowerCase()];
+  const n = Math.round(word ?? Number(value));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 };
 
@@ -114,24 +131,27 @@ export const normalizeParsedPayload = (payload = {}) => {
   const lines = Array.isArray(payload.matchedTasks) && payload.matchedTasks.length
     ? payload.matchedTasks.map((item) => ({ id: str(item?.id), quantity: wholeNumber(item?.quantity, 1, 99, 1) }))
     : (Array.isArray(payload.matchedTaskIds) ? payload.matchedTaskIds : []).map((id) => ({ id: str(id), quantity: 1 }));
-  // One line per task: a task named twice keeps its larger quantity (review, 2026-11-09: duplicate ids were kept).
+  // One line per task. A task the model names twice is two of it — "laser weld the clasp, laser weld the link" — so
+  // the quantities ADD (review, 2026-11-09: keeping the larger made two welds one). A sizing task is set to one per
+  // piece later, whatever arrives here.
   const merged = new Map();
   for (const line of lines) {
     if (!line.id) continue;
-    merged.set(line.id, Math.max(merged.get(line.id) || 0, line.quantity));
+    merged.set(line.id, Math.min(99, (merged.get(line.id) || 0) + line.quantity));
   }
   const all = [...merged].map(([id, quantity]) => ({ id, quantity }));
   const matchedTasks = all.slice(0, TASK_CAP);
 
-  const metalRaw = str(payload.metalType).toLowerCase();
-  const metalType = ['gold', 'silver', 'platinum', 'costume'].includes(metalRaw) ? metalRaw : '';
+  const metalType = normalizeMetalType(payload.metalType);
   const sizeChange = Number(payload.sizeChange);
 
   return {
     metalType,
     karat: applyDefaultPurity(metalType, normalizeKaratValue(payload.karat)),
     // Gold with no colour said is yellow (owner, 2026-11-09; 5 of 5 logged intakes were corrected to yellow).
-    goldColor: normalizeGoldColor(payload.goldColor) || (metalType === 'gold' && !str(payload.goldColor) ? 'yellow' : ''),
+    // The colour may arrive inside the metal ("white gold") rather than in its own field.
+    goldColor: metalType !== 'gold' ? ''
+      : (normalizeGoldColor(payload.goldColor) || normalizeGoldColor(payload.metalType) || (!str(payload.goldColor) ? 'yellow' : '')),
     isRing: toBool(payload.isRing),
     currentRingSize: sizeText(payload.currentRingSize),
     desiredRingSize: sizeText(payload.desiredRingSize),
@@ -203,14 +223,18 @@ export function wideSiblingOf(task, tasks = []) {
 
 /* ----------------------------------------------------------- what was said */
 
-// What a millimetre measurement is about when it is NOT the shank: a stone, its cut, a setting, a chain, a finding.
-const NOT_SHANK = '(?:stones?|diamonds?|round|cz|pearls?|sapphires?|rub(?:y|ies)|emeralds?|opals?|moissanites?|cabochons?|beads?|balls?'
-  + '|princess|cushion|oval|pear|marquise|baguettes?|cut|center|head|bezel|prongs?|tube|bail|clasp|lobster'
-  + '|jump|links?|chains?|rope|cable|box|curb|wire)';
+const SHANK = '(?:band|shank|ring)';
+// Words that may sit between "wide" and the band: its metal, karat, colour, wearer.
+const BAND_FILLER = '(?:(?:\\d{2}k(?:t)?|\\d{2}[\\s-]?karat|white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|ss|pt|mens|men\'s|gents|ladies|wedding|plain)\\s+){0,4}';
 /**
- * Did the JEWELER say the shank is wide? A stated width over 3mm ("5 mm band", "4 millimeter shank", "5x2"), or the
- * word for it next to the band ("wide band", "heavy mens band", "cigar band"). "6mm stone", "4mm princess cut" and
- * "heavy wear on the prongs" are not about the shank (reviews, 2026-11-09).
+ * Did the JEWELER say the shank is wide?
+ *  - A width over 3mm that is ABOUT the band: the band/shank/ring is the next word ("5 mm band", "4 millimeter wide
+ *    shank", "5x2 shank") or was just named ("band is 5mm", "men's band, 3.5 mm"). Any other millimetre measurement is
+ *    a stone, a chain or a finding — "tighten 5mm amethyst" is not a wide shank. Asking what the number IS about,
+ *    rather than listing every stone it might be, is what stops the next gem name from over-charging (reviews,
+ *    2026-11-09: a list of stones missed amethyst, garnet, topaz…).
+ *  - Or the word for it next to the band, with its metal in between: "wide band", "wide 14k white gold band", "heavy
+ *    mens band", "cigar band", "the shank is thick".
  *
  * Read from the sentence only. The item description is usually written by the photo model, and a "thick band" it saw
  * in a picture is not the jeweler specifying a width (owner, 2026-11-09: "Default ring mm is always 3x2 unless
@@ -218,49 +242,57 @@ const NOT_SHANK = '(?:stones?|diamonds?|round|cz|pearls?|sapphires?|rub(?:y|ies)
  */
 export const statesWideShank = (inputText = '') => {
   const text = str(inputText).toLowerCase();
-  const widths = [...text.matchAll(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:x\\s*\\d+(?:\\.\\d+)?\\s*)?(?:mm|millimet(?:er|re)s?)\\b(?!\\s*${NOT_SHANK})`, 'g'))]
-    // "center is 6.5mm": the thing measured can come first. A band/shank/ring right after the number wins.
-    .filter((m) => /^\s*(?:wide\s+)?(?:band|shank|ring)\b/.test(text.slice(m.index + m[0].length))
-      || !new RegExp(`\\b${NOT_SHANK}\\b[^,.;]{0,12}$`).test(text.slice(Math.max(0, m.index - 24), m.index)))
-    .map((m) => Number(m[1]));
-  if (widths.some((w) => w > 3 && w <= 12)) return true;
-  return /\b(?:wide|thick|chunky|heavy)\s+(?:(?:mens|men's|gents|ladies|wedding|gold|silver)\s+)?(?:band|shank|ring)\b/.test(text)
+  const measure = /(\d+(?:\.\d+)?)\s*(?:x\s*\d+(?:\.\d+)?\s*)?(?:mm|millimet(?:er|re)s?|mil)\b/g;
+  for (const m of text.matchAll(measure)) {
+    const width = Number(m[1]);
+    if (!(width > 3 && width <= 12)) continue;
+    const after = text.slice(m.index + m[0].length);
+    const before = text.slice(Math.max(0, m.index - 28), m.index);
+    const bandNext = new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}${SHANK}\b`).test(after);
+    // "band is 5mm", "men's band, 3.5 mm": the band was the last thing named, with nothing else named since.
+    const bandJustNamed = new RegExp(String.raw`\b${SHANK}s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$`).test(before);
+    if (bandNext || bandJustNamed) return true;
+  }
+  return new RegExp(String.raw`\b(?:wide|thick|chunky|heavy)\s+${BAND_FILLER}${SHANK}\b`).test(text)
     || /\bcigar band\b/.test(text)
-    || /\b(?:band|shank|ring)\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b/.test(text);
+    || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text);
 };
 
 const NUMBER_WORDS = { two: 2, both: 2, three: 3, four: 4, five: 5, six: 6 };
 const COUNT = '(\\d{1,2}|two|both|three|four|five|six)';
-// Plural only: a count of pieces is "2 rings". "7 ring needs to be 6" is a size-7 ring.
-const PIECES = '(?:rings|bands|chains|bracelets|pendants|necklaces|pieces|items)';
+// Plural only: a count of pieces is "2 rings". "7 ring needs to be 6" is a size-7 ring. And only the things that
+// ARE pieces: "pieces" and "items" are not — "bracelet broken in 2 pieces" is one bracelet (review, 2026-11-09).
+const PIECES = '(?:rings|bands|chains|bracelets|pendants|necklaces)';
 const DESCRIBES = '(?:white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|wedding|engagement|matching|stacking|plain|mens|ladies|ss|pt|\\d{2}kt?|\\d{2}[\\s-]?karat)';
 /**
- * How many pieces the sentence says are on this job: "2 rings", "two white gold rings", "both rings", "size all 3 to
- * a 6". 1 when it does not say. A backstop for the model's own `pieceCount`, so "2 rings" never depends on the model.
+ * How many pieces the sentence says are ON THIS JOB: "2 rings", "two white gold rings", "both rings", "all 3 rings".
+ * 1 when it does not say. It is only ever used to CONFIRM the model's own count (see withPieceCount) — a regex has
+ * been wrong about this in every review so far, each time multiplying a ticket.
  *
- * Deliberately narrow, because a wrong count multiplies the whole ticket (reviews, 2026-11-09):
+ * Narrow on purpose:
  *  - the number is a whole number of its own — the "5" in "size 7.5 ring" is half a size;
  *  - only words that DESCRIBE the piece sit between it and a PLURAL piece noun — "retip 4 prongs on a ring" is four
  *    prongs, "5 diamond band" is a band with five diamonds, "two jump rings" are jump rings;
- *  - "all N" counts pieces only when nothing else follows it to count — "retip all 4 prongs" is four prongs.
+ *  - not pieces that are merely mentioned: "customer has 3 rings", "wears it with 2 bands", "her other 2 rings",
+ *    "1 of 2 rings", "size 6 and 7 rings";
+ *  - "all N" only when a piece noun follows: "retip all 4" is four prongs.
  */
 export const statedPieceCount = (inputText = '') => {
   const text = str(inputText).toLowerCase();
   const found = [];
-  for (const m of text.matchAll(new RegExp(`(?<![\\d.])${COUNT}\\s+(?:${DESCRIBES}\\s+){0,4}${PIECES}\\b`, 'g'))) {
-    // "size 8 rings", "1 of 2 rings": a size, or a part of the set, in front of the noun is not the count on this job.
-    if (/(?:size|sz|to|a|of)\s*$/.test(text.slice(Math.max(0, m.index - 6), m.index))) continue;
+  for (const m of text.matchAll(new RegExp(String.raw`(?<![\d.])(?:all\s+)?${COUNT}\s+(?:${DESCRIBES}\s+){0,4}${PIECES}\b`, 'g'))) {
+    const before = text.slice(Math.max(0, m.index - 14), m.index);
+    // A size, a part of a set, or pieces that are only mentioned.
+    if (!m[0].startsWith('all') && /\b(?:size|sz|to|a|of|and|or|with|has|have|other|another|her|his|their|my)\s*$/.test(before)) continue;
     found.push(NUMBER_WORDS[m[1]] || Number(m[1]));
   }
-  const all = text.match(new RegExp(`\\ball\\s+${COUNT}(?=\\s*(?:$|[,.;]|to\\b|up\\b|down\\b|the same\\b|of them\\b|(?:${DESCRIBES}\\s+){0,4}${PIECES}\\b))`));
-  if (all) found.push(NUMBER_WORDS[all[1]] || Number(all[1]));
   const n = Math.max(1, ...found.filter((x) => Number.isFinite(x)));
   return n <= MAX_PIECES ? n : 1;
 };
 
 /** Does the note give the pieces DIFFERENT work ("size one down, retip the other")? Then no one count fits every line. */
 export const describesDifferentWorkPerPiece = (inputText = '') => (
-  /\bthe other\b|\bone of (?:them|the)\b|\bone (?:ring|band|needs|gets|up|down)\b|\beach\b.*\bdifferent\b/.test(str(inputText).toLowerCase())
+  /\bthe other\b|\bone of (?:them|the)\b|\bone (?:ring|band|needs|gets|up|down)\b|\beach\b.*\bdifferent\b|\bonly (?:sizing|the|one)\b|\b(?:engagement|wedding) (?:ring|band)\b(?!s)/.test(str(inputText).toLowerCase())
 );
 
 /* ----------------------------------------------------------------- rulings */
@@ -281,8 +313,13 @@ const mergeLines = (lines) => {
 const ROLE_NAMES = { rhodium: 'rhodium plating', sizeDown: 'size down', sizeUp: 'size up (up to 3mm)', solderTogether: 'solder together' };
 const missingRole = (role) => `The task list has no single "${ROLE_NAMES[role]}" task, so that rule was not applied. Check the tasks by hand, and fix the task names in Admin → Tasks.`;
 
-// A real ring moves a few sizes. More than this is a misread (a karat in a size field: 6 → 18), not a job.
-export const MAX_SIZES_MOVED = 8;
+// A real ring moves a few sizes (the largest real job on file is 8.5 → 12.25). More than this is a misread, not a job.
+export const MAX_SIZES_MOVED = 5;
+
+/** Karats named in the note: "14k", "14 kt", "18 karat". A ring size equal to one of them is probably that karat. */
+const karatsSaid = (inputText = '') => [...str(inputText).toLowerCase().matchAll(/\b(10|14|18|22|24)\s*-?\s*(?:k|kt|karat|carat)\b/g)].map((m) => Number(m[1]));
+/** Does the number appear in the note as anything OTHER than the karat? "size 14" does; "14k" alone does not. */
+const saidAsSize = (inputText, n) => new RegExp(String.raw`(?<![\d.])${n}(?!\s*-?\s*(?:k|kt|karat|carat)\b)(?![\d.])`).test(str(inputText).toLowerCase());
 
 /** Sizes moved, signed: from the two sizes when both are known, else the stated change, else 0. */
 export const sizesMoved = (parsed = {}) => {
@@ -306,7 +343,17 @@ export const withKnownTasksOnly = (parsed, tasks = []) => {
  * metal or no colour, the form's is used — so white gold picked on the form still gets its rhodium, instead of the
  * yellow default (review, 2026-11-09).
  */
-export const withFormMetal = (parsed, raw = {}, formMetal = {}) => {
+/** Which metal facts the jeweler's NOTE itself names. */
+export const noteNames = (inputText = '') => {
+  const text = str(inputText).toLowerCase();
+  return {
+    metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)\b|\b(?:925|950)\b/.test(text),
+    karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)\b|\b(?:925|950|999|900)\b/.test(text),
+    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b/.test(text),
+  };
+};
+
+export const withFormMetal = (parsed, raw = {}, formMetal = {}, inputText = '') => {
   const form = {
     metalType: str(formMetal.metalType).toLowerCase(),
     karat: normalizeKaratValue(formMetal.karat),
@@ -314,7 +361,9 @@ export const withFormMetal = (parsed, raw = {}, formMetal = {}) => {
   };
   if (!['gold', 'silver', 'platinum', 'costume'].includes(form.metalType)) return parsed;
   const out = { ...parsed };
-  if (!str(raw.metalType)) {
+  const named = noteNames(inputText);
+  // The note names no metal: the form's metal stands, whatever the model inferred (from the photo's description, say).
+  if (!str(raw.metalType) || !named.metal) {
     out.metalType = form.metalType;
     out.karat = applyDefaultPurity(form.metalType, form.karat || '');
     out.goldColor = form.metalType === 'gold' ? (form.goldColor || 'yellow') : '';
@@ -322,7 +371,7 @@ export const withFormMetal = (parsed, raw = {}, formMetal = {}) => {
   }
   if (out.metalType === form.metalType) {
     if (!str(raw.karat) && form.karat) out.karat = form.karat;
-    if (out.metalType === 'gold' && !str(raw.goldColor) && form.goldColor) out.goldColor = form.goldColor;
+    if (out.metalType === 'gold' && (!str(raw.goldColor) || !named.color) && form.goldColor) out.goldColor = form.goldColor;
   }
   return out;
 };
@@ -338,11 +387,22 @@ export const withCheckedSizes = (parsed, inputText = '') => {
   if (!has) return parsed;
   // "Size all 3 to a 6": three rings going to a 6. The 3 is a count, and the current sizes were never said.
   const allTo = str(inputText).toLowerCase().match(/\ball\s+(\d{1,2})\s+to\s+(?:an?\s+)?(?:size\s+)?(\d{1,2}(?:\.\d+)?)(?![\d.])/);
-  if (allTo && parseRingSize(parsed.currentRingSize) === Number(allTo[1]) && parseRingSize(parsed.desiredRingSize) === Number(allTo[2])) {
-    return warn({ ...parsed, currentRingSize: '', sizeChange: 0 }, `"all ${allTo[1]}" is a count of pieces, not a size: the current size was left blank. Enter it, and add the sizing task, by hand.`);
+  // Whatever the model made of it: the current sizes were never said, so neither was the direction. No sizing task
+  // is guessed — a Size Down on rings that needed to go up is a wrong ticket for three rings at once.
+  if (allTo) {
+    return warn({ ...parsed, currentRingSize: '', desiredRingSize: String(Number(allTo[2])), sizeChange: 0, sizingUnknown: true },
+      `"all ${allTo[1]}" is a count of pieces, and the current sizes were not said, so no sizing task was added. Enter the sizes and add the sizing by hand.`);
   }
   if (parsed.isRing === false) {
     return warn({ ...parsed, currentRingSize: '', desiredRingSize: '', sizeChange: 0 }, 'Ring sizes were ignored: the piece was not read as a ring. If it is a ring, set the sizes by hand.');
+  }
+  // The karat read as a size: "resize 14k wg ring" → size 14. Blank that one size (review, 2026-11-09: 6 → 14 passed
+  // the old limit and put seven pieces of stock on the ticket).
+  for (const field of ['currentRingSize', 'desiredRingSize']) {
+    const n = parseRingSize(parsed[field]);
+    if (n !== null && karatsSaid(inputText).includes(n) && !saidAsSize(inputText, n)) {
+      return warn({ ...parsed, [field]: '', sizeChange: 0 }, `Size ${n} looks like the karat, not a ring size, so it was left blank. Enter the size by hand.`);
+    }
   }
   const moved = sizesMoved(parsed);
   if (Math.abs(moved) > MAX_SIZES_MOVED) {
@@ -369,6 +429,8 @@ export const withSizingTaskForSizes = (parsed, tasks = []) => {
     matched = matched.filter((m) => !isSizing(byId.get(m.id)) || m === sizing[0]);
     out = warn(withLines(out, matched), `Two sizing tasks were suggested for one job: kept "${byId.get(sizing[0].id).title}".`);
   }
+  // The direction was never said ("size all 3 to a 6"): no sizing task, whatever the model picked.
+  if (out.sizingUnknown) return withLines(out, matched.filter((m) => !isSizing(byId.get(m.id))));
   const moved = sizesMoved(out);
   if (!moved || !tasks.length) return out;
   const roles = taskRoles(tasks);
@@ -412,35 +474,44 @@ export const withDefaultShankWidth = withShankWidth;
 
 /**
  * Several pieces on one job (owner, 2026-11-09: "If there are 2 rings then there are 2x task and 2x materials. Each
- * ring gets a task and a material."). The piece count is the larger of what the model returned and what the sentence
- * plainly says.
+ * ring gets a task and a material.").
+ *
+ * The ticket is multiplied ONLY when the model's count and the sentence AGREE. Either one alone has been wrong in
+ * every review — the sentence regex read "retip all 4" as four rings, the model read "2 times" as two pieces — and a
+ * wrong count multiplies the whole ticket. When they disagree nothing is multiplied and the jeweler is told, which
+ * costs one tap; a silent ×4 costs the customer.
  *  - A sizing task is exactly one per piece — never the number of sizes ("2 sizes" is not ×2).
  *  - Every other task is done at least once per piece: a quantity below the piece count is raised to it; a per-unit
  *    count above it ("retip 4 prongs each" = 8) is left alone.
  *  - When the note gives the pieces different work ("size one down, retip the other") no one count fits, so nothing is
- *    multiplied and the jeweler is told to check each line.
+ *    multiplied.
  *
  * Solder Together is the exception (owner, 2026-11-09: "2 rings is 1x task. 3 rings is 2x tasks"): its quantity is
  * the number of joins, rings − 1, and the joined rings are then ONE piece for everything else on the ticket.
  */
 export const withPieceCount = (parsed, tasks = [], inputText = '') => {
-  const pieces = Math.max(Number(parsed.pieceCount) || 1, statedPieceCount(inputText));
+  const modelSays = Number(parsed.pieceCount) || 1;
+  const sentenceSays = statedPieceCount(inputText);
+  const agreed = modelSays === sentenceSays ? modelSays : 1;
+  const claimed = Math.max(modelSays, sentenceSays);
   const byId = byIdOf(tasks);
   const matched = parsed.matchedTasks || [];
+  const onePerPiece = (pieces) => matched.map((m) => (isSizing(byId.get(m.id)) ? { ...m, quantity: pieces } : { ...m, quantity: Math.max(m.quantity, pieces) }));
+
   const solder = matched.find((m) => isSolderTogether(byId.get(m.id)));
   if (solder) {
-    const joins = pieces >= 2 ? pieces - 1 : solder.quantity;
+    // Rings joined: the count is how many rings, said by either the model or the sentence ("solder together two rings").
+    const joins = claimed >= 2 ? claimed - 1 : solder.quantity;
     const lines = matched.map((m) => (m === solder ? { ...m, quantity: joins } : (isSizing(byId.get(m.id)) ? { ...m, quantity: 1 } : m)));
-    return { ...withLines(parsed, lines), pieceCount: pieces, pieces: 1 };
+    return { ...withLines(parsed, lines), pieceCount: claimed, pieces: 1 };
   }
-  if (pieces > 1 && describesDifferentWorkPerPiece(inputText)) {
-    const lines = matched.map((m) => (isSizing(byId.get(m.id)) ? { ...m, quantity: 1 } : m));
-    return warn({ ...withLines(parsed, lines), pieceCount: pieces, pieces: 1 },
-      `${pieces} pieces with different work on each: quantities were not multiplied. Check each line, and the sizes, by hand.`);
+  if (claimed > 1 && (agreed === 1 || describesDifferentWorkPerPiece(inputText))) {
+    const why = agreed > 1 ? 'with different work on each' : 'but that is not certain from the note';
+    return warn({ ...withLines(parsed, onePerPiece(1)), pieceCount: 1, pieces: 1 },
+      `This may be ${claimed} pieces, ${why}: quantities were NOT multiplied. Check each line, and the sizes, by hand.`);
   }
-  const lines = matched.map((m) => (isSizing(byId.get(m.id)) ? { ...m, quantity: pieces } : { ...m, quantity: Math.max(m.quantity, pieces) }));
-  if (pieces <= 1) return { ...withLines(parsed, lines), pieceCount: 1, pieces: 1 };
-  return warn({ ...withLines(parsed, lines), pieceCount: pieces, pieces }, `${pieces} pieces: each task and material is counted ${pieces} times.`);
+  if (agreed <= 1) return { ...withLines(parsed, onePerPiece(1)), pieceCount: 1, pieces: 1 };
+  return warn({ ...withLines(parsed, onePerPiece(agreed)), pieceCount: agreed, pieces: agreed }, `${agreed} pieces: each task and material is counted ${agreed} times.`);
 };
 
 /**
@@ -495,7 +566,7 @@ export const withSizingStock = (parsed, tasks = []) => {
 export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} } = {}) {
   let p = normalizeParsedPayload(raw || {});
   if (p.overCap > 0) p = warn(p, `More than ${TASK_CAP} jobs: only the first ${TASK_CAP} were kept. Add the rest by hand.`);
-  p = withFormMetal(p, raw || {}, formMetal);
+  p = withFormMetal(p, raw || {}, formMetal, inputText);
   p = withKnownTasksOnly(p, tasks);
   p = withCheckedSizes(p, inputText);
   p = withSizingTaskForSizes(p, tasks);
@@ -503,92 +574,20 @@ export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} }
   p = withPieceCount(p, tasks, inputText);
   p = withRhodiumForWhiteGold(p, tasks);
   p = withSizingStock(p, tasks);
-  const { overCap: _overCap, pieces: _pieces, ...out } = p;
+  const { overCap: _overCap, pieces: _pieces, sizingUnknown: _unknown, ...out } = p;
   // What the NOTE itself stated, as opposed to what a default or the form supplied. The form uses it to decide what a
   // re-read may overwrite, and to show a default as "(assumed)" rather than as something it picked up.
-  const said = { metal: !!str(raw?.metalType), karat: !!str(raw?.karat), color: !!normalizeGoldColor(raw?.goldColor) };
+  // "Said" means the NOTE names it, not merely that the model returned it: the model also sees the photo's
+  // description, and a "silver-toned ring" it read there must not overwrite the metal chosen on the form (review,
+  // 2026-11-09).
+  const named = noteNames(inputText);
+  const said = {
+    metal: !!str(raw?.metalType) && named.metal,
+    karat: !!str(raw?.karat) && named.karat,
+    color: !!(normalizeGoldColor(raw?.goldColor) || normalizeGoldColor(raw?.metalType)) && named.color,
+  };
   return { ...out, said, warnings: [...new Set(p.warnings || [])] };
 }
 
-/* ------------------------------------------------------------------ prompt */
-
-export const prefilterTasks = (inputText, tasks, limit = 15) => {
-  const words = inputText.toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
-  if (!words.length) return tasks.slice(0, limit);
-  const scored = tasks.map((t) => {
-    const haystack = [t.title, ...(t.symptoms || []), t.whenToUse || ''].join(' ').toLowerCase();
-    return { task: t, score: words.filter((w) => haystack.includes(w)).length };
-  });
-  const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, limit).map((s) => s.task);
-  return matched.length > 0 ? matched : tasks.slice(0, limit);
-};
-
-/**
- * Which tasks the model gets to choose from: the whole catalog while it is small enough to send. The keyword prefilter
- * hid real answers — across the saved typed intakes logged 2026-10-02 to 11-06, 11 of the 94 tasks on the finished
- * tickets were never shown to the model ("11.5 to 9" shares no word with "Size Down"). It stays only for a catalog
- * too big to send.
- */
-export const FULL_CATALOG_LIMIT = 80;
-export const tasksForPrompt = (inputText, tasks = []) => (
-  tasks.length <= FULL_CATALOG_LIMIT ? tasks : prefilterTasks(inputText, tasks, 40)
-);
-
-/** The prompt, built in one place so the route and the replay send exactly the same words. */
-export function buildIntakePrompt({ inputText, description = '', tasks = [], todayIso }) {
-  const offered = tasks.length > 0 ? tasksForPrompt(inputText, tasks) : [];
-  const taskList = offered.map((t) => (
-    `- id:${t.id} | title:"${t.title}"`
-    + (restricted(t) ? ` | onlyForMetals:${JSON.stringify(t.metals)}` : '')
-    + (t.symptoms?.length ? ` | symptoms:${JSON.stringify(t.symptoms)}` : '')
-    + (t.whenToUse ? ` | whenToUse:"${t.whenToUse}"` : '')
-    + (t.neverUseWhen ? ` | neverUseWhen:"${t.neverUseWhen}"` : '')
-  )).join('\n');
-
-  return [
-    'You turn a jeweler\'s repair intake note into structured data for a repair ticket. The note is shop shorthand, typed or dictated by the jeweler at the counter — not a customer talking.',
-    'The item can be any jewelry: ring, pendant, necklace, bracelet, chain, earrings, watch, brooch.',
-    `Today is ${todayIso}.`,
-    '',
-    'Return ONLY a JSON object with exactly these keys:',
-    '{',
-    '  "metalType": "gold" | "silver" | "platinum" | "costume" | "",',
-    '  "karat": "",            // "10k", "14k", "18k"; "925" for silver, "950" for platinum unless another purity is said',
-    '  "goldColor": "yellow" | "white" | "rose" | "",',
-    '  "isRing": false,        // true only for a ring or band',
-    '  "currentRingSize": "",  // a number as text, e.g. "7.5"; "" when not said',
-    '  "desiredRingSize": "",',
-    '  "sizeChange": 0,        // sizes moved when only the change is said: "size up 2 sizes" = 2, "down a half size" = -0.5; else 0',
-    '  "pieceCount": 1,        // how many separate pieces of jewelry are on this job',
-    '  "promiseDate": "",      // YYYY-MM-DD only when a due date is said; else ""',
-    '  "normalizedSummary": "",',
-    `  "matchedTasks": [{"id": "", "quantity": 1}]   // from the task list below; at most ${TASK_CAP}`,
-    '}',
-    '',
-    'Reading the note:',
-    '- Shorthand: yg/wg/rg = yellow/white/rose gold; kt, karat = k; sz = size; plat, pt = platinum; ss, sterling = silver.',
-    '- Metal, karat and color: report what is said. Do not guess a color that is not said.',
-    '- Sizes: "from 11.5 to 9", "7.25 needs to be 6.75", "going from a 5 to a 7" give both sizes. "size 7, down 3 sizes" means 7 to 4: do the arithmetic and fill both. Fill sizes only for a ring.',
-    '- A count of pieces is never a ring size: "size all 3 to a 6" is 3 pieces going to size 6, with the current size unknown. "2 rings", "both rings", "all 3" set pieceCount. A pair of earrings is one piece unless the note counts them.',
-    '- promiseDate: only from words about when it is due ("by Friday", "ready 11/20"). A fraction or a carat weight ("1/2 ct") is never a date.',
-    ...(taskList ? [
-      '',
-      'Choosing tasks:',
-      '- One task per distinct job in the note. Cover every job: "size down, tighten, retip" is three tasks.',
-      '- The TITLE says what the work is. symptoms and whenToUse were written as examples of a customer talking and are often narrower than the task: when the note names the work in the title ("laser weld", "set stone", "clean and polish"), choose that task on any kind of jewelry, even if whenToUse describes a different situation.',
-      '- Two different ring sizes are a sizing job even when the word "size" is missing.',
-      '- quantity: for work priced per unit (per prong, per stone, per weld, per link, per jump ring) it is the count said — "retip 14 prongs" is quantity 14, "3 laser welds" is 3, "set three stones" is the set-stone task with quantity 3. A sizing task is quantity 1 per ring, however many sizes it moves. When no count is said, 1.',
-      '- When a task comes in shank-width bands and the note states no width, pick the narrowest band.',
-      '- A task with onlyForMetals may be chosen only for that metal, and for that metal it is preferred over the general one.',
-      '- neverUseWhen applies only when its condition is stated in the note. Never skip a job because the ideal task is not listed: pick the closest listed task.',
-      '- Use only ids from the list. If nothing fits a job, leave it out.',
-      '- If the note names no work to do, return an empty matchedTasks. Never guess a job from the metal or the kind of piece alone.',
-      '',
-      'Tasks:',
-      taskList,
-    ] : []),
-    '',
-    `Note: ${inputText}`,
-    description ? `Item description: ${description}` : '',
-  ].join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
-}
+// The prompt lives in smartIntakePrompt.js. Re-exported so there is still one module to import from.
+export { prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT } from './smartIntakePrompt';

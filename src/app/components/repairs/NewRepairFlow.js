@@ -32,7 +32,8 @@ import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { canSkipIntakeClient, intakeClientSettled } from '@/services/repairs/intakeClientRule';
 import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
-import { sizingStockCheck } from '@/hooks/repairs/newRepairFormHelpers';
+import { sizingStockCheck, ticketChecks } from '@/hooks/repairs/newRepairFormHelpers';
+import { stripComputedPrices } from '@/services/pricing/computedFields';
 import { STEPS, StepHeader, initials } from './NewRepairFlowParts';
 import { NewRepairFlowClientDialog } from './NewRepairFlowClientDialog';
 import { NewRepairFlowAddSheets } from './NewRepairFlowAddSheets';
@@ -235,13 +236,25 @@ export default function NewRepairFlow(props) {
   // "✓ yellow gold" under "Picked up from that sentence").
   const extractedChips = [
     formData.karat && { label: String(formData.karat) },
-    formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: Boolean(smartIntakeNotes?.assumed?.goldColor) },
+    formData.metalType === 'gold' && formData.goldColor && { label: `${formData.goldColor} gold`, assumed: Boolean(smartIntakeNotes?.assumed?.goldColor) && smartIntakeNotes.assumed.goldColor === formData.goldColor },
     formData.metalType && formData.metalType !== 'gold' && { label: formData.metalType },
     formData.isRing && { label: 'Ring' },
     formData.currentRingSize && formData.desiredRingSize && { label: `${formData.currentRingSize} → ${formData.desiredRingSize}` },
   ].filter(Boolean);
   // Sizing stock that no longer matches the sizes (a size edited after the read, a size-up added by hand).
   const stockCheck = sizingStockCheck(formData);
+  // The owner's rulings against the ticket as it stands now: rhodium on white gold, the metal's own task.
+  const checks = ticketChecks(formData, availableTasks);
+  const applyCheck = (check) => {
+    if (check.add) addTask(check.add);
+    else if (check.remove != null) removeItem('tasks', check.remove);
+    else if (check.swap) {
+      setFormData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((t) => (t.id === check.swap.id ? { ...stripComputedPrices(check.swap.task), id: t.id, quantity: t.quantity } : t)),
+      }));
+    }
+  };
 
   const karatOptions = getKaratOptions();
   const isComped = Boolean(formData.compRepair || formData.includedWithSale);
@@ -305,7 +318,7 @@ export default function NewRepairFlow(props) {
   // Everything the step sections read, passed whole to each (each section takes only the names it uses).
   const flow = {
     addCustomFromDraft, addLaborFromDraft, addMaterial, addSheet, addStullerMaterial, addTask,
-    analyzingSmartIntake, appendDictated, benchJewelers, canRequestQuote, canSkipClient, clientId, clientLabel,
+    analyzingSmartIntake, appendDictated, applyCheck, benchJewelers, canRequestQuote, checks, canSkipClient, clientId, clientLabel,
     clientPickerOpen, clientPill, clientQuery, commonTasks, customDraft, dictation, errors, extractedChips,
     filteredClients, filteredStores, formData, formatPhoneNumber, generatingImageDescription, getJewelerLabel,
     goNext, handleAddNewClient, handleAnalyzeSmartIntake, handleGenerateDescriptionFromImage,

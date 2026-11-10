@@ -53,7 +53,7 @@ describe('statedPieceCount', () => {
   it('counts pieces the sentence plainly counts', () => {
     expect(statedPieceCount('size from 8.75 to 7.25, Rhodium plating, 2 rings')).toBe(2);
     expect(statedPieceCount('two white gold rings size down')).toBe(2);
-    expect(statedPieceCount('14k white gold. Size all 3 to a 6')).toBe(3);
+    expect(statedPieceCount('size all 3 rings to a 6')).toBe(3);
     expect(statedPieceCount('Solder together two rings')).toBe(2);
     expect(statedPieceCount('both bands need polishing')).toBe(2);
     // The shorthand the prompt itself teaches (Codex review of #345).
@@ -68,7 +68,10 @@ describe('statedPieceCount', () => {
       'size 7.5 ring down to 6', 'retip 4 prongs on a ring', '6.25 ring needs to be 5.5', 'set 3 stones in the ring',
       '2 laser welds on a bracelet', 'size 10 band to an 8',
       // Round 1 sweep: a count of prongs after "all", a band WITH five diamonds, a size-7 ring, one of a pair.
-      'wg retip all 4 prongs size 5 to 7', 'retip all 14 and polish', '5 diamond band retip', '7 ring needs to be 6', 'fix 1 of 2 rings']) {
+      'wg retip all 4 prongs size 5 to 7', 'retip all 14 and polish', '5 diamond band retip', '7 ring needs to be 6', 'fix 1 of 2 rings',
+      // Round 2 sweep: "all N" with no noun, pieces of a broken thing, pieces merely mentioned, two sizes.
+      '14k wg ring retip all 4. size 6 to 7', 'tighten all 6', 'bracelet broken in 2 pieces, laser weld', 'wears it with 2 bands',
+      'matches her other 2 rings', 'customer has 3 rings, only sizing this one', 'size 6 and 7 rings', '14k white gold. Size all 3 to a 6']) {
       expect(statedPieceCount(t), t).toBe(1);
     }
   });
@@ -129,17 +132,33 @@ describe('decideIntake — the owner\'s rulings, in code', () => {
     expect(lines(decide({ matchedTasks: [{ id: 'hs5', quantity: 1 }, { id: 'hs3', quantity: 1 }] }))).toBe('hs3x1');
   });
 
-  it('2 rings: every task and every material twice (owner, 2026-11-09)', () => {
-    const out = decide({ metalType: 'gold', goldColor: 'white', currentRingSize: '5', desiredRingSize: '7', pieceCount: 2, matchedTasks: [{ id: 'up3', quantity: 1 }] });
+  it('2 rings, said by the model AND the sentence: every task and every material twice (owner, 2026-11-09)', () => {
+    const out = decide({ metalType: 'gold', goldColor: 'white', currentRingSize: '5', desiredRingSize: '7', pieceCount: 2, matchedTasks: [{ id: 'up3', quantity: 1 }] },
+      '2 wg rings going from 5 to 7');
     expect(lines(out)).toBe('up3x2 rhx2');
     expect(stock(out)).toBe(2);
-    // The sentence alone is enough: the model forgot the count.
-    const said = decide({ metalType: 'gold', goldColor: 'white', currentRingSize: '8.75', desiredRingSize: '7.25', matchedTasks: [{ id: 'rh', quantity: 1 }] }, 'size from 8.75 to 7.25, Rhodium plating, 2 rings');
-    expect(lines(said)).toBe('downx2 rhx2');
+    const real = decide({ metalType: 'gold', goldColor: 'white', currentRingSize: '8.75', desiredRingSize: '7.25', pieceCount: 2, matchedTasks: [{ id: 'rh', quantity: 1 }] },
+      'size from 8.75 to 7.25, Rhodium plating, 2 rings');
+    expect(lines(real)).toBe('downx2 rhx2');
+  });
+
+  it('only one of them says so: nothing is multiplied, and the jeweler is told (round 2 sweep)', () => {
+    // The sentence regex alone: "retip all 4" is four prongs, not four rings.
+    const regexOnly = decide({ metalType: 'gold', goldColor: 'white', currentRingSize: '6', desiredRingSize: '7', matchedTasks: [{ id: 'retip', quantity: 4 }] },
+      '14k wg ring retip all 4. size 6 to 7');
+    expect(lines(regexOnly)).toBe('up3x1 retipx4 rhx1');
+    // The model alone: it read "2 times" as two pieces.
+    const modelOnly = decide({ metalType: 'gold', goldColor: 'white', pieceCount: 2, matchedTasks: [{ id: 'weld', quantity: 2 }] }, 'wg earrings laser weld, 2 times');
+    expect(lines(modelOnly)).toBe('weldx2 rhx1');
+    expect(modelOnly.warnings.join(' ')).toMatch(/may be 2 pieces.*NOT multiplied/);
+    // The sentence counts rings the model did not: still not multiplied, still said.
+    const forgot = decide({ currentRingSize: '8', desiredRingSize: '7', matchedTasks: [{ id: 'down', quantity: 1 }] }, '2 rings size 8 to 7');
+    expect(lines(forgot)).toBe('downx1');
+    expect(forgot.warnings.join(' ')).toMatch(/NOT multiplied/);
   });
 
   it('a per-unit count above the piece count is left alone; one below it is raised', () => {
-    const out = withPieceCount({ pieceCount: 2, matchedTasks: [{ id: 'retip', quantity: 8 }, { id: 'down', quantity: 1 }] }, tasks);
+    const out = withPieceCount({ pieceCount: 2, matchedTasks: [{ id: 'retip', quantity: 8 }, { id: 'down', quantity: 1 }] }, tasks, '2 rings, size down, retip 4 prongs each');
     expect(out.matchedTasks).toEqual([{ id: 'retip', quantity: 8 }, { id: 'down', quantity: 2 }]);
   });
 
@@ -247,7 +266,7 @@ describe('round 1 sweep, 2026-11-09 — the checks that were missing', () => {
     const out = decide({ metalType: 'gold', karat: '14k', matchedTasks: [{ id: 'retip', quantity: 2 }] }, '14k retip 2 prongs', { metalType: 'gold', karat: '14k', goldColor: 'white' });
     expect([out.goldColor, lines(out)]).toEqual(['white', 'retipx2 rhx1']);
     // A colour said in the note wins over the form.
-    expect(decide({ metalType: 'gold', goldColor: 'yellow', matchedTasks: [{ id: 'retip', quantity: 1 }] }, '', { metalType: 'gold', goldColor: 'white' }).goldColor).toBe('yellow');
+    expect(decide({ metalType: 'gold', goldColor: 'yellow', matchedTasks: [{ id: 'retip', quantity: 1 }] }, '14k yg ring retip 1 prong', { metalType: 'gold', goldColor: 'white' }).goldColor).toBe('yellow');
     // No metal in the note at all: the form's.
     expect(decide({ matchedTasks: [{ id: 'weld', quantity: 1 }] }, 'laser weld', { metalType: 'silver' })).toMatchObject({ metalType: 'silver', karat: '925', goldColor: '' });
   });
@@ -284,8 +303,61 @@ describe('round 2', () => {
     const out = decideIntake({ metalType: 'gold', goldColor: 'white', isRing: true, currentRingSize: '3', desiredRingSize: '6' },
       { tasks, inputText: '14k white gold. Size all 3 to a 6' });
     expect([out.currentRingSize, out.desiredRingSize, out.matchedTasks, out.materialHints]).toEqual(['', '6', [], []]);
-    expect(out.warnings.join(' ')).toMatch(/count of pieces, not a size/);
+    expect(out.warnings.join(' ')).toMatch(/count of pieces, and the current sizes were not said/);
+    // Even when the model picks a direction itself: it was never said.
+    const guessed = decideIntake({ metalType: 'gold', goldColor: 'white', isRing: true, desiredRingSize: '6', matchedTasks: [{ id: 'down', quantity: 1 }] },
+      { tasks, inputText: '14k white gold. Size all 3 to a 6' });
+    expect([guessed.matchedTasks, guessed.desiredRingSize]).toEqual([[], '6']);
     // A real 3-to-6 is untouched.
     expect(decideIntake({ isRing: true, currentRingSize: '3', desiredRingSize: '6' }, { tasks, inputText: 'size 3 to 6' }).matchedTasks).toHaveLength(1);
+  });
+});
+
+describe('round 2 sweep, 2026-11-09', () => {
+  it('a wide band is wide with its metal in between; a stone\'s millimetres are not the shank', () => {
+    for (const t of ['14k wide white gold band size 9 to 11', 'wide 14k band', 'thick yellow gold band', 'wide wg band', '6 mil band',
+      'band is 5mm', "men's band, 3.5 mm size, from 11.5 to 9", '4 mm wide shank']) expect(statesWideShank(t), t).toBe(true);
+    for (const t of ['14k yg size 6 to 7.5, tighten 5mm amethyst', '6mm garnet', '5 mm topaz loose', '4mm lab diamond', '5mm peridot, size up',
+      'ring with 6.5mm aquamarine', 'chain is 4mm']) expect(statesWideShank(t), t).toBe(false);
+  });
+
+  it('a karat read as a ring size is blanked: 6 to 14 on a 14k ring', () => {
+    const out = decide({ isRing: true, currentRingSize: '6', desiredRingSize: '14', matchedTasks: [{ id: 'up3', quantity: 1 }] }, 'resize 14k wg ring from a 6');
+    expect([out.desiredRingSize, stock(out)]).toEqual(['', 0]);
+    expect(out.warnings.join(' ')).toMatch(/Size 14 looks like the karat/);
+    // A real size 10 on a 10k ring is said as a size, so it stands.
+    expect(decide({ isRing: true, currentRingSize: '10', desiredRingSize: '8' }, 'Size 10KY to an 8')).toMatchObject({ currentRingSize: '10', desiredRingSize: '8' });
+    // And a move past the limit with no karat to blame is still blanked.
+    expect(decide({ isRing: true, currentRingSize: '4', desiredRingSize: '11' }, 'ring 4 to 11').desiredRingSize).toBe('');
+    expect(decide({ isRing: true, currentRingSize: '8.5', desiredRingSize: '12.25' }, '8.5 needs to be 12.25').desiredRingSize).toBe('12.25');
+  });
+
+  it('a task the model names twice is two of it', () => {
+    expect(lines(decide({ matchedTasks: [{ id: 'weld', quantity: 1 }, { id: 'weld', quantity: 1 }] }))).toBe('weldx2');
+  });
+
+  it('the model\'s words are read into the form\'s vocabulary', () => {
+    expect(normalizeParsedPayload({ metalType: 'white gold', karat: '14k' })).toMatchObject({ metalType: 'gold', goldColor: 'white' });
+    expect(normalizeParsedPayload({ metalType: 'Sterling Silver' })).toMatchObject({ metalType: 'silver', karat: '925', goldColor: '' });
+    expect(normalizeParsedPayload({ metalType: 'gold', goldColor: 'yellow gold with white gold head' }).goldColor).toBe('yellow');
+    expect(normalizeParsedPayload({ metalType: 'gold', karat: '585' }).karat).toBe('');
+    expect(normalizeParsedPayload({ matchedTasks: [{ id: 'a', quantity: 'four' }] }).matchedTasks).toEqual([{ id: 'a', quantity: 4 }]);
+  });
+
+  it('a metal the NOTE does not name never overwrites the form — the model may have read it off the photo', () => {
+    const out = decide({ metalType: 'gold', goldColor: 'white', matchedTasks: [{ id: 'retip', quantity: 4 }] }, 'retip 4 prongs', { metalType: 'silver', karat: '925' });
+    expect(out).toMatchObject({ metalType: 'silver', karat: '925', goldColor: '' });
+    expect(out.said).toEqual({ metal: false, karat: false, color: false });
+    expect(lines(out)).toBe('retipx4'); // and so no rhodium
+    // No metal on the form either: the model's metal fills the blank, but is not "said".
+    expect(decide({ metalType: 'gold', karat: '14k', goldColor: 'white' }, 'retip 4 prongs').said.metal).toBe(false);
+    expect(decide({ metalType: 'gold', karat: '14k', goldColor: 'white' }, '14k wg retip 4 prongs').said).toEqual({ metal: true, karat: true, color: true });
+  });
+
+  it('pieces with different work named by which ring: not multiplied', () => {
+    const out = decide({ currentRingSize: '5', desiredRingSize: '6.5', pieceCount: 2, matchedTasks: [{ id: 'up3', quantity: 1 }, { id: 'weld', quantity: 1 }] },
+      '2 rings. size engagement ring 5 to 6.5, weld the band');
+    expect(lines(out)).toBe('up3x1 weldx1');
+    expect(stock(out)).toBe(1);
   });
 });

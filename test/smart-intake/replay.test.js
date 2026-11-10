@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
 import { FIXTURES, METRICS, loadFixtures, scoreReplay, report, photoContradictions, promptHashFor, regressions, lastAttemptPerTicket, expectedFor } from './replay.js';
 
 const fx = loadFixtures();
@@ -36,6 +37,9 @@ describe('smart intake replay (rules mode)', () => {
     expect(fx.modelAnswers, 'no model-answers.json — run: npm run intake:replay -- --model').toBeTruthy();
     expect(fx.modelAnswers.promptHash, 'the prompt or the task list changed since the model was last asked — run: npm run intake:replay -- --model')
       .toBe(promptHashFor(fx.catalog));
+    // And by the model the route asks. Swap the model and the stored answers are another model's (review, 2026-11-09).
+    expect(String(fx.modelAnswers.model), `the stored answers are from ${fx.modelAnswers.model}; the route asks ${INTAKE_MODEL} — run: npm run intake:replay -- --model`)
+      .toMatch(new RegExp(`^${INTAKE_MODEL}`));
     const scored = lastAttemptPerTicket(fx.intakes).filter((i) => !expectedFor(i, fx.marks, fx.catalog).skip);
     expect(scored.filter((i) => !fx.modelAnswers.answers[i.id]).map((i) => i.text)).toEqual([]);
   });

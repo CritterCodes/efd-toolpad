@@ -59,6 +59,7 @@ describe('the Work step', () => {
         step={2} formData={formData} itemCount={3} itemsSubtotal={176.98} canRequestQuote={false} quoteIntent={false}
         patchCustomLaborTask={noop} setAddSheet={noop} setQuoteIntent={noop} setStep={noop}
         updateItem={updateItem} removeItem={removeItem} smartIntakeNotes={{ warnings: [], assumed: {}, fallback: false }} stockCheck={null}
+        checks={[]} applyCheck={noop}
         {...over}
       />,
     );
@@ -90,5 +91,24 @@ describe('the Work step', () => {
   it('when the AI was down and nothing is on the ticket, the Work step says so', () => {
     work({ formData: { ...formData, tasks: [], materials: [] }, itemCount: 0, smartIntakeNotes: { warnings: [], assumed: {}, fallback: true } });
     expect(screen.getByText(/The AI is unavailable right now/)).toBeTruthy();
+  });
+});
+
+describe('the Work step, round 3', () => {
+  it('shows the rulings\' warnings beside the lines, and a ticket check with its one-tap fix', () => {
+    const applyCheck = vi.fn();
+    const check = { key: 'rhodium-missing', message: 'White gold gets rhodium plating, and this ticket has none.', action: 'Add rhodium', add: { _id: 'rh' } };
+    render(
+      <NewRepairFlowWork
+        step={2} formData={formData} itemCount={3} itemsSubtotal={176.98} canRequestQuote={false} quoteIntent={false}
+        patchCustomLaborTask={noop} setAddSheet={noop} setQuoteIntent={noop} setStep={noop} updateItem={noop} removeItem={noop}
+        smartIntakeNotes={{ warnings: ['2 pieces: each task and material is counted 2 times.'], assumed: {}, fallback: false }}
+        stockCheck={null} checks={[check]} applyCheck={applyCheck}
+      />,
+    );
+    expect(screen.getByText('2 pieces: each task and material is counted 2 times.')).toBeTruthy();
+    expect(screen.getByText(check.message)).toBeTruthy();
+    fireEvent.click(screen.getByText('Add rhodium'));
+    expect(applyCheck).toHaveBeenCalledWith(check);
   });
 });

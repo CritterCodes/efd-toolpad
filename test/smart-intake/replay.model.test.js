@@ -11,10 +11,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'vitest';
-import { buildIntakePrompt } from '@/services/ai/smartIntakeRules';
+import { buildIntakePrompt, INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
 import { FIXTURES, loadFixtures, lastAttemptPerTicket, expectedFor, scoreReplay, report, promptHashFor } from './replay.js';
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = INTAKE_MODEL;
 const RUN = process.env.INTAKE_MODEL === '1';
 // `--proposal`: score the PROPOSED aiMeta (scripts/intake/aimeta-proposal.json) laid over the live catalog, without
 // writing anything. This is how a metadata rewrite is measured before the owner is asked to approve it.

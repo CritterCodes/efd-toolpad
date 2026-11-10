@@ -12,14 +12,29 @@ export const stockCheckMessage = ({ want, have, moved }) => (
     : `Sizing up ${moved} size${moved === 1 ? '' : 's'} needs ${want === 0 ? 'no' : want} sizing stock. This ticket has ${have}.`
 );
 
-export function NewRepairFlowWork({ canRequestQuote, formData, itemCount, itemsSubtotal, patchCustomLaborTask, quoteIntent, removeItem, setAddSheet, setQuoteIntent, setStep, smartIntakeNotes, step, stockCheck, updateItem }) {
+export function NewRepairFlowWork({ applyCheck, canRequestQuote, checks, formData, itemCount, itemsSubtotal, patchCustomLaborTask, quoteIntent, removeItem, setAddSheet, setQuoteIntent, setStep, smartIntakeNotes, step, stockCheck, updateItem }) {
   return (
     <>
       {/* ── Step 3 — Work items (short: ticket + subtotal + add strip) ── */}
       {step === 2 && (
         <Stack spacing={2.5}>
           {/* The AI was down when the sentence was read: nothing below came from it. Said here, where the work is. */}
-          {smartIntakeNotes?.fallback && formData.tasks.length === 0 && <Alert severity="warning">{AI_DOWN_MESSAGE}</Alert>}
+          {smartIntakeNotes?.fallback && <Alert severity="warning">{AI_DOWN_MESSAGE}</Alert>}
+          {/* What the rulings did to this ticket, beside the lines they did it to (it used to show on the Piece step only). */}
+          {(smartIntakeNotes?.warnings || []).length > 0 && (
+            <Alert severity="info" aria-label="What smart intake changed">
+              {smartIntakeNotes.warnings.map((note) => <Box key={note}>{note}</Box>)}
+            </Alert>
+          )}
+          {(checks || []).map((check) => (
+            <Alert
+              key={check.key}
+              severity="warning"
+              action={<Button color="inherit" size="small" onClick={() => applyCheck(check)}>{check.action}</Button>}
+            >
+              {check.message}
+            </Alert>
+          ))}
           {stockCheck && (
             <Alert
               severity="warning"

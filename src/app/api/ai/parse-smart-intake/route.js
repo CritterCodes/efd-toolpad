@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
 import { aiErrorMessage, userFacingAiError, SMART_INTAKE_FALLBACK } from '@/services/ai/aiErrorMessage';
-import { buildIntakePrompt, decideIntake } from '@/services/ai/smartIntakeRules';
+import { buildIntakePrompt, decideIntake, INTAKE_MODEL } from '@/services/ai/smartIntakeRules';
 
 // The pure half lives in services/ai/smartIntakeRules.js. Re-exported so older imports keep working.
 export {
@@ -13,7 +13,7 @@ export {
 } from '@/services/ai/smartIntakeRules';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = INTAKE_MODEL;
 const GEMINI_MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_SMART_INTAKE_MAX_OUTPUT_TOKENS || 8000);
 
 const extractGeminiText = (payload = {}) => {

@@ -39,8 +39,9 @@ describe('normalizeParsedPayload', () => {
     const out = normalizeParsedPayload({ matchedTaskIds: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] });
     expect(out.matchedTaskIds).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
     expect(out.overCap).toBe(2);
+    // Named twice is two of it: the quantities add.
     expect(normalizeParsedPayload({ matchedTasks: [{ id: 'a', quantity: 1 }, { id: 'a', quantity: 4 }] }).matchedTasks)
-      .toEqual([{ id: 'a', quantity: 4 }]);
+      .toEqual([{ id: 'a', quantity: 5 }]);
   });
 
   it('normalizes the karat it passes to the form', () => {
