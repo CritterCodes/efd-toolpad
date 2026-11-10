@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { requireCustomsCadWrite, requireCustomsRead } from '@/lib/customsPermissions';
 import CustomOrdersModel from '@/app/api/custom-orders/model';
 import { NotificationService } from '@/lib/notificationService';
 import { portalLink } from '@/lib/appUrls';
+
+// Room for the client's email and push to finish AFTER the answer has gone out (see POST).
+export const maxDuration = 60;
 
 /** GET /api/custom-orders/[customID]/communications — list messages (both threads). */
 export const GET = async (req, { params }) => {
@@ -43,8 +46,12 @@ export const POST = async (req, { params }) => {
   // X4 — notify the client when EFD posts to their thread, whoever wrote it: an admin or the order's
   // CAD designer. This POST only ever writes OUTBOUND messages; inbound client posts come through the
   // shop, so there is no risk of notifying on an inbound message here.
-  // Fire-and-forget — never block the message write.
-  if ((message.thread || 'client') === 'client' && order.clientID) {
+  //
+  // AFTER the answer, never before it. The comment here used to say "fire-and-forget" over an `await`: on
+  // 2026-11-10 the email/push step hung, the request was killed at 15 seconds, and the owner was shown "Failed to
+  // send" for a message that had been saved — one tap from sending it to the client twice. The message is written;
+  // that is the answer. Telling the client about it happens once the response has gone.
+  if ((message.thread || 'client') === 'client' && order.clientID) after(async () => {
     try {
       await NotificationService.createNotification({
         userId: order.clientID,
@@ -59,6 +66,6 @@ export const POST = async (req, { params }) => {
     } catch (e) {
       console.error('⚠️ custom-message notification failed:', e.message);
     }
-  }
+  });
   return NextResponse.json(message, { status: 201 });
 };
