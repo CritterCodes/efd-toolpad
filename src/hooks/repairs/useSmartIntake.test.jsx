@@ -429,3 +429,66 @@ describe('round 4 sweep, 2026-11-09', () => {
     expect(g.result.current.notes.assumed.karat).toBe('');
   });
 });
+
+describe('round 5 sweep, 2026-11-09', () => {
+  const answer = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '5', desiredRingSize: '7' };
+
+  it('a karat the note never said does not replace one he picked, and is not ticked', async () => {
+    const h = harness();
+    act(() => h.result.current.setFormData((p) => ({ ...p, metalType: 'gold', karat: '18k', goldColor: 'yellow' })));
+    await read(h, 'gold ring size up 5 to 7', { ...answer, goldColor: '' });
+    expect(h.result.current.formData).toMatchObject({ metalType: 'gold', karat: '18k' });
+    expect(h.result.current.notes.assumed.karat).toBe('');
+  });
+
+  it('a metal he corrected after the read survives a re-read, the difference is said, and the rhodium check stays', async () => {
+    const h = harness();
+    await read(h, '14k yg ring size up 5 to 7', answer);
+    act(() => h.result.current.setFormData((p) => ({ ...p, karat: '18k', goldColor: 'white' })));
+    expect(ticketChecks(h.result.current.formData, TASKS).map((c) => c.key)).toEqual(['rhodium-missing']);
+    await read(h, '14k yg ring size up 5 to 7 and polish', answer);
+    expect(h.result.current.formData).toMatchObject({ metalType: 'gold', karat: '18k', goldColor: 'white' });
+    expect(h.result.current.notes.warnings.join(' ')).toMatch(/The metal was left as you set it \(18k white gold\)\. The sentence reads 14k yellow gold\./);
+    expect(ticketChecks(h.result.current.formData, TASKS).map((c) => c.key)).toEqual(['rhodium-missing']);
+    // A metal he never touched still follows the sentence.
+    const g = harness();
+    await read(g, '14k yg ring size up 5 to 7', answer);
+    await read(g, '18k wg ring size up 5 to 7', { ...answer, karat: '18k', goldColor: 'white' });
+    expect(g.result.current.formData).toMatchObject({ karat: '18k', goldColor: 'white' });
+  });
+
+  it('a wide size-up with 3x2 stock is flagged, with the count right', () => {
+    const base = { currentRingSize: '5', desiredRingSize: '7', materials: [{ id: 1, name: '3x2 mm Flat Sizing Stock', category: 'sizing_material', quantity: 1 }] };
+    expect(sizingStockCheck({ ...base, tasks: [{ ...TASKS[2], id: 2, quantity: 1 }] })).toMatchObject({ width: { wide: true, stock: '3x2 mm Flat Sizing Stock' }, line: null });
+    expect(sizingStockCheck({ ...base, tasks: [{ ...TASKS[1], id: 2, quantity: 1 }] })).toBeNull();
+    expect(sizingStockCheck({ ...base, materials: [{ ...base.materials[0], name: '5x2 mm Flat Sizing Stock' }], tasks: [{ ...TASKS[1], id: 2, quantity: 1 }] })).toMatchObject({ width: { wide: false } });
+  });
+
+  it('a line he deleted that the sentence asks for again is not put back — and that is said', async () => {
+    const h = harness();
+    const retip = (n) => ({ metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, matchedTasks: [{ id: 'retip', quantity: n }] });
+    await read(h, '14k yg ring retip 4 prongs', retip(4));
+    act(() => h.result.current.setFormData((p) => ({ ...p, tasks: [] })));
+    await read(h, '14k yg ring retip 6 prongs and laser weld', { ...retip(6), matchedTasks: [{ id: 'retip', quantity: 6 }, { id: 'weld', quantity: 1 }] });
+    expect(lines(h)).toBe('weldx1');
+    expect(h.result.current.notes.warnings.join(' ')).toMatch(/"Retip prongs" was read from the sentence, but you removed it from this ticket earlier/);
+  });
+
+  it('the rhodium check says one is added when nothing counts the pieces', () => {
+    const [check] = ticketChecks({ metalType: 'gold', goldColor: 'white', tasks: [{ ...TASKS[4], id: 1, quantity: 2 }] }, TASKS);
+    expect(check.message).toMatch(/One is added — set the count if this is more than one piece/);
+  });
+});
+
+describe('Codex review of #350', () => {
+  it('changing the assumed karat leaves the untouched colour assumed', async () => {
+    const h = harness();
+    const answer = { metalType: 'gold', karat: '14k', isRing: true, matchedTasks: [{ id: 'weld', quantity: 1 }] };
+    await read(h, 'gold ring laser weld', answer);
+    expect(h.result.current.notes.assumed).toMatchObject({ karat: '14k', goldColor: 'yellow' });
+    act(() => h.result.current.setFormData((p) => ({ ...p, karat: '18k' })));
+    await read(h, 'gold ring laser weld', answer);
+    expect(h.result.current.formData).toMatchObject({ karat: '18k', goldColor: 'yellow' });
+    expect(h.result.current.notes.assumed).toMatchObject({ karat: '', goldColor: 'yellow' });
+  });
+});
