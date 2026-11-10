@@ -58,9 +58,12 @@ Two modes, both required once they exist:
 
 - **Rules mode (no AI call, runs in CI):** the logged raw model answer → today's deterministic rules → compare. This
   measures the code and never needs a key.
-- **Model mode (needs `GEMINI_API_KEY` with credit in `.env.local`):** today's prompt → Gemini → rules → compare. An API
-  error ABORTS the run; it is never scored as an empty answer. **On 2026-11-09 the key on the owner's machine answered
-  402, credits depleted** — if it still does, run rules mode, say so in the Round log, and ask the owner once.
+- **Model mode (calls Gemini):** today's prompt → Gemini → rules → compare. An API error ABORTS the run; it is never
+  scored as an empty answer. **The key:** the one in the local `.env.local` is out of credit (402 on 2026-11-09). Owner,
+  2026-11-09: *"You can pull the Gemini key from vercel."* Verified the same day: the production key answers 200. Get it
+  with `npx vercel env pull <file> --environment=production --yes` run from the main checkout, copy ONLY the
+  `GEMINI_API_KEY` line into a gitignored `.env.replay.local`, and delete the pulled file — it holds every production
+  secret. Never print the key, never commit it. A full replay is about 70 calls; don't run it more than a few times a round.
 
 **Sizing tickets are not ground truth.** Owner, 2026-11-09: he gave customers breaks on some size-ups, rounding
 down instead of up. A saved ticket shows what he charged that day, not what the rule is. So for every fixture where
@@ -91,6 +94,15 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 **B — wrong price, nobody notices**
 
+- **B0 — several pieces on one job. RULED 2026-11-09, build first.** Owner: *"Sometimes there are 2 rings in a single
+  job. If there are 2 rings then there are 2x task and 2x materials. Each ring gets a task and a material."* So the
+  piece count multiplies every task AND every material: 2 rings sized 5→7 = size-up ×2 + sizing stock ×2 (1 per
+  ring × 2); with white gold, rhodium ×2. Today only the prompt asks for it, the sizing task added in code is always
+  ×1, and sizing stock is never multiplied. Make the piece count one explicit number the model returns
+  (`pieceCount`, default 1), and apply it in code to the sizing task, the stock and rhodium. Per-unit counts stay
+  what they are: "2 rings, retip 4 prongs each" = retip ×8. Logged cases to pin as fixtures: "size from 8.75 to 7.25,
+  Rhodium plating, 2 rings" (saved Size Down ×2 + Rhodium ×2), "Size all 3 to a 6", "Solder together two rings"
+  (that one is ONE job on two rings — not a piece count).
 - **B1.** Platinum size-up becomes a Half-Shank: `src/services/repairs/metalTaskFilter.js` picks the platinum
   counterpart by title-word overlap. Swap only within the same job family, or store a counterpart id. Confirm against
   the live catalog first — the reviewer used titles from tests.
