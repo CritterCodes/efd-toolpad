@@ -238,12 +238,10 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **O3 — "solder together". ANSWERED 2026-11-09.** Owner: *"Solder Together is per ring. 2 rings is 1x task. 3 rings
   is 2x tasks."* The quantity is the number of joins: rings − 1. It is NOT a piece count (B0 does not apply to it).
 
-- **O4 — rhodium on white gold: always, or usually?** *"yes all white gold get rhodium"* is applied to every white
-  gold job. But he saved rhodium on only 6 of his 12 white gold tickets with work (round 1 sweep): it is off a tennis
-  bracelet with one laser weld, off "14k white gold, 3 laser welds", off a 6→7.5 size-up, off the customer-supplied
-  gold size-up. Rings only? Not on laser welds? Or were those misses? Until answered: every white gold job, as ruled —
-  and every one of those six marks reads "a break". **This is the largest single gap between the rulings and his
-  tickets.** (Opened round 1, sharpened round 2.)
+- **O4 — rhodium on white gold. ANSWERED 2026-11-09, twice.** Owner: *"yes all white gold get rhodium"*, and again when
+  shown that he saved it on only 6 of his 12 white gold tickets: *"All wg gets rhodium."* So it is every white gold
+  job — rings, bracelets, laser welds, customer-supplied gold — and the six tickets saved without it were misses, not
+  a different rule. The marks that add rhodium stand.
 - **O5 — a pair of earrings.** Is a pair one piece or two? "14k white gold earrings set with stones over 1 carat,
   2 times" was saved as Set Stone ×2 + Rhodium ×1; "14k yellow gold earrings, laser weld" as Laser Weld ×2. The model
   is told a pair is one piece unless the note counts them. (Opened round 1.)

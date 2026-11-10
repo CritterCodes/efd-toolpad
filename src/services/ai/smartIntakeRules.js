@@ -233,7 +233,7 @@ const NUMBER_WORDS = { two: 2, both: 2, three: 3, four: 4, five: 5, six: 6 };
 const COUNT = '(\\d{1,2}|two|both|three|four|five|six)';
 // Plural only: a count of pieces is "2 rings". "7 ring needs to be 6" is a size-7 ring.
 const PIECES = '(?:rings|bands|chains|bracelets|pendants|necklaces|pieces|items)';
-const DESCRIBES = '(?:white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|wedding|engagement|matching|stacking|plain|mens|ladies|\\d{2}k|\\d{2}-?karat)';
+const DESCRIBES = '(?:white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|wedding|engagement|matching|stacking|plain|mens|ladies|ss|pt|\\d{2}kt?|\\d{2}[\\s-]?karat)';
 /**
  * How many pieces the sentence says are on this job: "2 rings", "two white gold rings", "both rings", "size all 3 to
  * a 6". 1 when it does not say. A backstop for the model's own `pieceCount`, so "2 rings" never depends on the model.

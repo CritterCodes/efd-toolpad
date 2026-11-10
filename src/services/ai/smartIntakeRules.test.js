@@ -56,6 +56,10 @@ describe('statedPieceCount', () => {
     expect(statedPieceCount('14k white gold. Size all 3 to a 6')).toBe(3);
     expect(statedPieceCount('Solder together two rings')).toBe(2);
     expect(statedPieceCount('both bands need polishing')).toBe(2);
+    // The shorthand the prompt itself teaches (Codex review of #345).
+    for (const t of ['two 14kt white gold rings', 'two ss rings', '2 14k wg bands size down', 'three pt rings', 'two 18 karat yellow gold rings']) {
+      expect(statedPieceCount(t), t).toBeGreaterThan(1);
+    }
   });
   it('a size, a measurement or a count of parts is not a count of pieces', () => {
     for (const t of ['Three laser welds, two jump rings', '14k yg rings size 8 needs to be size 8', 'size 8 ring to a 6',
