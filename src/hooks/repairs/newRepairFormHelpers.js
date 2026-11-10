@@ -337,7 +337,9 @@ export const isSizingStockMaterial = (material) => (
  * read; changing a size afterwards, or adding a size-up by hand, left the old stock — an under- or over-charge nobody
  * saw, and the save does not check it (review, 2026-11-09). The form shows this instead of guessing a fix.
  *
- * Returns null when there is nothing to say, else { want, have, moved, line } — `line` is the stock line to correct.
+ * Returns null when there is nothing to say, else { want, have, moved, line, lineQuantity } — `line` is the stock line
+ * to correct and `lineQuantity` what IT should become so the ticket's total is `want` (0 = remove it). With two stock
+ * lines the others are counted first: setting the first line to the whole total over-charged (Codex review of #346).
  * The rule is the owner's (2026-11-09: "2 sizes up is 1x task and 1x sizing stock material"; "1.25 sizes is charged as
  * 2"), from smartIntakeRules.sizingStockFor, the same function the server uses.
  */
@@ -350,5 +352,8 @@ export function sizingStockCheck(formData = {}) {
   // No size-up on the ticket, or sizes not both entered: nothing to hold the stock against.
   if (!sizeUp || !moved) return null;
   const want = sizingStockFor({ moved, pieces: Number(sizeUp.quantity) || 1, customerGold: isCustomerGoldTask(sizeUp) });
-  return want === have ? null : { want, have, moved, line: stockLines[0] || null };
+  if (want === have) return null;
+  const line = stockLines[0] || null;
+  const others = line ? have - (Number(line.quantity) || 0) : 0;
+  return { want, have, moved, line, lineQuantity: Math.max(0, want - others) };
 }

@@ -88,13 +88,20 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const blank = (v) => !String(v || '').trim();
       if (results.metalType && (said.metal || blank(prev.metalType))) updates.metalType = results.metalType;
       const metalType = updates.metalType || prev.metalType;
+      // The metal changed (silver on the form, "gold ring" in the corrected sentence): the old purity and colour
+      // belonged to the old metal. Keeping them left gold at "925", which prices as a metal that does not exist
+      // (Codex review of #346). Blank is honest — the form then asks for the karat.
+      const metalChanged = Boolean(updates.metalType) && !blank(prev.metalType) && updates.metalType !== prev.metalType;
       if (results.karat && (said.karat || said.metal || blank(prev.karat))) {
         updates.karat = results.karat;
-      } else if (metalType === 'platinum' && !results.karat && blank(prev.karat)) {
+      } else if (metalType === 'platinum' && !results.karat && (blank(prev.karat) || metalChanged)) {
         // Platinum without a stated purity is 950 — the key the material variants price under.
         updates.karat = '950';
+      } else if (metalChanged) {
+        updates.karat = '';
       }
-      if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor))) updates.goldColor = results.goldColor;
+      if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor) || metalChanged)) updates.goldColor = results.goldColor;
+      else if (metalChanged && metalType !== 'gold') updates.goldColor = '';
 
       if (isRing && results.currentRingSize) updates.currentRingSize = normalizeRingSizeValue(results.currentRingSize);
       else if (replace && hadSizes) updates.currentRingSize = '';

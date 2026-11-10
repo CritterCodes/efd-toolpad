@@ -161,3 +161,24 @@ describe('sizingStockCheck — the stock follows the sizes after the read', () =
     expect(sizingStockCheck(form({ tasks: [task('c', 'Size Up (Customer Supplied Gold)', { quantity: 1 })] }))).toMatchObject({ want: 0, have: 1 });
   });
 });
+
+describe('Codex review of #346', () => {
+  it('two stock lines: the fix makes the TOTAL right, not the first line', () => {
+    const two = { currentRingSize: '5', desiredRingSize: '9', tasks: [{ ...TASKS[1], quantity: 1 }],
+      materials: [{ ...MATERIALS[1], id: 1, quantity: 1 }, { ...MATERIALS[2], id: 2, quantity: 1 }] };
+    expect(sizingStockCheck(two)).toMatchObject({ want: 3, have: 2, lineQuantity: 2 });
+    // Too much on the other line: the first is removed rather than set to a negative number.
+    expect(sizingStockCheck({ ...two, desiredRingSize: '7' })).toMatchObject({ want: 1, have: 2, lineQuantity: 0 });
+  });
+
+  it('a re-read that changes the metal drops the old purity and colour', async () => {
+    const h = harness();
+    act(() => h.result.current.setFormData((p) => ({ ...p, metalType: 'silver', karat: '925' })));
+    await read(h, 'gold ring retip 2 prongs', { metalType: 'gold', isRing: true, matchedTasks: [{ id: 'retip', quantity: 2 }] });
+    expect(h.result.current.formData).toMatchObject({ metalType: 'gold', karat: '', goldColor: 'yellow' });
+    const g = harness();
+    act(() => g.result.current.setFormData((p) => ({ ...p, metalType: 'gold', karat: '14k', goldColor: 'white' })));
+    await read(g, 'sterling silver ring, laser weld', { metalType: 'silver', isRing: true, matchedTasks: [{ id: 'weld', quantity: 1 }] });
+    expect(g.result.current.formData).toMatchObject({ metalType: 'silver', karat: '925', goldColor: '' });
+  });
+});

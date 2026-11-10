@@ -72,7 +72,7 @@ describe('the Work step', () => {
   });
 
   it('stock that no longer matches the sizes is said, with a one-tap fix', () => {
-    const stockCheck = { want: 3, have: 1, moved: 4, line: formData.materials[0] };
+    const stockCheck = { want: 3, have: 1, moved: 4, line: formData.materials[0], lineQuantity: 3 };
     const { updateItem } = work({ stockCheck });
     expect(screen.getByText(stockCheckMessage(stockCheck))).toBeTruthy();
     fireEvent.click(screen.getByText('Make it 3'));
@@ -80,7 +80,7 @@ describe('the Work step', () => {
   });
 
   it('stock that should not be there can be removed; stock that is missing says where to add it', () => {
-    const { removeItem } = work({ stockCheck: { want: 0, have: 1, moved: 1, line: formData.materials[0] } });
+    const { removeItem } = work({ stockCheck: { want: 0, have: 1, moved: 1, line: formData.materials[0], lineQuantity: 0 } });
     fireEvent.click(screen.getByText('Remove it'));
     expect(removeItem).toHaveBeenCalledWith('materials', 3);
     expect(stockCheckMessage({ want: 2, have: 0, moved: 3 })).toBe('Sizing up 3 sizes needs 2 sizing stock. This ticket has 0.');

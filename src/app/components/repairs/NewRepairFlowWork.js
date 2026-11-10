@@ -27,11 +27,11 @@ export function NewRepairFlowWork({ canRequestQuote, formData, itemCount, itemsS
                 <Button
                   color="inherit"
                   size="small"
-                  onClick={() => (stockCheck.want > 0
-                    ? updateItem('materials', stockCheck.line.id, 'quantity', stockCheck.want)
+                  onClick={() => (stockCheck.lineQuantity > 0
+                    ? updateItem('materials', stockCheck.line.id, 'quantity', stockCheck.lineQuantity)
                     : removeItem('materials', stockCheck.line.id))}
                 >
-                  {stockCheck.want > 0 ? `Make it ${stockCheck.want}` : 'Remove it'}
+                  {stockCheck.lineQuantity > 0 ? `Make it ${stockCheck.want}` : 'Remove it'}
                 </Button>
               ) : undefined}
             >
