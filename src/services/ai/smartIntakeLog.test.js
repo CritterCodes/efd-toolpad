@@ -167,3 +167,13 @@ describe('summarizeTickets — per ticket, with a before and an after', () => {
     expect(out.all.tickets).toBe(4);
   });
 });
+
+describe('failed reads are counted', () => {
+  it('a read the AI failed on is in the summary, and is not a saved ticket', () => {
+    const out = summarizeMisses([
+      { kind: 'text', output: { failed: true, status: 503 }, outcome: null },
+      { kind: 'text', output: { karat: '14k', tasks: [] }, outcome: ticketOutcome({ karat: '14k' }) },
+    ]);
+    expect(out).toMatchObject({ logged: 2, saved: 1, changed: 0, failed: 1 });
+  });
+});

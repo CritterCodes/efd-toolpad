@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseRingSize, statesWideShank, statedPieceCount, sizesMoved, taskRoles, narrowSiblingOf, decideIntake,
   withPieceCount, withSizingStock, normalizeParsedPayload, TASK_CAP, normalizeGoldColor, sizingStockFor,
-  describesDifferentWorkPerPiece, MAX_SIZES_MOVED, shankWidthSaid, unpairedWidthTasks,
+  describesDifferentWorkPerPiece, MAX_SIZES_MOVED, shankWidthSaid, unpairedWidthTasks, sizePairsSaid,
 } from './smartIntakeRules';
 
 // The live titles, 2026-11-09 (test/fixtures/smart-intake/catalog.json holds the real catalog).
@@ -370,10 +370,10 @@ describe('round 3 sweep, 2026-11-09', () => {
       'mothers ring - 4mm birthstone loose', 'ring, 4mm stone loose', 'heavy ring wear on prongs', 'add 5mm jump ring']) {
       expect(shankWidthSaid(t), t).toBe('');
     }
-    for (const t of ['shank 4x2, half shank', 'five millimeter band', 'ring is 5mm wide', '6mm wide, size 9 to 10', 'band is 5mm', 'mens band, 4.5 mm']) {
+    for (const t of ['shank 4x2, half shank', 'five millimeter band', 'ring is 5mm wide', 'band is 5mm', 'mens band, 4.5 mm']) {
       expect(shankWidthSaid(t), t).toBe('wide');
     }
-    for (const t of ['comfort fit 6mm, size 9 to 10.5', 'mens ring 6mm, size 10 to 11']) expect(shankWidthSaid(t), t).toBe('unclear');
+    for (const t of ['comfort fit 6mm, size 9 to 10.5', 'mens ring 6mm, size 10 to 11', '6mm wide, size 9 to 10']) expect(shankWidthSaid(t), t).toBe('unclear');
   });
 
   it('an unclear width swaps nothing either way and asks him to check', () => {
@@ -381,7 +381,7 @@ describe('round 3 sweep, 2026-11-09', () => {
     const sizes = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '9', desiredRingSize: '10.5' };
     const wide = decide({ ...sizes, matchedTasks: [{ id: 'up5', quantity: 1 }] }, note);
     expect(lines(wide)).toBe('up5x1');
-    expect(wide.warnings.join(' ')).toMatch(/not plainly as the shank's width: kept "Size Up {2}- 3mm to 5mm shanks"/);
+    expect(wide.warnings.join(' ')).toMatch(/not plainly as this shank's: kept "Size Up {2}- 3mm to 5mm shanks"/);
     expect(lines(decide({ ...sizes, matchedTasks: [{ id: 'up3', quantity: 1 }] }, note))).toBe('up3x1');
     // A stone's millimetres: the default stands, and a wide pick is brought back to 3x2.
     expect(lines(decide({ ...sizes, matchedTasks: [{ id: 'up5', quantity: 1 }] }, 'ring 5mm cz missing, size 9 to 10.5'))).toBe('up3x1');
@@ -436,5 +436,52 @@ describe('round 3 sweep, 2026-11-09', () => {
     const size = decide({ metalType: 'gold', isRing: true, currentRingSize: '6-1/2 US', desiredRingSize: '8', matchedTasks: [] }, '14k ring');
     expect(size.warnings.join(' ')).toMatch(/A ring size \("6-1\/2 US"\) could not be read/);
     expect(normalizeParsedPayload({ matchedTasks: [{ taskId: 'retip', qty: '4 prongs' }] }).matchedTasks).toEqual([{ id: 'retip', quantity: 4 }]);
+  });
+});
+
+describe('round 4 sweep, 2026-11-09', () => {
+  const sizes = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '9', desiredRingSize: '11' };
+
+  it('the code overrides the model on width only when the note is plain; any other mention of a width keeps the pick and asks', () => {
+    for (const t of ['14k yg 5mm flat band size 9 to 11', 'wide comfort fit band', 'wide flat band', 'wide men’s band size 9', 'wide eternity band', 'half shank, wide',
+      'engagement ring size 6 to 7, she wears it with a wide band', 'center stone is 5mm wide', 'not a wide band']) {
+      expect(shankWidthSaid(t), t).not.toBe('');
+    }
+    for (const t of ['engagement ring size 6 to 7, she wears it with a wide band', 'center stone is 5mm wide', 'not a wide band', '14k yg 5mm flat band size 9 to 11', 'wide comfort fit band', 'half shank, wide']) {
+      expect(shankWidthSaid(t), t).toBe('unclear');
+    }
+    expect(shankWidthSaid('wide men’s band size 9')).toBe('wide');
+    // The model's wide pick on "5mm flat band" stays; a narrow pick beside someone else's wide band stays.
+    const flat = decide({ ...sizes, matchedTasks: [{ id: 'up5', quantity: 1 }] }, '14k yg 5mm flat band size 9 to 11');
+    expect(lines(flat)).toBe('up5x1');
+    expect(flat.warnings.join(' ')).toMatch(/Check the width/);
+    expect(lines(decide({ ...sizes, matchedTasks: [{ id: 'up3', quantity: 1 }] }, '14k yg engagement ring size 9 to 11, she wears it with a wide band'))).toBe('up3x1');
+  });
+
+  it('a wide platinum shank with no wide platinum task is said, not dropped', () => {
+    const out = decide({ ...sizes, metalType: 'platinum', karat: '950', goldColor: '', currentRingSize: '7', desiredRingSize: '9', matchedTasks: [{ id: 'up3', quantity: 1 }] }, 'plat 5mm band size 7 to 9');
+    expect(out.warnings.join(' ')).toMatch(/no 3mm-to-5mm platinum size-up task/);
+  });
+
+  it('a sizing task with no sizes and no direction said is called a guess', () => {
+    const out = decide({ metalType: 'gold', karat: '14k', isRing: true, desiredRingSize: '7', matchedTasks: [{ id: 'down', quantity: 1 }] }, '14k yg ring size to a 7');
+    expect(lines(out)).toBe('downx1');
+    expect(out.warnings.join(' ')).toMatch(/"Size Down" is a guess/);
+    expect(decide({ metalType: 'gold', karat: '14k', isRing: true, matchedTasks: [{ id: 'down', quantity: 1 }] }, '14k yg ring size down').warnings.join(' ')).not.toMatch(/guess/);
+  });
+
+  it('nothing matched is said; a count on a whole-piece task is questioned', () => {
+    expect(decide({ metalType: 'gold', goldColor: 'white', matchedTasks: [] }, '14k white gold earrings set with stones over 1 carat, 2 times').warnings.join(' ')).toMatch(/No work was matched/);
+    const flat = decideIntake({ metalType: 'gold', karat: '14k', goldColor: 'yellow', matchedTasks: [{ id: 'tight', quantity: 5 }] },
+      { tasks: [...tasks, { id: 'tight', title: 'Check & Tighten < 20 stones' }], inputText: '14k yg ring check and tighten 5 stones' });
+    expect(flat.warnings.join(' ')).toMatch(/"Check & Tighten < 20 stones" is priced for the whole piece, and 5 were suggested/);
+  });
+
+  it('two rings going to different sizes are not one job times two', () => {
+    expect(sizePairsSaid('size up 2 14k yellow gold rings, one 6 to 8 and one 5 to 9')).toBe(2);
+    const out = decide({ metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '6', desiredRingSize: '8', pieceCount: 2, matchedTasks: [{ id: 'up3', quantity: 1 }] },
+      'size up 2 14k yellow gold rings, 6 to 8 and 5 to 9');
+    expect(lines(out)).toBe('up3x1');
+    expect(out.warnings.join(' ')).toMatch(/NOT multiplied/);
   });
 });

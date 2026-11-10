@@ -350,8 +350,17 @@ export function sizingStockCheck(formData = {}) {
   const have = stockLines.reduce((n, m) => n + (Number(m.quantity) || 0), 0);
   if (!sizeUp && !have) return null;
   const moved = getRingSizeDelta(formData.currentRingSize, formData.desiredRingSize);
-  // No size-up on the ticket, or sizes not both entered: nothing to hold the stock against.
-  if (!sizeUp || !moved) return null;
+  if (!sizeUp) {
+    // Stock with no size-up to belong to: the size-up was switched to a size-down, or deleted, and its stock stayed —
+    // an over-charge nothing mentioned (review, 2026-11-09). Not said on an empty ticket, or beside shank work, where
+    // he may have put stock on by hand.
+    const tasks = formData.tasks || [];
+    if (!tasks.length || tasks.some((t) => /shank/i.test(String(t.title || '')))) return null;
+    const first = stockLines[0];
+    return { want: 0, have, moved, line: first, lineQuantity: 0, orphan: true };
+  }
+  // Sizes not both entered: nothing to hold the stock against.
+  if (!moved) return null;
   const want = sizingStockFor({ moved, pieces: Number(sizeUp.quantity) || 1, customerGold: isCustomerGoldTask(sizeUp) });
   if (want === have) return null;
   const line = stockLines[0] || null;
@@ -396,6 +405,15 @@ export function ticketChecks(formData = {}, availableTasks = []) {
       ...(to ? { action: 'Switch it', swap: { id: direction.id, task: to } } : {}),
     });
   }
+  // The sizes change and nothing on the ticket sizes the ring: he deleted the line, or a re-read did not put it back.
+  if (moved && !lines.some((l) => isSizeUpTask(l) || isSizeDownTask(l))) {
+    const to = catalogTask(moved < 0 ? sizeDown : sizeUp);
+    out.push({
+      key: 'sizing-missing',
+      message: `The sizes change (${formData.currentRingSize} → ${formData.desiredRingSize}), and no sizing task is on this ticket.`,
+      ...(to ? { action: `Add ${moved < 0 ? 'size down' : 'size up'}`, add: to, quantity: 1, why: 'the ring changes size' } : {}),
+    });
+  }
   const white = formData.metalType === 'gold' && formData.goldColor === 'white';
   const rhodiumLine = rhodium ? lines.find((l) => String(l._id) === rhodium.id) : null;
   if (white && rhodium && !rhodiumLine) {
@@ -409,6 +427,7 @@ export function ticketChecks(formData = {}, availableTasks = []) {
       action: quantity > 1 ? `Add rhodium x${quantity}` : 'Add rhodium',
       add: availableTasks.find((t) => String(t._id) === rhodium.id),
       quantity,
+      why: 'white gold',
     });
   }
   // Only rhodium the RULE added: on yellow gold he may have added it on purpose.

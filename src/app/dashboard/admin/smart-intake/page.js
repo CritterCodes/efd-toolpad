@@ -73,6 +73,7 @@ export default function SmartIntakeLogPage() {
         <Stat label="Saved to a ticket" value={summary.saved} />
         <Stat label="Changed before saving" value={summary.changed} />
         <Stat label="Saved as suggested" value={summary.saved - summary.changed} />
+        <Stat label="AI failed" value={summary.failed || 0} />
       </Box>
 
       {/* Per ticket, by the last read, with a before and an after — the only number here that can show a trend. */}

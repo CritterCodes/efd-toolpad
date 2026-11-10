@@ -247,9 +247,9 @@ export function wideSiblingOf(task, tasks = []) {
   return siblings.length === 1 ? siblings[0] : null;
 }
 
-import { shankWidthSaid, statedPieceCount, describesDifferentWorkPerPiece, saysEach } from './smartIntakeSaid';
+import { shankWidthSaid, statedPieceCount, describesDifferentWorkPerPiece, saysEach, karatsSaid, saidAsSize, noteNames } from './smartIntakeSaid';
 
-export { shankWidthSaid, statesWideShank, statedPieceCount, describesDifferentWorkPerPiece } from './smartIntakeSaid';
+export { shankWidthSaid, statesWideShank, statedPieceCount, describesDifferentWorkPerPiece, sizePairsSaid, noteNames } from './smartIntakeSaid';
 
 /* ----------------------------------------------------------------- rulings */
 
@@ -271,11 +271,6 @@ const missingRole = (role) => `The task list has no single "${ROLE_NAMES[role]}"
 
 // A real ring moves a few sizes (the largest real job on file is 8.5 → 12.25). More than this is a misread, not a job.
 export const MAX_SIZES_MOVED = 5;
-
-/** Karats named in the note: "14k", "14 kt", "18 karat". A ring size equal to one of them is probably that karat. */
-const karatsSaid = (inputText = '') => [...str(inputText).toLowerCase().matchAll(/\b(10|14|18|22|24)\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b/g)].map((m) => Number(m[1]));
-/** Does the number appear in the note as anything OTHER than the karat? "size 14" does; "14k" alone does not. */
-const saidAsSize = (inputText, n) => new RegExp(String.raw`(?<![\d.])${n}(?!\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b)(?![\d.])`).test(str(inputText).toLowerCase());
 
 /** Sizes moved, signed: from the two sizes when both are known, else the stated change, else 0. */
 export const sizesMoved = (parsed = {}) => {
@@ -299,17 +294,6 @@ export const withKnownTasksOnly = (parsed, tasks = []) => {
  * metal or no colour, the form's is used — so white gold picked on the form still gets its rhodium, instead of the
  * yellow default (review, 2026-11-09).
  */
-/** Which metal facts the jeweler's NOTE itself names. */
-export const noteNames = (inputText = '') => {
-  const text = str(inputText).toLowerCase();
-  return {
-    // "14ky", "10kw", "14kwg": the karat with its colour stuck on is the shop's commonest shorthand (review, 2026-11-09).
-    metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950)\b/.test(text),
-    karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950|999|900)\b/.test(text),
-    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b|\b\d{2}\s*-?\s*kt?[ywr]g?\b/.test(text),
-  };
-};
-
 export const withFormMetal = (parsed, raw = {}, formMetal = {}, inputText = '') => {
   const form = {
     metalType: str(formMetal.metalType).toLowerCase(),
@@ -407,6 +391,40 @@ export const withSizingTaskForSizes = (parsed, tasks = []) => {
 };
 
 /**
+ * A sizing task with no sizes to hold it against is the model's guess at the direction: "ring size to a 7" came back
+ * as Size Down. Unless the note says which way, say so (review, 2026-11-09). The task stays — it is usually right —
+ * and the form's own check takes over once both sizes are entered.
+ */
+export const withUnknownDirection = (parsed, tasks = [], inputText = '') => {
+  if (parsed.sizingUnknown || sizesMoved(parsed)) return parsed;
+  const byId = byIdOf(tasks);
+  const sizing = (parsed.matchedTasks || []).map((m) => byId.get(m.id)).find((t) => t && isSizing(t));
+  if (!sizing || /\b(?:up|down|larger|smaller|bigger|tighter|looser)\b/.test(str(inputText).toLowerCase())) return parsed;
+  return warn(parsed, `The note does not say both sizes or which way the ring goes, so "${sizing.title}" is a guess. Check it, and enter the sizes.`);
+};
+
+// A task priced for the whole piece, whatever the count: "Check & Tighten < 20 stones", "Straighten Prongs — up to 20 stones".
+const isFlatTask = (t) => /(?:<|up to|over|less than)\s*\d+\s*stones/.test(titleOf(t));
+/**
+ * Two things said out loud rather than left for him to notice (review, 2026-11-09):
+ *  - nothing was matched — an empty ticket after a note that named work looked the same as a note with no work;
+ *  - a count on a task that is priced for the whole piece ("check and tighten 5 stones" ×5).
+ */
+export const withPlainSpeaking = (parsed, tasks = []) => {
+  const matched = parsed.matchedTasks || [];
+  if (!matched.length) return tasks.length ? warn(parsed, 'No work was matched from this note. Add the work by hand.') : parsed;
+  const byId = byIdOf(tasks);
+  let out = parsed;
+  for (const m of matched) {
+    const task = byId.get(m.id);
+    if (task && isFlatTask(task) && m.quantity > (parsed.pieces || 1)) {
+      out = warn(out, `"${task.title}" is priced for the whole piece, and ${m.quantity} were suggested. Check the quantity.`);
+    }
+  }
+  return out;
+};
+
+/**
  * The shank width (owner, 2026-11-09: "Default ring mm is always 3x2 unless specified 3-5"). Both ways:
  *  - no wide shank said: a matched 3-to-5mm task becomes its up-to-3mm sibling;
  *  - a wide shank said: a matched up-to-3mm task becomes its 3-to-5mm sibling (a narrow pick on a stated 5mm band was a
@@ -425,7 +443,7 @@ export const withShankWidth = (parsed, tasks = [], inputText = '') => {
   if (said === 'unclear') {
     const banded = matchedTasks.find((t) => narrowSiblingOf(t, tasks) || wideSiblingOf(t, tasks));
     return banded
-      ? warn(parsed, `A millimetre measurement is in the note, but not plainly as the shank's width: kept "${banded.title}". Check the width.`)
+      ? warn(parsed, `The note mentions a width, but not plainly as this shank's: kept "${banded.title}". Check the width.`)
       : parsed;
   }
   let swapped = '';
@@ -436,8 +454,16 @@ export const withShankWidth = (parsed, tasks = [], inputText = '') => {
     swapped = sibling.title;
     return ruled({ ...m, id: String(sibling.id) }, wide ? 'a wide shank was stated' : 'no wide shank was stated');
   });
-  if (!swapped) return parsed;
-  return warn(withLines(parsed, mergeLines(lines)), `Used "${swapped}": ${wide ? 'a wide shank was stated' : 'no wide shank was stated'}.`);
+  // A wide platinum shank: the catalog has no 3-to-5mm platinum size-up, and the form swaps in the platinum task
+  // afterwards — the width was detected and then dropped without a word (review, 2026-11-09).
+  const noWidePlatinum = wide && parsed.metalType === 'platinum' && matchedTasks.some(isSizeUp)
+    && !tasks.some((t) => restricted(t) && isSizeUp(t) && WIDE_BAND.test(titleOf(t)));
+  const out = swapped
+    ? warn(withLines(parsed, mergeLines(lines)), `Used "${swapped}": ${wide ? 'a wide shank was stated' : 'no wide shank was stated'}.`)
+    : parsed;
+  return noWidePlatinum
+    ? warn(out, 'A wide shank was stated, and there is no 3mm-to-5mm platinum size-up task: the platinum task is priced for a narrow shank. Check the price by hand.')
+    : out;
 };
 /** @deprecated the old name; width now goes both ways. */
 export const withDefaultShankWidth = withShankWidth;
@@ -557,10 +583,12 @@ export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} }
   p = withKnownTasksOnly(p, tasks);
   p = withCheckedSizes(p, inputText);
   p = withSizingTaskForSizes(p, tasks);
+  p = withUnknownDirection(p, tasks, inputText);
   p = withShankWidth(p, tasks, inputText);
   p = withPieceCount(p, tasks, inputText);
   p = withRhodiumForWhiteGold(p, tasks);
   p = withSizingStock(p, tasks);
+  p = withPlainSpeaking(p, tasks);
   const { overCap: _overCap, pieces: _pieces, sizingUnknown: _unknown, ...out } = p;
   // What the NOTE itself stated, as opposed to what a default or the form supplied. The form uses it to decide what a
   // re-read may overwrite, and to show a default as "(assumed)" rather than as something it picked up.

@@ -2,7 +2,8 @@ import { Alert, Box, Button, Stack } from '@mui/material';
 import { AI_DOWN_MESSAGE } from '@/hooks/repairs/useSmartIntake';
 
 /** What the sizing-stock check says, in the jeweler's words. */
-export const stockCheckMessage = ({ want, have, moved }) => {
+export const stockCheckMessage = ({ want, have, moved, orphan }) => {
+  if (orphan) return `There is no size-up on this ticket, so it needs no sizing stock. This ticket has ${have}.`;
   if (!(moved > 0)) return `The ring is not going up in size, so it needs no sizing stock. This ticket has ${have}.`;
   const sizes = `Sizing up ${moved} size${moved === 1 ? '' : 's'}`;
   return want > have

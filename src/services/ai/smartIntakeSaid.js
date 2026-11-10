@@ -32,22 +32,29 @@ const BAND_FILLER = '(?:(?:\\d{2}k(?:t)?[ywr]?g?|\\d{2}[\\s-]?karat|white|yellow
 const MM_WORDS = { four: 4, five: 5, six: 6, seven: 7, eight: 8 };
 // Words that may follow a measurement without being the thing measured: "6mm, size 9", "5mm and polish".
 const CONTINUES = /^(?:and|size|sized|sizing|resize|sz|needs|to|half|comfort|with|so|for|please|up|down|then|also|customer|wants|rush)$/;
+// A band that is someone else's, or denied: "wears it with a wide band", "not a wide band", "her other wide band".
+const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
 /**
  * What the note says about the shank's width: 'wide', 'unclear', or '' (nothing).
  *
- * Round 4 (2026-11-09) made this three answers instead of two, because both wrong answers cost money and each review
- * found a new sentence for one of them:
- *  - 'wide'    the measurement is plainly the band's: the band is the next word ("5 mm band", "4x2 shank"), or it says
- *              wide ("6mm wide", "5mm in width"), or the band or shank was just named ("band is 5mm", "shank 4x2").
- *  - ''        no measurement over 3mm — or it is plainly something else's: the next word is the thing measured
- *              ("6.5mm moissanite", "5mm cz", "7mm round", "4mm stone"). Then the default stands: 3x2.
- *  - 'unclear' a measurement over 3mm standing on its own ("comfort fit 6mm, size 9 to 10.5", "mens ring 6mm"). The
- *              rules do not swap the task either way; the model's pick stays and the jeweler is asked to check.
+ * Three answers, because both wrong answers cost money and every review found a new sentence for one of them. The
+ * rule since round 5 (2026-11-09): the code only OVERRIDES the model's pick when the note is plain. Anything else that
+ * so much as mentions a width is 'unclear' — the model's pick stays and the jeweler is asked.
+ *  - 'wide'    plainly this band: the band is the next word after the measurement ("5 mm band", "4x2 shank"), the
+ *              band or shank was just named ("band is 5mm", "ring is 5mm wide"), or "wide band" with only its metal
+ *              in between — and it is not someone else's band ("wears it with a wide band").
+ *  - ''        no width mentioned at all — or a measurement that is plainly something else's: the next word is the
+ *              thing measured ("6.5mm moissanite", "5mm cz", "7mm round"). Then the default stands: 3x2.
+ *  - 'unclear' everything in between: a measurement over 3mm on its own ("comfort fit 6mm"), one with the band a few
+ *              words on ("5mm flat band"), "wide" anywhere else ("wide comfort fit band", "half shank, wide", "center
+ *              stone is 5mm wide", "not a wide band").
  */
 export const shankWidthSaid = (inputText = '') => {
-  const text = str(inputText).toLowerCase()
+  const text = str(inputText).toLowerCase().replace(/[‘’]/g, "'")
     .replace(/\b(four|five|six|seven|eight)(?=\s*(?:mm\b|millimet|mil\b))/g, (w) => String(MM_WORDS[w]));
+  const justNamed = (before) => before.match(/\b(band|shank|ring)s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$/);
   const measure = /(?<![\d.])(\d+(?:\.\d+)?)\s*(x\s*\d+(?:\.\d+)?)?\s*(mm\b|millimet(?:er|re)s?\b|mil\b)?/g;
+  let wide = false;
   let unclear = false;
   for (const m of text.matchAll(measure)) {
     const hasUnit = Boolean(m[3]);
@@ -56,22 +63,30 @@ export const shankWidthSaid = (inputText = '') => {
     if (!(width > 3 && width <= 12)) continue;
     const after = text.slice(m.index + m[0].length);
     const before = text.slice(Math.max(0, m.index - 28), m.index);
-    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}${SHANK}\b`).test(after)) return 'wide';
-    if (hasUnit && /^\s*(?:in\s+)?(?:wide|width|thick)\b/.test(after)) return 'wide';
+    if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}${SHANK}\b`).test(after)) { wide = true; continue; }
+    if (hasUnit && /^\s*(?:in\s+)?(?:wide|width|thick)\b/.test(after)) {
+      // "ring is 5mm wide" is the ring; "center stone is 5mm wide" is not.
+      if (justNamed(before)) wide = true; else unclear = true;
+      continue;
+    }
+    // The band a few words on: "5mm flat band", "6mm comfort fit band". Probably the band — not plainly.
+    if (/^\s*(?:[a-z'-]+\s+){1,3}(?:band|shank)\b/.test(after)) { if (hasUnit) unclear = true; continue; }
     // The next word is what was measured: a stone, a jump ring, a chain.
     const next = after.match(/^\s*([a-z]+)/);
     if (next && !CONTINUES.test(next[1])) continue;
-    const named = before.match(/\b(band|shank|ring)s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$/);
-    if (named && named[1] !== 'ring') return 'wide';
+    const named = justNamed(before);
+    if (named && named[1] !== 'ring') { wide = true; continue; }
     // "4x2" with no unit and no band beside it is not about the shank.
     if (hasUnit) unclear = true;
   }
-  const worded = new RegExp(String.raw`\b(?:wide|thick|chunky)\s+${BAND_FILLER}${SHANK}\b(?!\s+wear)`).test(text)
-    || new RegExp(String.raw`\bheavy\s+${BAND_FILLER}(?:band|shank)\b`).test(text)
-    || /\bcigar band\b/.test(text)
-    || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text);
-  if (worded) return 'wide';
-  return unclear ? 'unclear' : '';
+  const worded = new RegExp(String.raw`\b(?:(?:wide|thick|chunky)\s+${BAND_FILLER}${SHANK}\b(?!\s+wear)|heavy\s+${BAND_FILLER}(?:band|shank)\b)`, 'g');
+  for (const m of text.matchAll(worded)) {
+    if (NOT_THIS_BAND.test(text.slice(Math.max(0, m.index - 16), m.index))) unclear = true; else wide = true;
+  }
+  if (/\bcigar band\b/.test(text) || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text)) wide = true;
+  if (wide) return 'wide';
+  // "wide" said anywhere else is a width mentioned, and not plainly this shank's.
+  return unclear || /\b(?:wide|thick|chunky)\b/.test(text) ? 'unclear' : '';
 };
 /** Did the JEWELER say, plainly, that the shank is wide? Read from the sentence only — never the photo's description. */
 export const statesWideShank = (inputText = '') => shankWidthSaid(inputText) === 'wide';
@@ -109,7 +124,13 @@ export const statedPieceCount = (inputText = '') => {
 };
 
 /** Does the note give the pieces DIFFERENT work ("size one down, retip the other")? Then no one count fits every line. */
-export const describesDifferentWorkPerPiece = (inputText = '') => (
+/** How many "X to Y" size pairs the note holds. Two rings going "6 to 8" and "5 to 9" are not one job times two. */
+export const sizePairsSaid = (inputText = '') => new Set(
+  [...str(inputText).toLowerCase().matchAll(/(?<![\d.])(\d{1,2}(?:\.\d+)?)\s*(?:to|->|→)\s*(?:an?\s+)?(?:size\s+)?(\d{1,2}(?:\.\d+)?)(?![\d.]|\s*(?:mm|prongs?|stones?))/g)]
+    .map((m) => `${m[1]}>${m[2]}`),
+).size;
+
+export const describesDifferentWorkPerPiece = (inputText = '') => sizePairsSaid(inputText) > 1 || (
   /\bthe other\b|\bone of (?:them|the)\b|\bone (?:ring|band|needs|gets|up|down|only)\b|\b(?:on|for) (?:1|one)\b|\b(?:first|second|1st|2nd) (?:ring|band|one)\b|\beach\b.*\bdifferent\b|\bonly (?:sizing|the|one)\b|\b(?:engagement|wedding) (?:ring|band)\b(?!s)/.test(str(inputText).toLowerCase())
 );
 /**
@@ -117,3 +138,21 @@ export const describesDifferentWorkPerPiece = (inputText = '') => (
  * with the total already (8), and doubling that is worse than asking. The warning asks instead.
  */
 export const saysEach = (inputText = '') => /\b(?:each|apiece|per (?:ring|band|piece))\b/.test(str(inputText).toLowerCase());
+
+/* -------------------------------------------------- the metal and the karat */
+
+/** Karats named in the note: "14k", "14 kt", "18 karat". A ring size equal to one of them is probably that karat. */
+export const karatsSaid = (inputText = '') => [...str(inputText).toLowerCase().matchAll(/\b(10|14|18|22|24)\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b/g)].map((m) => Number(m[1]));
+/** Does the number appear in the note as anything OTHER than the karat? "size 14" does; "14k" alone does not. */
+export const saidAsSize = (inputText, n) => new RegExp(String.raw`(?<![\d.])${n}(?!\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b)(?![\d.])`).test(str(inputText).toLowerCase());
+
+/** Which metal facts the jeweler's NOTE itself names. */
+export const noteNames = (inputText = '') => {
+  const text = str(inputText).toLowerCase();
+  return {
+    // "14ky", "10kw", "14kwg": the karat with its colour stuck on is the shop's commonest shorthand (review, 2026-11-09).
+    metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950)\b/.test(text),
+    karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950|999|900)\b/.test(text),
+    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b|\b\d{2}\s*-?\s*kt?[ywr]g?\b/.test(text),
+  };
+};
