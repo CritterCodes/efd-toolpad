@@ -34,9 +34,17 @@ export function loadFixtures() {
   };
 }
 
-/** A fingerprint of everything the model is sent except the note: the prompt's words and the task list. */
+/** A fingerprint of everything the model is sent except the note itself: every word of the prompt, and the task list. */
 export const promptHashFor = (catalog) => crypto.createHash('sha256')
-  .update(buildIntakePrompt({ inputText: '', description: '', tasks: catalog, todayIso: '' })).digest('hex').slice(0, 12);
+  .update(buildIntakePrompt({ inputText: 'NOTE', description: 'DESCRIPTION', tasks: catalog, todayIso: 'TODAY' })).digest('hex').slice(0, 12);
+
+/**
+ * The tuning set ends here. The rulings, the marks and the prompt were all written against the tickets up to this
+ * date, so a score on them says how well the system fits what it was built from — not how it will do next month
+ * (review, 2026-11-09: "there is no held-out data"). Tickets saved AFTER this date are scored separately as "fresh":
+ * printed, never ratcheted, and never to be tuned against. Only that number predicts anything.
+ */
+export const TUNED_UNTIL = '2026-11-09';
 
 /** The last attempt for each ticket, in order. */
 export function lastAttemptPerTicket(intakes = []) {
@@ -76,7 +84,11 @@ export function expectedFor(intake, marks = {}, catalog = []) {
     tasks = savedLines(intake);
   }
   const sizes = e.sizes || [intake.saved.currentRingSize, intake.saved.desiredRingSize];
-  return { tasks, stock: e.stock || 0, sizes, ignore: e.ignore || [], marked: !!mark.expect, saved: intake.saved };
+  // Sizing stock: the mark's when there is one; otherwise what he actually put on the ticket. (It used to be 0 for
+  // every unmarked ticket, so a ticket where the rule rightly added stock would have failed — review, 2026-11-09.)
+  const savedStock = (intake.saved.materials || []).filter((m) => /sizing stock/i.test(m.name || '')).reduce((n, m) => n + (Number(m.quantity) || 0), 0);
+  const stock = mark.expect ? (e.stock || 0) : savedStock;
+  return { tasks, stock, sizes, ignore: e.ignore || [], marked: !!mark.expect, saved: intake.saved };
 }
 
 /** The model answer to replay for an intake as it was logged at the time (`raw` when the log kept it). */
@@ -102,19 +114,22 @@ export function scoreReplay({ intakes, marks, catalog }, answerFor = loggedAnswe
     };
     ok.all = Object.values(ok).every(Boolean);
     rows.push({
-      id: intake.id, text: intake.text, ok, marked: want.marked,
+      id: intake.id, text: intake.text, ok, marked: want.marked, fresh: intake.at > TUNED_UNTIL,
       asSaved: lineKey(got.matchedTasks) === lineKey(savedLines(intake)),
       fields: `got ${got.metalType}/${got.karat}/${got.goldColor} ${got.currentRingSize}>${got.desiredRingSize}, want ${saved.metalType}/${saved.karat}/${saved.goldColor} ${want.sizes[0]}>${want.sizes[1]}`,
       got: `${label(got.matchedTasks, titleOf)}${stock ? ` | stock x${stock}` : ''}`,
       want: `${label(want.tasks, titleOf)}${want.stock ? ` | stock x${want.stock}` : ''}`,
     });
   }
-  const scored = rows.filter((r) => !r.skip);
+  const fresh = rows.filter((r) => !r.skip && r.fresh);
+  const scored = rows.filter((r) => !r.skip && !r.fresh);
   const count = (key) => scored.filter((r) => r.ok[key]).length;
   return {
     rows,
+    // Tickets saved after the tuning set closed: the only score nobody could have fitted the rules to.
+    fresh: { tickets: fresh.length, tasks: fresh.filter((r) => r.ok.tasks).length, asSaved: fresh.filter((r) => r.asSaved).length, all: fresh.filter((r) => r.ok.all).length },
     totals: {
-      tickets: scored.length, skipped: rows.length - scored.length,
+      tickets: scored.length, skipped: rows.filter((r) => r.skip).length,
       tasks: count('tasks'), taskSet: count('taskSet'), sizes: count('sizes'), metal: count('metal'), stock: count('stock'), all: count('all'),
       asSaved: scored.filter((r) => r.asSaved).length,
       // The tickets that are right today. The ratchet is on THESE, not on the count: fixing one ticket while breaking
@@ -124,14 +139,19 @@ export function scoreReplay({ intakes, marks, catalog }, answerFor = loggedAnswe
   };
 }
 
-export const METRICS = ['tasks', 'taskSet', 'sizes', 'metal', 'stock', 'all'];
+// asSaved is ratcheted too: it is the number the marks cannot flatter, and it used to be free to fall (review, 2026-11-09).
+export const METRICS = ['tasks', 'taskSet', 'sizes', 'metal', 'stock', 'all', 'asSaved'];
 
 /** Tickets that were right in the recorded run and are not now. */
 export const regressions = (before, totals) => (before?.passing || []).filter((id) => !totals.passing.includes(id));
 
 /** A printable report: the totals, then every ticket that is not right. */
-export function report(name, { rows, totals }, before = null) {
-  const lines = [`\n== ${name}: ${totals.tickets} tickets scored (${totals.skipped} skipped: nobody could say what was right) ==`];
+export function report(name, { rows, totals, fresh }, before = null) {
+  const pct = (n, d) => (d ? ` (${Math.round((100 * n) / d)}%)` : '');
+  const lines = [`\n== ${name}: ${totals.tickets} tickets in the tuning set (${totals.skipped} skipped: nobody could say what was right) ==`];
+  lines.push(fresh?.tickets
+    ? `FRESH tickets (saved after ${TUNED_UNTIL}, never tuned against): ${fresh.tasks}/${fresh.tickets}${pct(fresh.tasks, fresh.tickets)} vs the rulings, ${fresh.asSaved}/${fresh.tickets} vs what he saved  <- the number that predicts`
+    : `FRESH tickets (saved after ${TUNED_UNTIL}): none yet. Refresh the fixtures to get some: node scripts/intake/export-logs.mjs`);
   const was = (k) => (before && before[k] !== undefined && before[k] !== totals[k] ? ` (was ${before[k]})` : '');
   lines.push(`vs the rulings — same tasks and quantities  ${totals.tasks}/${totals.tickets}${was('tasks')}   <- headline`);
   lines.push(`vs what he saved — same tasks and quantities ${totals.asSaved}/${totals.tickets}${was('asSaved')}   <- counts his breaks as misses`);

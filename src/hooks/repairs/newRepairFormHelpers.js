@@ -1,6 +1,7 @@
 import { extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { ringSizeNumber } from '@/services/repairs/ringSizing';
-import { sizingStockFor, isSizeUpTask, isCustomerGoldTask } from '@/services/ai/smartIntakeRules';
+import { sizingStockFor, isSizeUpTask, isCustomerGoldTask, taskRoles } from '@/services/ai/smartIntakeRules';
+import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 // Item categories that might have sizes
 export const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
 
@@ -356,4 +357,54 @@ export function sizingStockCheck(formData = {}) {
   const line = stockLines[0] || null;
   const others = line ? have - (Number(line.quantity) || 0) : 0;
   return { want, have, moved, line, lineQuantity: Math.max(0, want - others) };
+}
+
+/**
+ * The rulings, held against the ticket AS IT STANDS — not only at the moment the sentence was read.
+ *
+ * Smart intake applies the owner's rulings once, to the model's answer. Then the jeweler edits: picks white gold on
+ * Review after the read assumed yellow, changes gold to platinum, adds a line by hand. Nothing re-ran, so a white gold
+ * ticket could leave with no rhodium, or a platinum ring with the gold-solder sizing task, and the save only re-prices
+ * the lines it is given (review, 2026-11-09). This is the same idea as sizingStockCheck: say it, and offer the fix.
+ *
+ * Returns [{ key, message, action, add | remove | swap }]:
+ *   add     the catalog task to add, with `quantity` (rhodium on white gold — owner, 2026-11-09: "All wg gets rhodium")
+ *   remove  the id of a line to take off (rhodium the rule added for a metal that is no longer white gold)
+ *   swap    { id, task }: this line should be that task (the metal's own version of the same job)
+ * Never changes the ticket itself.
+ */
+export function ticketChecks(formData = {}, availableTasks = []) {
+  const lines = formData.tasks || [];
+  if (!lines.length || !availableTasks.length) return [];
+  const out = [];
+  const catalog = availableTasks.map((t) => ({ id: String(t._id), title: t.title || t.displayName || '', metals: t.metals }));
+  const { rhodium } = taskRoles(catalog);
+  const white = formData.metalType === 'gold' && formData.goldColor === 'white';
+  const rhodiumLine = rhodium ? lines.find((l) => String(l._id) === rhodium.id) : null;
+  if (white && rhodium && !rhodiumLine) {
+    // One per piece. A sizing line is one per ring, so its quantity is the piece count; adding a single rhodium to a
+    // two-ring ticket left the second ring uncharged (Codex review of #347).
+    const sizing = lines.find((l) => /\bsize (?:up|down)\b/i.test(String(l.title || '')));
+    const quantity = Math.max(1, Number(sizing?.quantity) || 1);
+    out.push({
+      key: 'rhodium-missing',
+      message: `White gold gets rhodium plating, and this ticket has none${quantity > 1 ? ` (${quantity} pieces)` : ''}.`,
+      action: quantity > 1 ? `Add rhodium x${quantity}` : 'Add rhodium',
+      add: availableTasks.find((t) => String(t._id) === rhodium.id),
+      quantity,
+    });
+  }
+  // Only rhodium the RULE added: on yellow gold he may have added it on purpose.
+  if (!white && rhodiumLine?._smartIntakeRuled) {
+    out.push({ key: 'rhodium-extra', message: 'Rhodium plating was added because the metal read as white gold. It is not white gold now.', action: 'Remove it', remove: rhodiumLine.id });
+  }
+  if (formData.metalType) {
+    for (const line of lines) {
+      const [aligned] = alignTasksToMetal([line], formData.metalType, availableTasks);
+      if (aligned && String(aligned._id) !== String(line._id) && !lines.some((l) => String(l._id) === String(aligned._id))) {
+        out.push({ key: `swap-${line.id}`, message: `"${line.title}" is not the ${formData.metalType} version of this job. It should be "${aligned.title}".`, action: 'Switch it', swap: { id: line.id, task: aligned } });
+      }
+    }
+  }
+  return out;
 }

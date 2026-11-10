@@ -1,36 +1,59 @@
 import { useCallback, useRef } from 'react';
 import { stripComputedPrices } from '@/services/pricing/computedFields';
-import { keyMatchesContext, SIZEABLE_CATEGORIES, normalizeIsoPromiseDate, isSizingStockMaterial } from '@/hooks/repairs/newRepairFormHelpers';
-import { normalizeRingSizeValue, extractMetalContextFromDescription, extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
+import { keyMatchesContext, normalizeIsoPromiseDate, isSizingStockMaterial } from '@/hooks/repairs/newRepairFormHelpers';
+import { normalizeRingSizeValue, extractMetalContextFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 import { normalizeSpokenIntake } from '@/services/repairs/spokenIntake';
 
 export const EMPTY_INTAKE_NOTES = Object.freeze({ warnings: [], assumed: {}, fallback: false });
-export const AI_DOWN_MESSAGE = 'The AI is unavailable right now. The metal and sizes were read from the sentence. Add the work by hand.';
+export const AI_DOWN_MESSAGE = 'The AI is unavailable right now. Only the metal and sizes were read from the sentence, and anything an earlier read added was taken off. Add the work by hand.';
+
+/** Is the piece a ring, by the word — not by the letters. "restring pearls" and "earring" are not rings. */
+export const saysRing = (text = '') => /\b(?:rings?|bands?)\b/.test(String(text).toLowerCase());
 
 /**
- * The sizing-stock line for a hint: only a material that IS sizing stock, never "the first thing that mentions the
- * metal" (review, 2026-11-09: with no sizing stock in the list, 14k solder x2 was added with a green tick). Among
- * sizing stocks: the one for this metal, and the 3x2 unless the wide task is on the ticket.
+ * Ring sizes a regex can be trusted with, for when the AI is down: only "size 7 to 6", "from 7 to 6", "7 needs to be
+ * 6" — and never a karat or a count. The old patterns read "resize 14k wg ring" as size 14 and "retip 2 to 3 prongs"
+ * as 2 → 3 (review, 2026-11-09). Anything less explicit is left for the jeweler.
+ */
+export function explicitRingSizes(text = '') {
+  const t = String(text).toLowerCase();
+  const n = '(\\d{1,2}(?:\\.\\d+)?)';
+  const notAUnit = '(?!\\s*-?\\s*(?:k\\b|kt\\b|karat|ct\\b|carat|mm|prongs?|stones?|tips?|links?|welds?))';
+  const m = t.match(new RegExp(`(?:\\bsize|\\bsz|\\bfrom)\\s+(?:an?\\s+)?${n}${notAUnit}\\s*(?:,\\s*)?(?:to|->|→|needs to be|down to|up to)\\s*(?:an?\\s+)?(?:size\\s+)?${n}${notAUnit}`))
+    || t.match(new RegExp(`(?<![\\d.])${n}${notAUnit}\\s+needs to be\\s+(?:an?\\s+)?(?:size\\s+)?${n}${notAUnit}`));
+  if (!m) return { currentRingSize: '', desiredRingSize: '' };
+  const ok = (v) => Number(v) > 0 && Number(v) <= 16;
+  return ok(m[1]) && ok(m[2]) ? { currentRingSize: m[1], desiredRingSize: m[2] } : { currentRingSize: '', desiredRingSize: '' };
+}
+
+/**
+ * The sizing-stock line for a hint: only a material that IS sizing stock, and only one for THIS metal — never "the
+ * first thing that mentions the metal", and never another metal's stock (reviews, 2026-11-09: 14k solder x2 was added
+ * with a green tick; a silver ring got yellow gold stock). Among the right ones: the 3x2 unless the wide task is on
+ * the ticket. `missing` = the job needs stock and the list has none that fits.
  */
 export function sizingStockItemsFor(materialHints = [], availableMaterials = [], form = {}, { wide = false, now = Date.now() } = {}) {
   const hint = (materialHints || []).find((h) => String(h?.type || '').toLowerCase() === 'sizing_material' && Number(h?.quantity) > 0);
   if (!hint) return { items: [], missing: false };
-  const stocks = (availableMaterials || []).filter(isSizingStockMaterial);
-  if (!stocks.length) return { items: [], missing: true };
-  const score = (material) => {
+  const scored = (availableMaterials || []).filter(isSizingStockMaterial).map((material) => {
     const text = [material?.name, material?.displayName, material?.description, material?.metalType, material?.karat, material?.sku,
       ...(Array.isArray(material?.stullerProducts) ? material.stullerProducts.flatMap((p) => [p?.description, p?.metalType, p?.karat]) : []),
     ].filter(Boolean).join(' ').toLowerCase();
     const context = keyMatchesContext(text, form.metalType || '', form.karat || '', form.goldColor || '');
-    return (context.hasExactContext ? 25 : 0) + (context.hasMetal ? 20 : 0) + (context.hasKarat ? 10 : 0)
-      + (text.includes(wide ? '5x2' : '3x2') ? 5 : 0);
-  };
-  const best = stocks.map((material) => ({ material, score: score(material) })).sort((a, b) => b.score - a.score)[0].material;
+    // A stock that names no metal at all prices by the ticket's metal, so it fits any; one that names ANOTHER metal does not.
+    const namesAMetal = /\b(?:gold|silver|sterling|platinum|\d{2}k)\b/.test(text);
+    return {
+      material,
+      fits: !form.metalType || context.hasMetal || !namesAMetal,
+      score: (context.hasExactContext ? 25 : 0) + (context.hasMetal ? 20 : 0) + (context.hasKarat ? 10 : 0) + (text.includes(wide ? '5x2' : '3x2') ? 5 : 0),
+    };
+  }).filter((entry) => entry.fits).sort((a, b) => b.score - a.score);
+  if (!scored.length) return { items: [], missing: true };
   return {
     missing: false,
     items: [{
-      ...stripComputedPrices(best),
+      ...stripComputedPrices(scored[0].material),
       id: now,
       quantity: Math.ceil(Number(hint.quantity)),
       _smartIntakeHintType: 'sizing_material',
@@ -44,17 +67,23 @@ export function sizingStockItemsFor(materialHints = [], availableMaterials = [],
  * tasks, sizing stock, metal, sizes and a promise date. Each AI call's log id is kept for the smart-intake log (Q13).
  *
  * What this hook owns (the server's `decideIntake` owns which tasks, how many, and how much stock):
- *  - A RE-READ REPLACES what the last read put on the ticket and keeps what was added by hand. Reading a corrected
- *    sentence used to leave the old tasks, stock and metal while the sizes and the green chips changed
- *    (reviews, 2026-11-09).
+ *  - A RE-READ REPLACES what the last read put on the ticket and keeps the jeweler's hand: lines he added, AI lines
+ *    whose quantity he changed, and AI lines he deleted (they are not put back). The mic re-reads on its own when it
+ *    stops, so a re-read that undid his corrections would undo them without his asking (reviews, 2026-11-09).
+ *  - Only the LATEST read lands. Two reads in flight used to let the older answer overwrite the newer sentence.
  *  - The server's warnings, which values were assumed rather than said, and whether the AI was down, go to
  *    `setSmartIntakeNotes` so the screen can say so.
- *  - When the AI call fails, only the metal and the sizes are read from the sentence. The old rule-based guess wrote
- *    a confident ticket with the wrong tasks, no quantities and a promise date made from "1/2 ct".
+ *  - When the AI call fails, only the metal and explicitly-stated sizes are read, and the lines an earlier read added
+ *    are taken off — they belonged to a sentence that may no longer be the one in the box.
  */
 export function useSmartIntake({ availableMaterials, availableTasks, formData, setAnalyzingSmartIntake, setFormData, setSmartIntakeError, setSmartIntakeNotes = () => {}, smartIntakeLogIDsRef }) {
   // Whether the last read set the ring sizes — so a re-read may clear them.
   const lastReadSetSizesRef = useRef(false);
+  // What the last read put on the ticket, and what the jeweler has since taken off (never put back by a re-read).
+  const lastAddedRef = useRef({ taskIds: [], stock: false });
+  const removedByHandRef = useRef({ taskIds: new Set(), stock: false });
+  // The newest read. An answer that is not for it is thrown away.
+  const readSeqRef = useRef(0);
 
   const buildTaskItemsFromInferred = useCallback((tasks = []) => {
     if (!Array.isArray(tasks) || tasks.length === 0) return [];
@@ -77,10 +106,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
 
     setFormData((prev) => {
       const updates = {};
-      const text = String(results.inputText || '').toLowerCase();
-      const isRing = typeof results.isRing === 'boolean'
-        ? results.isRing
-        : SIZEABLE_CATEGORIES.some((cat) => text.includes(cat) || text.includes('ring'));
+      const isRing = typeof results.isRing === 'boolean' ? results.isRing : saysRing(results.inputText);
       if (prev.isRing !== isRing) updates.isRing = isRing;
 
       // Metal: what the sentence SAID overwrites; anything else only fills a blank.
@@ -114,14 +140,22 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       }
 
       if (replace) {
-        // Lines the last read added go; lines added by hand stay.
-        const keptTasks = (prev.tasks || []).filter((t) => !t.__aiQuantity);
+        // His hand stays: a line he added, or an AI line whose quantity he changed (it is his line now — the tick goes).
+        const byHand = (t) => !t.__aiQuantity || Number(t.quantity) !== Number(t.__aiQuantity);
+        const keptTasks = (prev.tasks || []).filter(byHand).map((t) => {
+          if (!t.__aiQuantity) return t;
+          const { __aiQuantity: _was, _smartIntakeRuled: _why, ...mine } = t;
+          return mine;
+        });
         const keptIds = new Set(keptTasks.map((t) => String(t._id || '')));
         const fresh = buildTaskItemsFromInferred((results.inferredTasks || []).filter((t) => !keptIds.has(String(t._id || ''))));
-        if (fresh.length || keptTasks.length !== (prev.tasks || []).length) updates.tasks = [...keptTasks, ...fresh];
+        const changed = fresh.length || keptTasks.length !== (prev.tasks || []).length || (prev.tasks || []).some((t) => t.__aiQuantity && byHand(t));
+        if (changed) updates.tasks = [...keptTasks, ...fresh];
 
         const keptMaterials = (prev.materials || []).filter((m) => !m._smartIntakeHintType);
-        const stock = sizingStockItemsFor(results.materialHints, availableMaterials, { ...prev, ...updates }, { wide: results.wideShank });
+        const stock = results.skipStock
+          ? { items: [] }
+          : sizingStockItemsFor(results.materialHints, availableMaterials, { ...prev, ...updates }, { wide: results.wideShank });
         // A sizing stock he already added by hand is not doubled.
         const add = stock.items.filter(() => !keptMaterials.some(isSizingStockMaterial));
         if (add.length || keptMaterials.length !== (prev.materials || []).length) updates.materials = [...keptMaterials, ...add];
@@ -131,21 +165,29 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
     });
   }, [availableMaterials, buildTaskItemsFromInferred, setFormData]);
 
-  /** The AI is down: read only what a regex reads reliably — the metal and the sizes. No tasks, no stock, no date. */
+  /**
+   * The AI is down: read only what a regex reads reliably — the metal, and sizes stated outright. No tasks, no stock,
+   * no date. And take off what an earlier read added: those lines answered a sentence that may have changed since.
+   */
   const runRuleBasedSmartIntake = useCallback((inputText = '') => {
     const parsingText = String(inputText || '').trim();
     if (!parsingText) return;
     const metal = extractMetalContextFromDescription(parsingText) || {};
-    const sizes = extractRingSizesFromDescription(parsingText);
+    const ring = saysRing(parsingText);
+    const sizes = ring ? explicitRingSizes(parsingText) : { currentRingSize: '', desiredRingSize: '' };
     applySmartIntakeResults({
       inputText: parsingText,
+      isRing: ring,
       metalType: metal.metalType || '',
       karat: metal.karat || '',
       goldColor: metal.goldColor || '',
       currentRingSize: sizes.currentRingSize,
       desiredRingSize: sizes.desiredRingSize,
       said: { metal: Boolean(metal.metalType), karat: Boolean(metal.karat), color: Boolean(metal.goldColor) },
-    });
+      inferredTasks: [],
+      materialHints: [],
+    }, { replace: true });
+    lastAddedRef.current = { taskIds: [], stock: false };
   }, [applySmartIntakeResults]);
 
   const handleAnalyzeSmartIntake = useCallback(async () => {
@@ -156,8 +198,15 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       return;
     }
 
+    const seq = ++readSeqRef.current;
+    const latest = () => seq === readSeqRef.current;
     setAnalyzingSmartIntake(true);
     setSmartIntakeError('');
+
+    // What the last read added and the jeweler has since deleted: his call, and a re-read does not undo it.
+    const onTicket = new Set((formData.tasks || []).map((t) => String(t._id || '')));
+    for (const id of lastAddedRef.current.taskIds) if (!onTicket.has(id)) removedByHandRef.current.taskIds.add(id);
+    if (lastAddedRef.current.stock && !(formData.materials || []).some((m) => m._smartIntakeHintType)) removedByHandRef.current.stock = true;
 
     try {
       const strippedTasks = availableTasks.map((t) => ({
@@ -187,6 +236,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || `AI request failed (HTTP ${response.status})`);
       }
+      if (!latest()) return; // a newer read is in flight; this answer is for an older sentence
 
       const parsed = payload?.data?.parsed || {};
       // The smart-intake log entry for this suggestion; the save tells it what the ticket became (Q13).
@@ -210,11 +260,14 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
           if (same) same.__aiQuantity = Math.max(same.__aiQuantity, task.__aiQuantity);
           else lines.push(task);
           return lines;
-        }, []);
+        }, [])
+        .filter((task) => !removedByHandRef.current.taskIds.has(String(task._id)));
 
-      const stock = sizingStockItemsFor(parsed.materialHints, availableMaterials, {});
+      const wideShank = inferredTasks.some((t) => /3\s*(?:mm)?\s*to\s*5\s*mm/i.test(String(t.title || '')));
+      const stock = sizingStockItemsFor(parsed.materialHints, availableMaterials,
+        { metalType: parsed.metalType || formData.metalType, karat: parsed.karat || formData.karat, goldColor: parsed.goldColor || formData.goldColor }, { wide: wideShank });
       const warnings = [...(Array.isArray(parsed.warnings) ? parsed.warnings : [])];
-      if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none to add. Add it by hand.');
+      if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none for this metal. Add it by hand.');
       const said = parsed.said || {};
       const formHadColor = Boolean(String(formData.goldColor || '').trim());
 
@@ -231,26 +284,30 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         promiseDate: parsed.promiseDate || '',
         // Sizing stock is computed on the server. An empty list means "none".
         materialHints: Array.isArray(parsed.materialHints) ? parsed.materialHints : [],
-        wideShank: inferredTasks.some((t) => /3\s*(?:mm)?\s*to\s*5\s*mm/i.test(String(t.title || ''))),
+        skipStock: removedByHandRef.current.stock,
+        wideShank,
         inferredTasks,
       }, { replace: true });
+      lastAddedRef.current = { taskIds: inferredTasks.map((t) => String(t._id)), stock: stock.items.length > 0 && !removedByHandRef.current.stock };
 
       setSmartIntakeNotes({
         warnings,
-        // Gold whose colour nobody said: shown as assumed, not as something picked up from the sentence.
-        assumed: { goldColor: parsed.metalType === 'gold' && !said.color && !formHadColor },
+        // Gold whose colour nobody said: shown as assumed while it is still the value on the form.
+        assumed: { goldColor: parsed.metalType === 'gold' && !said.color && !formHadColor ? (parsed.goldColor || '') : '' },
         fallback: false,
       });
     } catch (error) {
+      if (!latest()) return;
       console.error('Smart intake failed:', error?.message);
       runRuleBasedSmartIntake(parsingText);
       setSmartIntakeNotes({ warnings: [], assumed: {}, fallback: true });
       setSmartIntakeError(AI_DOWN_MESSAGE);
     } finally {
-      setAnalyzingSmartIntake(false);
+      if (latest()) setAnalyzingSmartIntake(false);
     }
-  }, [formData.smartIntakeInput, formData.description, formData.metalType, formData.karat, formData.goldColor, availableTasks, availableMaterials,
-    applySmartIntakeResults, runRuleBasedSmartIntake, setAnalyzingSmartIntake, setSmartIntakeError, setSmartIntakeNotes, smartIntakeLogIDsRef]);
+  }, [formData.smartIntakeInput, formData.description, formData.metalType, formData.karat, formData.goldColor, formData.tasks, formData.materials,
+    availableTasks, availableMaterials, applySmartIntakeResults, runRuleBasedSmartIntake, setAnalyzingSmartIntake, setSmartIntakeError, setSmartIntakeNotes,
+    smartIntakeLogIDsRef]);
 
   return {
     buildTaskItemsFromInferred,

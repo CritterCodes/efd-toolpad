@@ -1,6 +1,6 @@
 {
  "model": "gemini-2.5-flash",
- "promptHash": "96a7f9b09d58",
+ "promptHash": "06fafbf68088",
  "at": "2026-11-10",
  "answers": {
   "sil-031b74ec-ee6": {
@@ -31,7 +31,7 @@
    "sizeChange": -0.5,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver two-tone pave-style statement ring with numerous small colorless stones and gold-toned ribbed sides. Needs sizing down from 7.25 to 6.75.",
+   "normalizedSummary": "Sterling silver ring needs to be sized from 7.25 to 6.75.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
@@ -85,16 +85,8 @@
    "sizeChange": 0,
    "pieceCount": 2,
    "promiseDate": "",
-   "normalizedSummary": "Shorten 14k yellow gold chain to 22 inches, create a bracelet from the removed length, perform three laser welds, and add two jump rings.",
+   "normalizedSummary": "Shorten chain to 22 inches, make a bracelet, perform three laser welds, and add two jump rings.",
    "matchedTasks": [
-    {
-     "id": "69f226f01cbd0e82e1868d39",
-     "quantity": 1
-    },
-    {
-     "id": "69f226f01cbd0e82e1868d39",
-     "quantity": 1
-    },
     {
      "id": "69ea8082622ce84034440e3c",
      "quantity": 3
@@ -133,7 +125,7 @@
    "sizeChange": -1,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k gold ring, size down from 6 to 5.",
+   "normalizedSummary": "14k gold ring size down from 6 to 5.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
@@ -187,7 +179,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver moissanite bracelet laser weld",
+   "normalizedSummary": "Sterling silver moissanite bracelet needs laser weld.",
    "matchedTasks": [
     {
      "id": "69ea8082622ce84034440e3c",
@@ -223,7 +215,7 @@
    "sizeChange": -1.5,
    "pieceCount": 2,
    "promiseDate": "",
-   "normalizedSummary": "14k white gold rings, size from 8.75 to 7.25, rhodium plating.",
+   "normalizedSummary": "Size 2 rings from 8.75 to 7.25, rhodium plate.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
@@ -267,7 +259,7 @@
    "sizeChange": -2.5,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k yellow gold men's band, 3.5mm, size down from 11.5 to 9.",
+   "normalizedSummary": "14k yellow gold men's band, 3.5mm, size from 11.5 to 9.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
@@ -321,7 +313,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver chain shortened to 16 inches. Repair broken chain. Add jump ring.",
+   "normalizedSummary": "Sterling silver chain to be shortened to 16 inches, involving breaking and rejoining the chain, and adding a jump ring.",
    "matchedTasks": [
     {
      "id": "69f226f01cbd0e82e1868d39",
@@ -361,7 +353,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver break-in chain",
+   "normalizedSummary": "Sterling silver break in chain",
    "matchedTasks": [
     {
      "id": "69f226f01cbd0e82e1868d39",
@@ -432,7 +424,7 @@
    "sizeChange": 2,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k white gold ring, size from 6.75 to 8.75, customer supplied gold.",
+   "normalizedSummary": "14k white gold ring going from size 6.75 to 8.75, with customer-supplied gold.",
    "matchedTasks": [
     {
      "id": "69fdfaa3f001cd1615b0b516",
@@ -450,7 +442,7 @@
    "sizeChange": 1.25,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k yellow gold ring, size from 8.25 to 9.5.",
+   "normalizedSummary": "14k yellow gold ring, size from 8.25 to 9.5",
    "matchedTasks": [
     {
      "id": "69efe1943a58b22bf909c4ab",
@@ -499,7 +491,7 @@
    "sizeChange": -2,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Size 10k yellow gold ring from size 10 to size 8.",
+   "normalizedSummary": "Size 10 karat yellow gold ring from size 10 to size 8.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
@@ -571,7 +563,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k yellow gold, laser weld, 1 piece",
+   "normalizedSummary": "14k yellow gold laser weld, 1 piece",
    "matchedTasks": [
     {
      "id": "69ea8082622ce84034440e3c",
@@ -607,7 +599,7 @@
    "sizeChange": 1.25,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k yellow gold ring, current size 4.75, needs to be sized up to 6.",
+   "normalizedSummary": "14k yellow gold ring, current size 4.75, desired size 6.",
    "matchedTasks": [
     {
      "id": "69efe1943a58b22bf909c4ab",
@@ -696,7 +688,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k white gold ring with emerald-cut teal gemstone and accent stones needs half shank repair.",
+   "normalizedSummary": "Half shank repair on a 14k white gold ring.",
    "matchedTasks": [
     {
      "id": "6a1a575dcc79949f56081510",
@@ -798,7 +790,7 @@
    "sizeChange": 1.25,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver ring size from 5.75 to a 7",
+   "normalizedSummary": "Sterling silver ring size from 5.75 to 7",
    "matchedTasks": [
     {
      "id": "69efe1943a58b22bf909c4ab",
@@ -816,7 +808,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver-toned ring with a clear faceted stone, a pearl, and an empty bezel setting.",
+   "normalizedSummary": "Sterling",
    "matchedTasks": []
   },
   "sil-8a834af2-f78": {
@@ -841,14 +833,19 @@
    "metalType": "silver",
    "karat": "925",
    "goldColor": "",
-   "isRing": true,
+   "isRing": false,
    "currentRingSize": "",
    "desiredRingSize": "",
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver open-ended ring with matte finish and etched patterns, including wavy lines and triangular motifs, in a rustic or tribal-inspired style. No visible stones.",
-   "matchedTasks": []
+   "normalizedSummary": "Sterling silver bangles need hard solder.",
+   "matchedTasks": [
+    {
+     "id": "69f226f01cbd0e82e1868d39",
+     "quantity": 1
+    }
+   ]
   },
   "sil-8cc22554-eb6": {
    "metalType": "gold",
@@ -860,7 +857,7 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "14k white gold ring to be cleaned and polished, and three 1-point stones to be set.",
+   "normalizedSummary": "14-karat white gold ring. Clean and polish. Set three 1-point stones.",
    "matchedTasks": [
     {
      "id": "69e79bdf5b3f967bb9e2c032",
@@ -962,8 +959,13 @@
    "sizeChange": 0,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "Sterling silver ring with three stones, each less than 0.5 carat.",
-   "matchedTasks": []
+   "normalizedSummary": "Sterling silver ring set with three stones, less than 0.5 carat.",
+   "matchedTasks": [
+    {
+     "id": "69e79ad95b3f967bb9e2c02e",
+     "quantity": 3
+    }
+   ]
   },
   "sil-b53a0f29-795": {
    "metalType": "silver",
@@ -993,7 +995,7 @@
    "sizeChange": 1.5,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "10k white gold ring, size from 6 to 7.5.",
+   "normalizedSummary": "10k White gold ring, size from 6 to 7.5.",
    "matchedTasks": [
     {
      "id": "69efe1943a58b22bf909c4ab",
@@ -1060,8 +1062,13 @@
    "sizeChange": 0,
    "pieceCount": 3,
    "promiseDate": "",
-   "normalizedSummary": "Size three 14k white gold rings to size 6.",
-   "matchedTasks": []
+   "normalizedSummary": "Size 3 14k white gold rings to size 6.",
+   "matchedTasks": [
+    {
+     "id": "69e799c65b3f967bb9e2c02b",
+     "quantity": 3
+    }
+   ]
   },
   "sil-cc0fe6ee-2cf": {
    "metalType": "gold",
@@ -1157,7 +1164,7 @@
    "sizeChange": -2.5,
    "pieceCount": 1,
    "promiseDate": "",
-   "normalizedSummary": "10k yellow gold ring, size from 10 to 7.5",
+   "normalizedSummary": "10k yellow gold ring, current size 10, desired size 7.5.",
    "matchedTasks": [
     {
      "id": "69e799c65b3f967bb9e2c02b",
