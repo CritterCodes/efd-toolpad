@@ -426,7 +426,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   raise the check.
 - ✅ 2026-11-10, after the close (the `_smartIntake*` markers are stripped from materials at save) **Z2. A reopened ticket loses its saved sizing stock on a new read.** The save strips `__aiQuantity` from tasks
   but leaves `_smartIntakeHintType` on materials. Strip the `_smartIntake*` markers from materials at save.
-- **Z3.** Someone else's band given as a measurement ("wears with 4mm band", "to match her 5mm wedding band") is
+- ✅ 2026-11-10, with the made-up set (another ring's band is not this shank's width, so the 3x2 default stands and says so) **Z3.** Someone else's band given as a measurement ("wears with 4mm band", "to match her 5mm wedding band") is
   read as this ring's width, with no warning. Apply the not-this-band guard to measurements → unclear.
 - **Z4.** A two-tone ring ("yg ring with wg head") gets no rhodium and no warning. Warn when the note names two gold
   colours.
@@ -435,7 +435,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   note is "assumed"; for tasks, have the model return the words it matched (a prompt change, so a model re-run).
 - **Z6.** Warning fatigue: 25 of 69 real notes come back with a warning, 6 of them the routine "3x2 default" line,
   which exists because one sentence of live aiMeta steers the model to the wide task. This is D1's strongest case.
-- **Z7.** Flat-priced tasks: clamp to one per piece instead of only warning. "no plating", "no rh", "declined
+- **Z7.** ~~Flat-priced tasks: clamp to one per piece instead of only warning.~~ (✅ 2026-11-10, with the made-up set.) Still open: "no plating", "no rh", "declined
   rhodium". "size one", "the smaller" near the sizing words: do not multiply the sizing. Past promise dates.
 - **Z8.** The stock check has no "Add N" button when there is no stock line (sizes typed after a read with none —
   the commonest sizing flow). Stale notes other than "Added…" ("2 pieces: …"). A matched task dropped at metal
@@ -495,6 +495,66 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   49 symptom phrases are word-for-word from the tickets it is scored on, so the replay cannot show that it helps —
   only that it does no harm (65/69 against 64/69, inside the noise). Recommendation: do not apply it yet. Refresh the
   fixtures in 2–3 weeks and measure it on tickets saved after 2026-11-09. Still the owner's call.
+
+### R — rulings the made-up notes need (2026-11-10)
+
+33 of the made-up notes (`test/smart-intake/syntheticCases.js`, each marked `ruling:`) have no settled answer: the
+expected line is a guess. They are scored and printed apart and never ratcheted. An answer to any of them turns a
+guess into a test: delete the `ruling:` from the case, correct its tasks, and run `npm run intake:replay -- --update`.
+"Today" is what the system answers as of 2026-11-10; "(asks)" means it comes with a warning.
+
+*Does one job cover it, or is it counted?*
+- **R1.** "14k yellow gold ring, two sizing beads" — is Sizing Beads one job for the pair, or one per bead? Today: x2.
+- **R2.** "Watch too big take out 2 links", "Watch link removal, 3 links" — one job, or one per link? Today: x2, x3.
+- **R3.** "14k yg ring retip all prongs" — no number said: one, or leave the count blank and ask? Today: x1, unasked.
+- **R4.** "14k yg ring check and tighten 20 stones" — exactly 20: one task says "fewer than 20", the other "more
+  than 20". Today: the under-20 task.
+- **R5.** "14k yg tennis bracelet check and tighten" — no count said: over 20 or under? Today: over 20.
+
+*Two jobs, or one that includes the other?*
+- **R6.** "14k yellow gold ring half shank and size up from 6 to 7" — does a half shank include the sizing? Today:
+  both are charged.
+- **R7.** "14k wg wedding set solder together" — two white gold rings joined: rhodium once or twice? Today: once (asks).
+- **R8.** "14k yg solder together two rings and clean and polish" — polish once or twice? Today: once (asks).
+- **R9.** "14k wg earrings set 2 stones 1ct each" — O5 again: a pair of earrings, rhodium once or twice? Today: once (asks).
+- **R10.** "14k yg retip 4, 14k wg retip 2" — two pieces of different metals in one note: one ticket or two? Today:
+  Retip x6 as yellow gold, no rhodium (asks).
+
+*Which task?*
+- **R11.** "10k yg chain broken at the clasp" — Clasp Repair or Break in chain? Today: Clasp Repair.
+- **R12.** "14k yg ring cracked shank" — Break in Shank or Laser Weld? Today: Break in Shank.
+- **R13.** "14k yg rope chain broke in two places, laser weld" — Laser Weld x2 or Break in chain x2? Today: Break in
+  chain x2 AND Laser Weld x1.
+- **R14.** "14k yg chain shorten 2 inches" — no job named: Break in chain, a laser weld, or ask? Today: nothing (asks).
+- **R15.** "14k yellow gold pendant, add jump ring, laser closed.", "14k yg charm add jump ring and laser it shut" —
+  when, if ever, is the "w/ laser" jump ring right? (You removed it all three times it was suggested on real
+  tickets.) Today: the laser one.
+- **R16.** "14k yg add 2 jump rings, solder closed" — plain or laser? Today: plain x2.
+- **R17.** "14k yg ring set stone" — no weight said: which tier is the default? Today: under 0.49ct (asks).
+- **R18.** "14k yg bangle bent, reshape" — Reshape Ring on a bangle, or by hand? Today: Reshape Ring.
+- **R19.** "Add a link back to watch" — the link-removal task, or nothing? Today: Break in chain, unasked — wrong
+  whichever way this is ruled.
+
+*Wider, bigger or further than any task covers*
+- **R20.** "14k yg 6mm band half shank", "14k yg 6mm band size 8 to 9" — over 5mm: the 3-to-5mm task, or by hand?
+  Today: the 3-to-5mm task, unasked.
+- **R21.** "Platinum 5 mm band, size up 2 sizes" — O7 again: no wide platinum size-up. Today: the narrow platinum
+  task + stock x1 (asks).
+- **R22.** "14k yg chain add jump ring 7mm" — over 5mm: the 5mm one, or by hand? Today: nothing (asks).
+- **R23.** "14k yg ring size 6 to 12" — six sizes: one task plus five stock, or a remake? Today: the task with no
+  stock (asks).
+- **R24.** "14k yg ring currently a 7 customer wants it a 6 but try 6.25 first" — which size goes on the ticket?
+  Today: Size Down.
+
+*Work the task list does not have — is "nothing" right?*
+- **R25.** "14k yg remove sizing beads". Today: nothing (asks).
+- **R26.** "14k yg ring needs new head". Today: Reprong x1, unasked.
+- **R27.** "Pearl necklace restring". Today: nothing (asks).
+- **R28.** "14k yg unsolder rings". Today: nothing (asks).
+- **R29.** "Stainless steel ring size up". Today: a Size Up, unasked.
+
+*Metal*
+- **R30.** "14k two tone ring size 6 to 7" — Z4: rhodium or not? Today: none, unasked.
 
 ## Declined
 
@@ -602,6 +662,57 @@ screens once in a browser; answer D1; then leave it alone for two or three weeks
 number, and not 66/69, says whether any of this worked.
 
 **Waiting on the owner.** O5, O6, O7, O8, O9, D1.
+
+### After the close — the made-up test set — 2026-11-10 — `claude/smart-intake-synthetic`
+
+Not a round. The owner, 2026-11-10: *"write a whole bunch of data to test with for the tasks that aren't being
+tested regularly (full of edge cases and weird scenarios)… I don't want to wait 3 weeks entering stuff and then get
+to the end of the 3 weeks and have different scenarios that haven't been tested for tasks like half shanks."* And:
+*"Obviously we wouldn't store them in the same collection as our real data."*
+
+**Why.** The 69 real tickets never ask for 11 of the 32 tasks (Reprong, Check & Tighten over 20, Half-Shank 3 to
+5mm, Sizing Beads, Clasp Repair, Watch Link Removal, all four platinum tasks, the laser jump ring) and ask for 10
+more exactly once. There is no platinum, rose gold or 22k ticket at all.
+
+**What it is.** 183 made-up notes in `test/smart-intake/syntheticCases.js`, written in the two voices the real notes
+come in (dictated, and shorthand) with the same speech-to-text slips. They live in the repo, never in
+`intakes.json` and never in a database. The live model was asked about every one; its answers are in
+`test/fixtures/smart-intake/synthetic-answers.json` and the score in `synthetic-score.json`. 150 have a settled
+answer (from a task description or an owner ruling) and are ratcheted case by case in `npm test`; 33 wait on a
+ruling (Owner questions, R1–R30) and are only printed.
+
+**How to run it.** `npm run intake:replay` scores it beside the real tickets. `-- --model` asks the model about
+both sets (needed after any prompt or task-list change). `-- --update` records both scores.
+
+**The score.** Made-up: 133/150 on the first run → **146/150** after the fixes, **0 wrong without a warning**.
+Real tickets: 66/69 → **67/69** against the rulings, 45 → 46 as saved. One real ticket flipped, to right: "14-karat
+white gold earrings set with stones over 1 carat, 2 times" (the prompt changed, so the model was asked again;
+nothing that was right went wrong).
+
+**Three bugs it found, all fixed here.**
+1. **Sizing Beads had never worked — 0 of 10.** The model has to copy a task's id back. Shown 24-character database
+   ids, it blended two neighbours ("…5763…12", Solder Together, and "…5766…13", Sizing Beads) into an id no task
+   has, and the code rightly dropped it — every time. No real ticket asks for sizing beads, so nothing showed it.
+   Tasks are now shown to the model by a slug of their title ("sizing-beads"), turned back into the id on return.
+   "T1, T2…" was tried first: it fixed the beads and flipped three real tickets, so the slug was kept.
+2. **A whole-piece task came back times the stone count.** "check and tighten 5 stones" → x5, "straighten 3 prongs"
+   → x3, "check and tighten 30 stones" → x30, each with only a question. They are now set to one per piece, and
+   said (Z7, in part).
+3. **Another ring's band, given as a measurement, picked the wide task with no warning** ("half shank, wears next to
+   a 4mm band"). It now leaves the 3x2 default in place, and says so (Z3).
+
+**Still wrong, each with a true warning on screen.**
+- "14k wg have shank 4mm" (a dictation slip for "half shank") → nothing matched.
+- "14k yg ring size 7 fits like a 6.5 with beads" → nothing matched.
+- "14k yg 3 rings size down, 7 to 6, 8 to 7, 9 to 8" → Size Down x1, not x3.
+- "14k white gold ring and band, size both from 7 to 6" → Size Down x1 + Rhodium x1, not x2 each.
+The last two are one cause: several pieces said without a plain count ("both", "ring and band") are not multiplied.
+
+**What this does not do.** The notes are an imitation of the owner's wording, written by the same hand that wrote
+the rules, and the expected answers are that hand's reading of the task descriptions. It covers tasks the real
+tickets do not; it does not replace them. The fresh-ticket number is still the only one nobody could have fitted.
+
+**Not verified.** No sweep reviewed this change, no screen was opened in a browser, `npm run views` was not run.
 
 ### Round 8 — 2026-11-10 — `claude/smart-intake-r8` — the cap
 

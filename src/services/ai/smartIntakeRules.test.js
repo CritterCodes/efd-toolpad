@@ -616,7 +616,7 @@ describe('Codex review of #351', () => {
 });
 
 describe('made-up notes, 2026-11-10 — what the gaps in the real tickets were hiding', () => {
-  it('the model answers with the task's name as a key, which becomes its id again', () => {
+  it('the model answers with the name of the task as a key, which becomes its id again', () => {
     const answer = { matchedTasks: [{ id: 'sizing-beads', quantity: 1 }, { id: ' Size-Down ', quantity: 1 }, { id: 'no-such-task', quantity: 1 }, { id: 'weld', quantity: 2 }] };
     expect(withTaskIds(answer, tasks).matchedTasks.map((m) => m.id)).toEqual(['beads', 'down', 'no-such-task', 'weld']);
     // Two tasks with one title still get a key each.
