@@ -64,9 +64,8 @@ Two modes, both required once they exist:
 
 **Sizing tickets are not ground truth.** Owner, 2026-11-09: he gave customers breaks on some size-ups, rounding
 down instead of up. A saved ticket shows what he charged that day, not what the rule is. So for every fixture where
-the ring is sized UP: the expected sizing quantity and sizing stock come from the owner's rule (O1), never from the
-saved ticket; until O1 is answered those two fields are excluded from the score for those tickets, and the replay
-prints them as "sizing: waiting on O1". Never tune a rule or the prompt to match a discounted ticket. The same goes
+the ring is sized UP, the expected sizing quantity and sizing stock come from the owner's rule (O1, answered: task ×1,
+stock = sizes rounded up − 1), never from the saved ticket. Never tune a rule or the prompt to match a discounted ticket. The same goes
 for any other field the owner later says he discounted — mark the fixture, don't learn from it.
 
 Baseline before any of today's fixes, from the production log (2026-10-02 → 11-06): 77 saved typed intakes = 70
@@ -150,12 +149,11 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 ## Owner questions (do not decide these)
 
-- **O1 — multi-size size-up.** What is the full-price rule? Owner, 2026-11-09: *"1.25 sizes is charged as 2"*, and
-  then: *"Some of our data on sizings wasn't true … I gave people breaks on some size ups, rounding down instead of
-  up."* So the saved sizing tickets are NOT the truth (see **Sizing tickets are not ground truth** below). Read with
-  that in mind, his tickets fit **the size-up task × sizes rounded up** (5→7 saved as task ×2 with stock ×2), not what
-  was built on 2026-11-09 (task ×1 plus stock for the extra sizes). **Not yet confirmed.** Until he answers: change
-  nothing about sizing quantities or stock.
+- **O1 — multi-size size-up. ANSWERED 2026-11-09.** Owner: *"1.25 sizes is charged as 2"* and *"2 sizes up is 1x
+  task and 1x sizing stock material."* The rule: the size-up task is always ×1; it covers the first size; sizing stock
+  = (sizes moved, rounded up) − 1. So 5→7 = task ×1 + stock ×1; 4.75→6 = task ×1 + stock ×1; 8.5→12.25 = task ×1 +
+  stock ×3. This is what has been live since #336. Saved tickets that differ (task ×2, stock ×8, no stock) were breaks
+  or hand entries, not the rule.
 - **O2 — photo descriptions.** 76 saved, none edited, but 9 of 65 that name a metal colour contradict the ticket. Are
   they read by anyone? Recommendation: decide before spending a round on them.
 
