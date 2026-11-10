@@ -83,7 +83,9 @@ export function intakeSubmitActions({ addRepair, benchJewelers, formData, getJew
         // `__aiQuantity` marks a line smart intake put on THIS form. Saved with the ticket, it made a later read on
         // the reopened ticket treat the saved lines as its own and drop them (review, 2026-11-10).
         tasks: pricedRepair.tasks.map(({ __aiQuantity: _mark, ...task }) => task),
-        materials: pricedRepair.materials,
+        // The same for the sizing stock: saved with its smart-intake markers, a read on the reopened ticket took the
+        // saved stock for its own and removed it (round 8 sweep, 2026-11-10).
+        materials: pricedRepair.materials.map(({ _smartIntakeHintType: _t, _smartIntakeQuantity: _q, _smartIntakeReason: _r, ...material }) => material),
         customLineItems: pricedRepair.customLineItems,
         ...(requestQuote ? { quoteRequested: true } : {}),
         // For wholesalers, set a placeholder promise date if none provided (admin will update it)
