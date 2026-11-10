@@ -634,6 +634,10 @@ describe('made-up notes, 2026-11-10 — what the gaps in the real tickets were h
       expect(shankWidthSaid(t), t).toBe('');
     }
     expect(shankWidthSaid('14k yg 4mm band half shank')).toBe('wide');
+    // Codex review of #356: a bare "with" is this ring's own shank, or at worst a question — never the narrow default.
+    expect(shankWidthSaid('14k yellow gold ring with 4mm shank needs half shank')).toBe('wide');
+    expect(shankWidthSaid('14k yg ring with a 4mm band, half shank')).toBe('unclear');
+    expect(taskKeys([{ title: 'Laser Weld' }, { title: 'Laser-Weld' }, { title: 'Laser Weld 2' }])).toEqual(['laser-weld', 'laser-weld-2', 'laser-weld-2-2']);
     const out = decide({ metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, matchedTasks: [{ id: 'hs5', quantity: 1 }] }, '14k yg half shank, wears next to a 4mm band');
     expect(lines(out)).toBe('hs3x1');
     expect(out.warnings.join(' ')).toMatch(/3x2 default/);

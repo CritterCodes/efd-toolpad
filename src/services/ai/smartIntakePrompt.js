@@ -38,12 +38,15 @@ export const tasksForPrompt = (inputText, tasks = []) => (
  * three real tickets; the slug moved none on balance.) Two tasks with one title get "-2", "-3".
  */
 export const taskKeys = (tasks = []) => {
-  const seen = new Map();
+  // Every key handed out is remembered, so a "-2" made here can never be another title's own slug ("Laser Weld",
+  // "Laser-Weld" and "Laser Weld 2" used to give laser-weld-2 twice — Codex review of #356).
+  const used = new Set();
   return tasks.map((t, i) => {
     const base = String(t?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `task-${i + 1}`;
-    const n = (seen.get(base) || 0) + 1;
-    seen.set(base, n);
-    return n > 1 ? `${base}-${n}` : base;
+    let key = base;
+    for (let n = 2; used.has(key); n += 1) key = `${base}-${n}`;
+    used.add(key);
+    return key;
   });
 };
 

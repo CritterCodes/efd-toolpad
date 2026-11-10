@@ -74,7 +74,11 @@ export const shankWidthSaid = (inputText = '') => {
     if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}(?:band|shank)\b`).test(after)) {
       // "wears next to a 4mm band", "to match her 5mm wedding band": another ring's width says nothing about this
       // shank, so the 3x2 default stands (round 8 sweep, and the made-up notes of 2026-11-10: the wide task, unwarned).
+      // A bare "with" is not enough to call it another ring's: "ring with 4mm shank" is this ring's shank, and "ring
+      // with 4mm band" could be either, so that one is asked about rather than defaulted (Codex review of #356).
+      const bareWith = /\bwith\s+(?:an?\s+|the\s+)?$/.test(before) && !/\b(?:wears?|wearing|worn)\s+(?:it\s+)?with\s+(?:an?\s+|the\s+)?$/.test(before);
       if (!notThisBand(before)) wide = true;
+      else if (bareWith) { if (/^\s*(?:\S+\s+)*?shank\b/.test(after.slice(0, 30)) && !/\bband\b/.test(after.slice(0, 30))) wide = true; else unclear = true; }
       continue;
     }
     if (new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}ring\b`).test(after)) { unclear = true; continue; }
