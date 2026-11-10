@@ -70,6 +70,19 @@ export const applyDefaultPurity = (metalType, karat) => (
   karat ? karat : (DEFAULT_PURITY[metalType] || karat)
 );
 
+/**
+ * The model's colour in the form's vocabulary. It answers "White Gold" or "wg" as readily as "white"; reading those as
+ * unknown and then defaulting to yellow turned a white gold ring yellow (review, 2026-11-09). The yellow default is for
+ * a BLANK answer only; a colour said in words we don't know stays blank, where a person sees it.
+ */
+export const normalizeGoldColor = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (/\bwhite\b|^wg$/.test(raw)) return 'white';
+  if (/\brose\b|\bpink\b|^rg$/.test(raw)) return 'rose';
+  if (/\byellow\b|^yg$/.test(raw)) return 'yellow';
+  return '';
+};
+
 export const normalizeParsedPayload = (payload = {}) => {
   const normalizeString = (value) => String(value || '').trim();
   const normalizeEnum = (value, allowed = []) => {
@@ -122,7 +135,7 @@ export const normalizeParsedPayload = (payload = {}) => {
     metalType,
     karat: applyDefaultPurity(metalType, normalizeKaratValue(payload.karat)),
     // Gold with no colour said is yellow (owner, 2026-11-09; 5 of 5 logged intakes were corrected to yellow).
-    goldColor: normalizeEnum(payload.goldColor, ['yellow', 'white', 'rose']) || (metalType === 'gold' ? 'yellow' : ''),
+    goldColor: normalizeGoldColor(payload.goldColor) || (metalType === 'gold' && !normalizeString(payload.goldColor) ? 'yellow' : ''),
     isRing: toBool(payload.isRing),
     currentRingSize: normalizeString(payload.currentRingSize),
     desiredRingSize: normalizeString(payload.desiredRingSize),
@@ -139,16 +152,20 @@ export const normalizeParsedPayload = (payload = {}) => {
 /**
  * Every white gold job gets rhodium (owner, 2026-11-09: "yes all white gold get rhodium"). The Rhodium Plating task's
  * own aiMeta only says "turned yellow or dull, or the customer asks", so the model left it off 4 logged white-gold jobs.
- * Deterministic: the prompt asks for it, this guarantees it. Added past the 3-task cap, with the piece count the other
- * jobs carry when they all agree ("2 rings" = rhodium x2), otherwise 1.
+ * Deterministic: the prompt asks for it, this guarantees it. Added past the 3-task cap.
+ *
+ * Quantity is the number of PIECES, and only a sizing task's quantity is one for certain (sizing is x1 per ring, so
+ * "2 rings" = sizing x2 = rhodium x2). Any other quantity is a unit count: "retip 14 prongs" on one ring is one
+ * rhodium, not fourteen (review, 2026-11-09).
  */
 export const withRhodiumForWhiteGold = (parsed, tasks = []) => {
   if (parsed?.metalType !== 'gold' || parsed?.goldColor !== 'white') return parsed;
   const rhodium = tasks.find((t) => /rhodium/i.test(String(t?.title || '')));
   const matched = parsed.matchedTasks || [];
   if (!rhodium || !matched.length || matched.some((m) => m.id === String(rhodium.id))) return parsed;
-  const quantities = [...new Set(matched.map((m) => m.quantity))];
-  const next = [...matched, { id: String(rhodium.id), quantity: quantities.length === 1 ? quantities[0] : 1 }];
+  const byId = new Map(tasks.map((t) => [String(t.id), t]));
+  const sizing = matched.find((m) => /\bsize (up|down)\b/i.test(String(byId.get(m.id)?.title || '')));
+  const next = [...matched, { id: String(rhodium.id), quantity: sizing ? sizing.quantity : 1 }];
   return { ...parsed, matchedTasks: next, matchedTaskIds: next.map((m) => m.id) };
 };
 
