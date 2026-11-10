@@ -479,3 +479,16 @@ describe('round 5 sweep, 2026-11-09', () => {
     expect(check.message).toMatch(/One is added — set the count if this is more than one piece/);
   });
 });
+
+describe('Codex review of #350', () => {
+  it('changing the assumed karat leaves the untouched colour assumed', async () => {
+    const h = harness();
+    const answer = { metalType: 'gold', karat: '14k', isRing: true, matchedTasks: [{ id: 'weld', quantity: 1 }] };
+    await read(h, 'gold ring laser weld', answer);
+    expect(h.result.current.notes.assumed).toMatchObject({ karat: '14k', goldColor: 'yellow' });
+    act(() => h.result.current.setFormData((p) => ({ ...p, karat: '18k' })));
+    await read(h, 'gold ring laser weld', answer);
+    expect(h.result.current.formData).toMatchObject({ karat: '18k', goldColor: 'yellow' });
+    expect(h.result.current.notes.assumed).toMatchObject({ karat: '', goldColor: 'yellow' });
+  });
+});

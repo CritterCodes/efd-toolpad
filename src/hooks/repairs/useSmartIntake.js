@@ -333,11 +333,17 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const said = parsed.said || {};
       const formHadColor = Boolean(String(formData.goldColor || '').trim());
       const stillAssumed = Boolean(assumedColorRef.current) && assumedColorRef.current === formData.goldColor;
-      const assumedColor = !keepMetal && parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '';
+      // Field by field: when he changed the karat and left the assumed colour alone, the colour is still assumed
+      // (Codex review of #350). With his metal kept, an assumption stands only while the form still holds it.
+      const assumedColor = keepMetal
+        ? (stillAssumed ? assumedColorRef.current : '')
+        : (parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '');
       assumedColorRef.current = assumedColor;
       const formHadKarat = Boolean(String(formData.karat || '').trim());
       const karatStillAssumed = Boolean(assumedKaratRef.current) && assumedKaratRef.current === formData.karat;
-      const assumedKarat = !keepMetal && parsed.metalType === 'gold' && !said.karat && (!formHadKarat || karatStillAssumed) ? (parsed.karat || '') : '';
+      const assumedKarat = keepMetal
+        ? (karatStillAssumed ? assumedKaratRef.current : '')
+        : (parsed.metalType === 'gold' && !said.karat && (!formHadKarat || karatStillAssumed) ? (parsed.karat || '') : '');
       assumedKaratRef.current = assumedKarat;
 
       applySmartIntakeResults({
