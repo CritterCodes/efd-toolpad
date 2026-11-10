@@ -485,3 +485,49 @@ describe('round 4 sweep, 2026-11-09', () => {
     expect(out.warnings.join(' ')).toMatch(/NOT multiplied/);
   });
 });
+
+describe('round 5 sweep, 2026-11-09', () => {
+  const up = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '6', desiredRingSize: '8' };
+
+  it('width shorthand is never read as "no width": the wide pick stays', () => {
+    for (const t of ['14k yg ring size 6 to 8, 5x2', '14k yg ring size 6 to 8, 3-5', '14k yg heavy mens ring size 10 to 12']) expect(shankWidthSaid(t), t).toBe('unclear');
+    for (const t of ['14k yg ring size 6 to 8 3 to 5 shank', '14 karat yellow gold band four and a half millimeters size 9 to 11', '3-5mm band']) expect(shankWidthSaid(t), t).toBe('wide');
+    // A plain size move is still nothing.
+    for (const t of ['14k yg ring size 3 to 5', 'size 6 to 8', 'heavy ring wear on prongs']) expect(shankWidthSaid(t), t).toBe('');
+    const out = decide({ ...up, matchedTasks: [{ id: 'up5', quantity: 1 }] }, '14k yg ring size 6 to 8, 5x2');
+    expect(lines(out)).toBe('up5x1');
+    // And when the default does apply, the reason is not a claim about what he said.
+    const dflt = decide({ ...up, matchedTasks: [{ id: 'up5', quantity: 1 }] }, '14k yg ring size 6 to 8');
+    expect(lines(dflt)).toBe('up3x1');
+    expect(dflt.warnings.join(' ')).toMatch(/no width was read in the note, so the 3x2 default applies\. If the shank is over 3mm, switch it\./);
+  });
+
+  it('the piece warning names every line that had a count of its own', () => {
+    const two = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, pieceCount: 2 };
+    expect(decide({ ...two, matchedTasks: [{ id: 'retip', quantity: 2 }] }, '2 rings 14k yg, retip 2 prongs each').warnings.join(' '))
+      .toMatch(/"Retip prongs" is 2 — check whether that is 2 in all or 2 on each piece/);
+    const three = decide({ ...two, pieceCount: 3, matchedTasks: [{ id: 'weld', quantity: 1 }, { id: 'retip', quantity: 2 }] }, '3 rings, laser weld, retip 2 prongs');
+    expect(lines(three)).toBe('weldx3 retipx3');
+    expect(three.warnings.join(' ')).toMatch(/"Retip prongs" was raised from 2 to 3, one per piece — check the count/);
+  });
+
+  it('sizing beads do not get a sizing task added; "no rhodium" is honoured', () => {
+    const beads = decide({ ...up, currentRingSize: '7', desiredRingSize: '6.5', matchedTasks: [{ id: 'beads', quantity: 1 }] }, '14k yg ring size 7, add sizing beads to fit like a 6.5');
+    expect(lines(beads)).toBe('beadsx1');
+    expect(beads.warnings.join(' ')).toMatch(/sizing beads are on the ticket, so no Size Down was added/);
+    const wg = decide({ ...up, goldColor: 'white', currentRingSize: '7', desiredRingSize: '6', matchedTasks: [{ id: 'down', quantity: 1 }] }, '14k wg ring size 7 to 6, no rhodium');
+    expect(lines(wg)).toBe('downx1');
+    expect(wg.warnings.join(' ')).toMatch(/left off: the note says no rhodium/);
+  });
+
+  it('a karat the note never named does not replace the one on the form', () => {
+    const out = decide({ metalType: 'gold', karat: '14k', isRing: true, matchedTasks: [{ id: 'weld', quantity: 1 }] }, 'gold ring laser weld', { metalType: 'gold', karat: '18k', goldColor: 'yellow' });
+    expect(out).toMatchObject({ karat: '18k', said: { karat: false } });
+    expect(decide({ metalType: 'gold', karat: '14k', matchedTasks: [{ id: 'weld', quantity: 1 }] }, '14k gold ring laser weld', { metalType: 'gold', karat: '18k' }).karat).toBe('14k');
+  });
+
+  it('the model\'s odd answers: "gold plated", a karat of 7, a change of "2 sizes"', () => {
+    expect(normalizeParsedPayload({ metalType: 'gold plated', karat: '7', sizeChange: '2 sizes' })).toMatchObject({ metalType: 'gold', karat: '', sizeChange: 2 });
+    expect(normalizeParsedPayload({ metalType: 'plat' }).metalType).toBe('platinum');
+  });
+});

@@ -362,7 +362,18 @@ export function sizingStockCheck(formData = {}) {
   // Sizes not both entered: nothing to hold the stock against.
   if (!moved) return null;
   const want = sizingStockFor({ moved, pieces: Number(sizeUp.quantity) || 1, customerGold: isCustomerGoldTask(sizeUp) });
-  if (want === have) return null;
+  if (want === have) {
+    // The count is right; is it the right stock? A 3-to-5mm size-up with 3x2 stock (he switched the task by hand after
+    // "check the width") left with the narrow stock, ticked (review, 2026-11-09).
+    const stock = stockLines[0];
+    const stockName = `${stock?.name || ''} ${stock?.displayName || ''}`;
+    const wideTask = /3\s*(?:mm)?\s*(?:to|-|–)\s*5\s*mm/i.test(String(sizeUp.title || ''));
+    const narrowTask = /up to 3\s*mm/i.test(String(sizeUp.title || ''));
+    if (stock && ((wideTask && /3\s*x\s*2/i.test(stockName)) || (narrowTask && /5\s*x\s*2/i.test(stockName)))) {
+      return { want, have, moved, line: null, lineQuantity: 0, width: { task: sizeUp.title, stock: stock.name || stock.displayName, wide: wideTask } };
+    }
+    return null;
+  }
   const line = stockLines[0] || null;
   const others = line ? have - (Number(line.quantity) || 0) : 0;
   return { want, have, moved, line, lineQuantity: Math.max(0, want - others) };
@@ -423,7 +434,8 @@ export function ticketChecks(formData = {}, availableTasks = []) {
     const quantity = Math.max(1, Number(sizing?.quantity) || 1);
     out.push({
       key: 'rhodium-missing',
-      message: `White gold gets rhodium plating, and this ticket has none${quantity > 1 ? ` (${quantity} pieces)` : ''}.`,
+      // With no sizing line there is nothing to count the pieces by: say so rather than assert one.
+      message: `White gold gets rhodium plating, and this ticket has none${quantity > 1 ? ` (${quantity} pieces)` : ''}.${sizing ? '' : ' One is added — set the count if this is more than one piece.'}`,
       action: quantity > 1 ? `Add rhodium x${quantity}` : 'Add rhodium',
       add: availableTasks.find((t) => String(t._id) === rhodium.id),
       quantity,

@@ -91,6 +91,10 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
   // The sizes the last read put on the form. If the form's differ, he edited them, and a re-read leaves them alone —
   // the mic re-reads on its own and used to put 6 → 8 back over his 6 → 7 (review, 2026-11-09).
   const lastSizesRef = useRef(null);
+  // The same for the metal: what the form held after the last read. If it differs now, he picked it, and a re-read
+  // does not put the sentence's metal back over it (review, 2026-11-09: 18k white corrected on Review went back to 14k
+  // yellow when the mic re-read, and the rhodium check went with it).
+  const lastMetalRef = useRef(null);
   // The newest read. An answer that is not for it is thrown away.
   const readSeqRef = useRef(0);
 
@@ -121,13 +125,18 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       // Metal: what the sentence SAID overwrites; anything else only fills a blank.
       const said = results.said || {};
       const blank = (v) => !String(v || '').trim();
-      if (results.metalType && (said.metal || blank(prev.metalType))) updates.metalType = results.metalType;
+      const keepMetal = Boolean(results.keepMetal);
+      if (!keepMetal && results.metalType && (said.metal || blank(prev.metalType))) updates.metalType = results.metalType;
       const metalType = updates.metalType || prev.metalType;
       // The metal changed (silver on the form, "gold ring" in the corrected sentence): the old purity and colour
       // belonged to the old metal. Keeping them left gold at "925", which prices as a metal that does not exist
       // (Codex review of #346). Blank is honest — the form then asks for the karat.
       const metalChanged = Boolean(updates.metalType) && !blank(prev.metalType) && updates.metalType !== prev.metalType;
-      if (results.karat && (said.karat || said.metal || blank(prev.karat))) {
+      if (keepMetal) {
+        // his metal, karat and colour stand
+      } else if (results.karat && (said.karat || blank(prev.karat) || metalChanged)) {
+        // Only a karat the NOTE names overwrites one already on the form: "gold ring" answered 14k replaced a
+        // hand-picked 18k, with a tick (review, 2026-11-09).
         updates.karat = results.karat;
       } else if (metalType === 'platinum' && !results.karat && (blank(prev.karat) || metalChanged)) {
         // Platinum without a stated purity is 950 — the key the material variants price under.
@@ -135,7 +144,9 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       } else if (metalChanged) {
         updates.karat = '';
       }
-      if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor) || metalChanged)) updates.goldColor = results.goldColor;
+      if (keepMetal) {
+        // (as above)
+      } else if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor) || metalChanged)) updates.goldColor = results.goldColor;
       else if (metalChanged && metalType !== 'gold') updates.goldColor = '';
 
       if (!results.keepSizes) {
@@ -174,7 +185,9 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         if (add.length || keptMaterials.length !== (prev.materials || []).length) updates.materials = [...keptMaterials, ...add];
       }
 
-      return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+      const next = Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+      if (!keepMetal) lastMetalRef.current = { metalType: next.metalType || '', karat: next.karat || '', goldColor: next.goldColor || '' };
+      return next;
     });
   }, [availableMaterials, buildTaskItemsFromInferred, setFormData]);
 
@@ -295,6 +308,19 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         warnings.push(`The sizes were left as you set them (${formData.currentRingSize || '—'} → ${formData.desiredRingSize || '—'}). The sentence reads ${readSizes.current || '—'} → ${readSizes.desired || '—'}.`);
       }
       if (!keepSizes) lastSizesRef.current = readSizes;
+      // The metal he set after the last read stays his.
+      const lastMetal = lastMetalRef.current;
+      const formMetalNow = { metalType: formData.metalType || '', karat: formData.karat || '', goldColor: formData.goldColor || '' };
+      const keepMetal = Boolean(lastMetal) && ['metalType', 'karat', 'goldColor'].some((k) => formMetalNow[k] !== lastMetal[k]);
+      const metalLabel = (m) => [m.karat, m.metalType === 'gold' ? `${m.goldColor} gold`.trim() : m.metalType].filter(Boolean).join(' ') || '—';
+      const readMetal = { metalType: parsed.metalType || '', karat: parsed.karat || '', goldColor: parsed.goldColor || '' };
+      if (keepMetal && readMetal.metalType && metalLabel(readMetal) !== metalLabel(formMetalNow)) {
+        warnings.push(`The metal was left as you set it (${metalLabel(formMetalNow)}). The sentence reads ${metalLabel(readMetal)}.`);
+      }
+      // A line the sentence asks for that he deleted earlier is not put back — and now that is said.
+      for (const title of notPutBack) {
+        warnings.push(`"${title}" was read from the sentence, but you removed it from this ticket earlier, so it was not put back. Add it by hand if you want it.`);
+      }
       if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none for this metal. Add it by hand.');
       // A line he put on or changed by hand is kept as his. When the sentence counts it differently, say so.
       for (const line of formData.tasks || []) {
@@ -307,11 +333,11 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const said = parsed.said || {};
       const formHadColor = Boolean(String(formData.goldColor || '').trim());
       const stillAssumed = Boolean(assumedColorRef.current) && assumedColorRef.current === formData.goldColor;
-      const assumedColor = parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '';
+      const assumedColor = !keepMetal && parsed.metalType === 'gold' && !said.color && (!formHadColor || stillAssumed) ? (parsed.goldColor || '') : '';
       assumedColorRef.current = assumedColor;
       const formHadKarat = Boolean(String(formData.karat || '').trim());
       const karatStillAssumed = Boolean(assumedKaratRef.current) && assumedKaratRef.current === formData.karat;
-      const assumedKarat = parsed.metalType === 'gold' && !said.karat && (!formHadKarat || karatStillAssumed) ? (parsed.karat || '') : '';
+      const assumedKarat = !keepMetal && parsed.metalType === 'gold' && !said.karat && (!formHadKarat || karatStillAssumed) ? (parsed.karat || '') : '';
       assumedKaratRef.current = assumedKarat;
 
       applySmartIntakeResults({
@@ -329,6 +355,7 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         materialHints: Array.isArray(parsed.materialHints) ? parsed.materialHints : [],
         skipStock: removedByHandRef.current.stock,
         keepSizes,
+        keepMetal,
         wideShank,
         inferredTasks,
       }, { replace: true });

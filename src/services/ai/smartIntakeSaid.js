@@ -29,7 +29,7 @@ const BAND_FILLER = '(?:(?:\\d{2}k(?:t)?[ywr]?g?|\\d{2}[\\s-]?karat|white|yellow
  * in a picture is not the jeweler specifying a width (owner, 2026-11-09: "Default ring mm is always 3x2 unless
  * specified 3-5"; and the descriptions are "trash").
  */
-const MM_WORDS = { four: 4, five: 5, six: 6, seven: 7, eight: 8 };
+const MM_WORDS = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
 // Words that may follow a measurement without being the thing measured: "6mm, size 9", "5mm and polish".
 const CONTINUES = /^(?:and|size|sized|sizing|resize|sz|needs|to|half|comfort|with|so|for|please|up|down|then|also|customer|wants|rush)$/;
 // A band that is someone else's, or denied: "wears it with a wide band", "not a wide band", "her other wide band".
@@ -51,7 +51,8 @@ const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|again
  */
 export const shankWidthSaid = (inputText = '') => {
   const text = str(inputText).toLowerCase().replace(/[‘’]/g, "'")
-    .replace(/\b(four|five|six|seven|eight)(?=\s*(?:mm\b|millimet|mil\b))/g, (w) => String(MM_WORDS[w]));
+    // Dictated: "four and a half millimeters" is 4.5mm.
+    .replace(/\b(three|four|five|six|seven|eight)(\s+and\s+a\s+half)?(?=\s*(?:mm\b|millimet|mil\b))/g, (_, w, half) => String(MM_WORDS[w] + (half ? 0.5 : 0)));
   const justNamed = (before) => before.match(/\b(band|shank|ring)s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$/);
   const measure = /(?<![\d.])(\d+(?:\.\d+)?)\s*(x\s*\d+(?:\.\d+)?)?\s*(mm\b|millimet(?:er|re)s?\b|mil\b)?/g;
   let wide = false;
@@ -76,9 +77,15 @@ export const shankWidthSaid = (inputText = '') => {
     if (next && !CONTINUES.test(next[1])) continue;
     const named = justNamed(before);
     if (named && named[1] !== 'ring') { wide = true; continue; }
-    // "4x2" with no unit and no band beside it is not about the shank.
-    if (hasUnit) unclear = true;
+    // A measurement on its own. "5x2" with no unit is stock shorthand for the shank more often than not: unclear,
+    // never '' — the default must not overrule a width he may have just typed (review, 2026-11-09).
+    unclear = true;
   }
+  // The owner's own shorthand for the wide class: "3-5", "3 to 5 shank", "3-5mm".
+  if (/(?<![\d.])3\s*(?:-|–|to)\s*5\s*(?:mm\b|millimet\w*)?\s*(?:wide\s+)?(?:band|shank)s?\b/.test(text)) wide = true;
+  else if (/(?<![\d.])3\s*(?:-|–)\s*5(?![\d.])/.test(text)) unclear = true;
+  // "heavy mens ring" is a hint, not a width.
+  if (new RegExp(String.raw`\bheavy\s+${BAND_FILLER}ring\b(?!\s+wear)`).test(text)) unclear = true;
   const worded = new RegExp(String.raw`\b(?:(?:wide|thick|chunky)\s+${BAND_FILLER}${SHANK}\b(?!\s+wear)|heavy\s+${BAND_FILLER}(?:band|shank)\b)`, 'g');
   for (const m of text.matchAll(worded)) {
     if (NOT_THIS_BAND.test(text.slice(Math.max(0, m.index - 16), m.index))) unclear = true; else wide = true;

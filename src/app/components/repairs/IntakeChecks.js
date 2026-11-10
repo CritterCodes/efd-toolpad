@@ -2,7 +2,8 @@ import { Alert, Box, Button, Stack } from '@mui/material';
 import { AI_DOWN_MESSAGE } from '@/hooks/repairs/useSmartIntake';
 
 /** What the sizing-stock check says, in the jeweler's words. */
-export const stockCheckMessage = ({ want, have, moved, orphan }) => {
+export const stockCheckMessage = ({ want, have, moved, orphan, width }) => {
+  if (width) return `"${width.task}" is on this ticket with "${width.stock}". Switch the sizing stock under Material if the shank is ${width.wide ? 'over' : 'under'} 3mm.`;
   if (orphan) return `There is no size-up on this ticket, so it needs no sizing stock. This ticket has ${have}.`;
   if (!(moved > 0)) return `The ring is not going up in size, so it needs no sizing stock. This ticket has ${have}.`;
   const sizes = `Sizing up ${moved} size${moved === 1 ? '' : 's'}`;
@@ -55,7 +56,7 @@ export function IntakeChecks({ applyCheck, checks, removeItem, showWarnings = tr
             </Button>
           ) : undefined}
         >
-          {stockCheckMessage(stockCheck)}{!stockCheck.line && ' Add it under Material.'}
+          {stockCheckMessage(stockCheck)}{!stockCheck.line && !stockCheck.width && ' Add it under Material.'}
         </Alert>
       )}
     </Stack>

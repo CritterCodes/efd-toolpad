@@ -330,6 +330,34 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **V16.** The classic form: no "(assumed)" markers, no per-line chips, checks far from Save. Retire it (T19 wired
   the checks in; the owner decides whether it goes — see O8).
 
+**W — from the round 5 sweep** (`docs/goals/smart-intake-reviews/r5-sweep.md`)
+
+- ✅ r6 **W1.** Width shorthand was read as "no width" and the wide pick downgraded: "5x2", "3-5" (the owner's own
+  phrase), "3 to 5 shank", dictated "four and a half millimeters", "heavy mens ring". All are now wide or unclear,
+  never nothing. The default's warning no longer claims "no wide shank was stated" — it says no width was READ, and
+  to switch it if the shank is over 3mm.
+- ✅ r6 **W2.** The piece warning names every line that carried a count of its own — raised, left, or equal to the
+  piece count ("is 2 — check whether that is 2 in all or 2 on each piece").
+- ✅ r6 **W3.** Sizing beads to make a ring fit smaller no longer get a Size Down added. "No rhodium" in the note is
+  honoured. The solder warning says what to do if these are separate repairs.
+- ✅ r6 **W4.** A karat the note never named no longer replaces the one on the form (server and form), and a metal he
+  corrected after a read survives a re-read, with the difference said — as sizes already did.
+- ✅ r6 **W5.** A 3-to-5mm size-up with 3x2 stock (or the reverse) is flagged by the stock check.
+- ✅ r6 **W6.** A line he deleted that the sentence asks for again is still not put back, and now that is said.
+- ✅ r6 **W7.** The rhodium check says one is added when nothing counts the pieces. Review's metal row carries
+  "(karat assumed)" / "(colour assumed)".
+- ✅ r6 **W8.** Odd model answers: "gold plated" is not platinum; a karat is 8–24; "2 sizes" is 2.
+- **W9.** The checks do not gate the save; on a phone they are at the top of Review and the save bar is at the
+  bottom. Put the open-check count in the save bar. (A two-tap "Save anyway" is the owner's — O9.)
+- **W10.** Edit mode: if saved lines keep `__aiQuantity`, a new read on an existing ticket may drop them. Suspected;
+  check what the save stores.
+- **W11.** The engine may price a 10k ring with 14k stock by substitution, and the line does not show it. Outside
+  smart intake — pricing; needs its own look.
+- **W12.** Measurement, again: flag each new repair "used smart intake / AI failed / not used" (a failed read
+  returns no log id, so the hand-typed ticket never joins the trend); one `intake:refresh` command and a committed
+  history of the fresh score; ratchet rates, not counts; export `formMetal`; store sizing stock in the outcome.
+- **W13.** Length caps on the note and the client's task list (= F2).
+
 **F — hardening, small**
 
 - **F1.** Timeouts: worst case 94s against a 90s function limit; cap the total at 30s, cap `Retry-After`, retry 503.
@@ -367,6 +395,12 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   task, or do you price those by hand? (Opened round 5.)
 - **O8 — the classic repair form** (`?ui=classic`). It now shows the same checks, but none of the "(assumed)" or
   "from your sentence" markers. Does anyone still use it, or can it be removed? (Opened round 5.)
+- **O9 — should an open check hold the save?** Today a check (rhodium missing, stock does not match the sizes, wrong
+  metal's task) is a warning with a one-tap fix, and the ticket can be saved past it. A reviewer suggested a
+  two-tap "Save anyway" while any check is open. That slows the counter on purpose. Your call. (Opened round 6.)
+- **O4, a third time.** Three reviewers in a row have pointed at the same number: of your 12 white gold tickets, 6
+  were saved with rhodium and 6 without. You have said twice that all white gold gets it, and the rule follows that.
+  From round 6 a note that says "no rhodium" is honoured. Nothing else changes unless you say so.
 - **D1, updated round 4.** The round 3 evidence reviewer measured the aiMeta proposal against the fixtures: 20 of its
   49 symptom phrases are word-for-word from the tickets it is scored on, so the replay cannot show that it helps —
   only that it does no harm (65/69 against 64/69, inside the noise). Recommendation: do not apply it yet. Refresh the
@@ -375,6 +409,12 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 ## Declined
 
 *(findings a round chose not to act on, with the reason)*
+
+- **Telling a join from a break for Solder Together** (round 5: "2 rings, both shanks broken, solder back
+  together" → ×1). It needs a list of break words read by a regex. The warning now says what it did and what to do
+  if these are separate repairs.
+- **Classic-form parity, two size-up lines on one ticket, protecting hand sizes when the AI is down, guarding
+  marks.json, a transactional apply, an LLM judge** (round 5 reviewers' own "not worth doing").
 
 - **An "uncovered work" check built from a list of work words** (round 4 server reviewer). It is another word list
   read by a regex, the thing rounds 1–3 kept getting wrong. The plain case — nothing matched at all — is said (V4);
@@ -431,6 +471,40 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 6 — 2026-11-09 — `claude/smart-intake-r6`
+
+**Round 5's sweep** (`docs/goals/smart-intake-reviews/r5-sweep.md`) asked each reviewer to class what it
+demonstrated. Class (a) — a wrong line with nothing true on screen — still turned up six times: width shorthand
+read as "no width" ("5x2", "3-5"); a per-piece count with no line in the warning; a guessed karat replacing a
+hand-picked one; a re-read undoing a corrected metal; a wide size-up left with 3x2 stock; a deleted line silently
+not put back. The server reviewer could not break the piece count, the size guards, the direction swap or any
+catalog rename. The evidence reviewer again found no wrong price and no lost data. Codex did not finish its review
+of #349; it was merged on the green build. Triage: W1–W13, O9, a third note on O4, two entries under Declined.
+
+**Fixed.** W1–W8 (see Backlog). New in code: `smartIntakeVocabulary.js` (split for the line limit); the width
+reader treats bare `NxM`, "3-5" and "heavy … ring" as unclear; `keepMetal` beside `keepSizes`; the stock check's
+width; "no rhodium".
+
+**Score** (69 tickets, 2 skipped; the stored model answers — the prompt did not change):
+
+| | End of round 5 | End of round 6 |
+|---|---|---|
+| vs the rulings — same tasks and quantities | 66 / 69 | **66 / 69** |
+| vs what he saved | 45 / 69 | **45 / 69** |
+| Sizes · metal · sizing stock | 68 · 69 · 69 | 68 · 69 · 69 |
+| Fresh tickets (saved after 2026-11-09) | none yet | none yet |
+
+**The score did not improve by a ticket**, for the third round running, and no ticket flipped. Everything fixed
+since round 3 has been a case no saved ticket contains.
+
+**For the stop condition:** three rounds without a better score, each after a sweep that demonstrated wrong-price
+bugs. Still no quiet round. Two rounds remain before the cap (round 8).
+
+**Local gate.** `npm test`: 279 files pass; the same 3 production files cannot load `mongodb-memory-server` here.
+`npm run lint`: clean. `npm run views`: not run (H5). The form changes were **not opened in a browser**.
+
+**Waiting on the owner.** O5, O6, O7, O8, O9, D1.
 
 ### Round 5 — 2026-11-09 — `claude/smart-intake-r5`
 

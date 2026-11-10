@@ -246,10 +246,15 @@ export default function NewRepairFlow(props) {
   const karatOptions = getKaratOptions();
   const isComped = Boolean(formData.compRepair || formData.includedWithSale);
 
-  const metalSummary = [
+  // The karat or colour nobody said is marked on Review too — that is the screen the save is on (review, 2026-11-09).
+  const assumedParts = [
+    smartIntakeNotes?.assumed?.karat && smartIntakeNotes.assumed.karat === formData.karat && 'karat',
+    smartIntakeNotes?.assumed?.goldColor && smartIntakeNotes.assumed.goldColor === formData.goldColor && formData.metalType === 'gold' && 'colour',
+  ].filter(Boolean);
+  const metalSummary = ([
     formData.karat,
     formData.metalType === 'gold' ? `${formData.goldColor || ''} gold`.trim() : formData.metalType,
-  ].filter(Boolean).join(' ') || 'Not set';
+  ].filter(Boolean).join(' ') || 'Not set') + (assumedParts.length ? ` (${assumedParts.join(' and ')} assumed)` : '');
 
   const clientPill = (formData.clientName || formData.clientNotProvided) && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.875, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.04)', alignSelf: 'flex-start', maxWidth: '100%' }}>

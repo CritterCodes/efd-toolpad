@@ -46,54 +46,9 @@ export function parseRingSize(value) {
 
 const sizeText = (value) => { const n = parseRingSize(value); return n === null ? '' : String(n); };
 
-/* ------------------------------------------------------- metal vocabulary */
+import { normalizeKaratValue, applyDefaultPurity, normalizeGoldColor, normalizeMetalType } from './smartIntakeVocabulary';
 
-/**
- * Karat/purity → the exact vocabulary the form's Select uses ('14k', '925', '950'…). The model answers in free text
- * ("14K", "14 kt"); anything that doesn't normalize cleanly becomes '' rather than a value the Select can't render —
- * a silently blank field is how a 14k price gets charged on an 18k ring.
- */
-export const normalizeKaratValue = (value) => {
-  const raw = str(value).toLowerCase().replace(/\s+/g, '');
-  if (!raw) return '';
-  // Only the purities the form's Select has. "585" and "750" are karats in another notation; passing them through
-  // gave the form a value it cannot show (review, 2026-11-09).
-  if (/^\d{3}$/.test(raw)) return ['925', '950', '999', '900'].includes(raw) ? raw : '';
-  const m = raw.match(/^(\d{1,2})k?t?$/);          // 14, 14k, 14kt
-  return m ? `${m[1]}k` : '';
-};
-
-/**
- * Silver and platinum carry their purity in the NAME, so nobody says it out loud. "Sterling silver ring" states no
- * karat, an empty karat cannot be priced, and every silver job said "Choose a metal to price this" with the metal
- * already filled in (owner, 2026-10-12). Silver means 925 and platinum means 950 — ONLY when the field came back
- * empty. A stated 999 or 900 is left exactly as stated.
- */
-const DEFAULT_PURITY = Object.freeze({ silver: '925', platinum: '950' });
-export const applyDefaultPurity = (metalType, karat) => (karat ? karat : (DEFAULT_PURITY[metalType] || karat));
-
-/**
- * The model's colour in the form's vocabulary. It answers "White Gold" or "wg" as readily as "white"; reading those as
- * unknown and then defaulting to yellow turned a white gold ring yellow (review, 2026-11-09). The yellow default is
- * for a BLANK answer only; a colour said in words we don't know stays blank, where a person sees it.
- */
-export const normalizeGoldColor = (value) => {
-  const raw = str(value).toLowerCase();
-  // The FIRST colour named: "yellow gold with white gold head" is a yellow ring (review, 2026-11-09).
-  const found = [['white', /\bwhite\b|^wg$/], ['rose', /\brose\b|\bpink\b|^rg$/], ['yellow', /\byellow\b|^yg$/]]
-    .map(([colour, re]) => [colour, raw.search(re)]).filter(([, at]) => at >= 0).sort((a, b) => a[1] - b[1]);
-  return found.length ? found[0][0] : '';
-};
-
-/** The model's metal in the form's vocabulary. It answers "white gold" or "sterling" as readily as "gold" or "silver". */
-export const normalizeMetalType = (value) => {
-  const raw = str(value).toLowerCase();
-  if (/\bplat/.test(raw) || raw === 'pt') return 'platinum';
-  if (/\bgold\b|^[ywr]g$/.test(raw)) return 'gold';
-  if (/\bsilver\b|\bsterling\b|^ss$/.test(raw)) return 'silver';
-  if (/\bcostume\b/.test(raw)) return 'costume';
-  return '';
-};
+export { normalizeKaratValue, applyDefaultPurity, normalizeGoldColor, normalizeMetalType } from './smartIntakeVocabulary';
 
 const QUANTITY_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, a: 1, an: 1 };
 
@@ -145,7 +100,8 @@ export const normalizeParsedPayload = (payload = {}) => {
   const matchedTasks = all.slice(0, TASK_CAP);
 
   const metalType = normalizeMetalType(payload.metalType);
-  const sizeChange = Number(payload.sizeChange);
+  // "2 sizes" is 2: an unreadable change became 0, and the stock went with it (review, 2026-11-09).
+  const sizeChange = Number.isFinite(Number(payload.sizeChange)) ? Number(payload.sizeChange) : Number(str(payload.sizeChange).match(/^-?\d+(?:\.\d+)?/)?.[0] ?? NaN);
 
   return {
     metalType,
@@ -311,7 +267,8 @@ export const withFormMetal = (parsed, raw = {}, formMetal = {}, inputText = '') 
     return out;
   }
   if (out.metalType === form.metalType) {
-    if (!str(raw.karat) && form.karat) out.karat = form.karat;
+    // A karat the model supplied that the note never named is a guess; the one picked on the form is not.
+    if ((!str(raw.karat) || !named.karat) && form.karat) out.karat = form.karat;
     if (out.metalType === 'gold' && (!str(raw.goldColor) || !named.color) && form.goldColor) out.goldColor = form.goldColor;
   }
   return out;
@@ -377,6 +334,11 @@ export const withSizingTaskForSizes = (parsed, tasks = []) => {
   const roles = taskRoles(tasks);
   const wanted = moved < 0 ? 'sizeDown' : 'sizeUp';
   const have = matched.find((m) => isSizing(byId.get(m.id)));
+  // Sizing beads make a ring FIT smaller without sizing it: "beads to fit like a 6.5" is not a Size Down. Going up
+  // is still a sizing job.
+  if (!have && moved < 0 && matched.some((m) => /sizing beads/.test(titleOf(byId.get(m.id))))) {
+    return warn(out, 'The ring is to fit smaller and sizing beads are on the ticket, so no Size Down was added. Add one by hand if the ring is being sized as well.');
+  }
   if (!have) {
     if (!roles[wanted]) return warn(out, missingRole(wanted));
     return warn(withLines(out, [ruled({ id: String(roles[wanted].id), quantity: 1 }, 'the ring changes size'), ...matched]),
@@ -452,14 +414,16 @@ export const withShankWidth = (parsed, tasks = [], inputText = '') => {
     const sibling = wide ? wideSiblingOf(task, tasks) : narrowSiblingOf(task, tasks);
     if (!sibling) return m;
     swapped = sibling.title;
-    return ruled({ ...m, id: String(sibling.id) }, wide ? 'a wide shank was stated' : 'no wide shank was stated');
+    return ruled({ ...m, id: String(sibling.id) }, wide ? 'a wide shank was stated' : 'no width in the note: 3x2 default');
   });
   // A wide platinum shank: the catalog has no 3-to-5mm platinum size-up, and the form swaps in the platinum task
   // afterwards — the width was detected and then dropped without a word (review, 2026-11-09).
   const noWidePlatinum = wide && parsed.metalType === 'platinum' && matchedTasks.some(isSizeUp)
     && !tasks.some((t) => restricted(t) && isSizeUp(t) && WIDE_BAND.test(titleOf(t)));
   const out = swapped
-    ? warn(withLines(parsed, mergeLines(lines)), `Used "${swapped}": ${wide ? 'a wide shank was stated' : 'no wide shank was stated'}.`)
+    ? warn(withLines(parsed, mergeLines(lines)), wide
+      ? `Used "${swapped}": a wide shank was stated.`
+      : `Used "${swapped}": no width was read in the note, so the 3x2 default applies. If the shank is over 3mm, switch it.`)
     : parsed;
   return noWidePlatinum
     ? warn(out, 'A wide shank was stated, and there is no 3mm-to-5mm platinum size-up task: the platinum task is priced for a narrow shank. Check the price by hand.')
@@ -505,7 +469,7 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
       return isSizing(byId.get(m.id)) ? { ...m, quantity: 1 } : m;
     });
     const out = { ...withLines(parsed, lines), pieceCount: claimed, pieces: 1 };
-    return changed ? warn(out, `"${byId.get(solder.id).title}" set to ${joins}: ${claimed} rings are ${joins} join${joins === 1 ? '' : 's'}.`) : out;
+    return changed ? warn(out, `"${byId.get(solder.id).title}" set to ${joins}: ${claimed} rings are ${joins} join${joins === 1 ? '' : 's'}. If these are separate repairs, not rings joined to each other, set the quantity by hand.`) : out;
   }
   if (claimed > 1 && (agreed === 1 || describesDifferentWorkPerPiece(inputText))) {
     const why = agreed > 1 ? 'with different work on each' : 'but that is not certain from the note';
@@ -516,7 +480,8 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
   // Say what happened to every line with a count of its own, instead of one sentence that is untrue for some of them.
   const counted = matched.filter((m) => !isSizing(byId.get(m.id)) && m.quantity > 1).map((m) => {
     const title = byId.get(m.id)?.title || 'A task';
-    if (m.quantity <= agreed) return '';
+    if (m.quantity < agreed) return ` "${title}" was raised from ${m.quantity} to ${agreed}, one per piece — check the count.`;
+    if (m.quantity === agreed) return ` "${title}" is ${m.quantity} — check whether that is ${m.quantity} in all or ${m.quantity} on each piece.`;
     return each
       ? ` "${title}" was left at ${m.quantity}, and the note says "each" — if that is ${m.quantity} on each piece, make it ${Math.min(99, m.quantity * agreed)}.`
       : ` "${title}" was left at ${m.quantity} — check that is the total for all ${agreed}.`;
@@ -529,13 +494,17 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
  * own aiMeta only says "turned yellow or dull, or the customer asks", so the model left it off. One per piece: 14
  * prongs retipped on one ring is one rhodium, not fourteen (review, 2026-11-09).
  */
-export const withRhodiumForWhiteGold = (parsed, tasks = []) => {
+export const withRhodiumForWhiteGold = (parsed, tasks = [], inputText = '') => {
   if (parsed?.metalType !== 'gold' || parsed?.goldColor !== 'white') return parsed;
   const matched = parsed.matchedTasks || [];
   if (!matched.length) return parsed;
   const { rhodium } = taskRoles(tasks);
   if (!rhodium) return warn(parsed, missingRole('rhodium'));
   if (matched.some((m) => m.id === String(rhodium.id))) return parsed;
+  // His instruction on this ticket beats the standing rule.
+  if (/\b(?:no|without|skip|don'?t|do not)\s+(?:the\s+|any\s+)?rhodium\b/.test(str(inputText).toLowerCase())) {
+    return warn(parsed, 'Rhodium plating was left off: the note says no rhodium.');
+  }
   const byId = byIdOf(tasks);
   // Without a piece count on the answer (older callers), a sizing task's quantity is one for certain: sizing is x1 per ring.
   const sizing = matched.find((m) => isSizing(byId.get(m.id)));
@@ -586,7 +555,7 @@ export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} }
   p = withUnknownDirection(p, tasks, inputText);
   p = withShankWidth(p, tasks, inputText);
   p = withPieceCount(p, tasks, inputText);
-  p = withRhodiumForWhiteGold(p, tasks);
+  p = withRhodiumForWhiteGold(p, tasks, inputText);
   p = withSizingStock(p, tasks);
   p = withPlainSpeaking(p, tasks);
   const { overCap: _overCap, pieces: _pieces, sizingUnknown: _unknown, ...out } = p;
