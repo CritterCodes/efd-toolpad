@@ -203,7 +203,10 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
           : sizingStockItemsFor(results.materialHints, availableMaterials, { ...prev, ...updates }, { wide: results.wideShank });
         // A sizing stock he already added by hand is not doubled.
         const add = stock.items.filter(() => !keptMaterials.some(isSizingStockMaterial));
-        if (add.length || keptMaterials.length !== (prev.materials || []).length) updates.materials = [...keptMaterials, ...add];
+        // Also when only the ownership changed: a kept hand-set stock line must lose its AI markers on the ticket, or
+        // the next read takes it for untouched AI stock again (Codex review of #352).
+        const ownershipChanged = (prev.materials || []).some(stockByHand);
+        if (add.length || ownershipChanged || keptMaterials.length !== (prev.materials || []).length) updates.materials = [...keptMaterials, ...add];
       }
 
       const next = Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;

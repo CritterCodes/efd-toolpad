@@ -584,3 +584,19 @@ describe('round 7 sweep, 2026-11-10', () => {
     expect(ticketChecks({ metalType: 'gold', goldColor: 'yellow', tasks: [{ ...tasks[0], quantity: 2 }, tasks[1]] }, TASKS, { pieces: 2 })).toEqual([]);
   });
 });
+
+describe('Codex review of #352', () => {
+  it('stock he changed by hand is his from then on, even if he sets it back to the number the read gave', async () => {
+    const h = harness();
+    const up = { metalType: 'gold', karat: '14k', goldColor: 'yellow', isRing: true, currentRingSize: '5', desiredRingSize: '8' };
+    await read(h, '14k yg ring size 5 to 8', up);
+    expect(stockQty(h)).toBe('s32x2');
+    act(() => h.result.current.setFormData((p) => ({ ...p, materials: p.materials.map((m) => ({ ...m, quantity: 3 })) })));
+    await read(h, '14k yg ring size 5 to 8', up);
+    expect(h.result.current.formData.materials[0]._smartIntakeHintType).toBeUndefined();
+    // Back to 2 by hand, then a read that would give 1: his 2 stays.
+    act(() => h.result.current.setFormData((p) => ({ ...p, materials: p.materials.map((m) => ({ ...m, quantity: 2 })) })));
+    await read(h, '14k yg ring size 5 to 7', { ...up, desiredRingSize: '7' });
+    expect(stockQty(h)).toBe('s32x2');
+  });
+});
