@@ -32,8 +32,7 @@ import { taskAllowsMetal } from '@/services/repairs/metalTaskFilter';
 import { calculatedCustomLaborPrice, buildCustomLaborTask } from '@/services/repairs/customLabor';
 import { canSkipIntakeClient, intakeClientSettled } from '@/services/repairs/intakeClientRule';
 import useNewRepairForm, { toNumber } from '@/hooks/repairs/useNewRepairForm';
-import { sizingStockCheck, ticketChecks } from '@/hooks/repairs/newRepairFormHelpers';
-import { stripComputedPrices } from '@/services/pricing/computedFields';
+import { ticketCheckActions } from '@/hooks/repairs/ticketCheckActions';
 import { STEPS, StepHeader, initials } from './NewRepairFlowParts';
 import { NewRepairFlowClientDialog } from './NewRepairFlowClientDialog';
 import { NewRepairFlowAddSheets } from './NewRepairFlowAddSheets';
@@ -241,22 +240,8 @@ export default function NewRepairFlow(props) {
     formData.isRing && { label: 'Ring' },
     formData.currentRingSize && formData.desiredRingSize && { label: `${formData.currentRingSize} → ${formData.desiredRingSize}` },
   ].filter(Boolean);
-  // Sizing stock that no longer matches the sizes (a size edited after the read, a size-up added by hand).
-  const stockCheck = sizingStockCheck(formData);
-  // The owner's rulings against the ticket as it stands now: rhodium on white gold, the metal's own task.
-  const checks = ticketChecks(formData, availableTasks);
-  const applyCheck = (check) => {
-    if (check.add) {
-      setFormData((prev) => ({ ...prev, tasks: [...prev.tasks, { ...stripComputedPrices(check.add), id: Date.now(), quantity: check.quantity || 1, _smartIntakeRuled: 'white gold' }] }));
-    }
-    else if (check.remove != null) removeItem('tasks', check.remove);
-    else if (check.swap) {
-      setFormData((prev) => ({
-        ...prev,
-        tasks: prev.tasks.map((t) => (t.id === check.swap.id ? { ...stripComputedPrices(check.swap.task), id: t.id, quantity: t.quantity } : t)),
-      }));
-    }
-  };
+  // The rulings and the sizing stock, held against the ticket as it stands now — shown on Work AND on Review.
+  const { applyCheck, checks, stockCheck } = ticketCheckActions({ availableTasks, formData, removeItem, setFormData });
 
   const karatOptions = getKaratOptions();
   const isComped = Boolean(formData.compRepair || formData.includedWithSale);

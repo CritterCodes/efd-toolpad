@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({ insertOne: vi.fn(), updateMany: vi.fn(), conne
 vi.mock('@/lib/database', () => ({ db: { connect: mocks.connect } }));
 
 const {
-  surfaceOf, ticketOutcome, compareIntake, parseIntakeLogIDs, summarizeMisses, withChanges,
+  surfaceOf, ticketOutcome, compareIntake, parseIntakeLogIDs, summarizeMisses, summarizeTickets, withChanges,
   recordIntakeSuggestion, recordIntakeOutcomes,
 } = await import('./smartIntakeLog');
 
@@ -103,7 +103,7 @@ describe('summarizeMisses + withChanges', () => {
   ];
 
   it('counts logged, saved, changed and misses per field', () => {
-    expect(summarizeMisses(entries)).toEqual({ logged: 4, saved: 3, changed: 2, byField: { karat: 1, description: 1 } });
+    expect(summarizeMisses(entries)).toMatchObject({ logged: 4, saved: 3, changed: 2, byField: { karat: 1, description: 1 } });
   });
 
   it("attaches each entry's changes, null when it was never saved, and drops the Mongo _id", () => {
@@ -140,5 +140,30 @@ describe('recording', () => {
     const [filter, update] = mocks.updateMany.mock.calls[0];
     expect(filter).toEqual({ logID: { $in: ['sil-a'] }, outcome: null });
     expect(update.$set).toMatchObject({ repairID: 'r-1', outcome: { karat: '18k' } });
+  });
+});
+
+describe('summarizeTickets — per ticket, with a before and an after', () => {
+  const now = new Date('2026-11-09T12:00:00Z').getTime();
+  const days = (n) => new Date(now - n * 24 * 60 * 60 * 1000);
+  const right = ticketOutcome({ karat: '14k', tasks: [{ _id: 'a', title: 'A', quantity: 1 }] });
+  const read = (repairID, createdAt, output, outcome = right) => ({ kind: 'text', logID: `sil-${repairID}-${+createdAt}`, repairID, createdAt, output, outcome });
+  const good = { karat: '14k', tasks: [{ id: 'a', title: 'A', quantity: 1 }] };
+  const wrongTask = { karat: '14k', tasks: [{ id: 'b', title: 'B', quantity: 1 }] };
+
+  it('a ticket read twice counts once, by its last read — a superseded first read is not a miss', () => {
+    const out = summarizeTickets([read('r1', days(2), wrongTask), read('r1', days(1), good)], now);
+    expect(out.all).toEqual({ tickets: 1, changed: 0, tasksChanged: 0 });
+  });
+
+  it('splits the last 30 days from the 30 before, and leaves photo reads and unsaved reads out', () => {
+    const out = summarizeTickets([
+      read('r1', days(3), good), read('r2', days(5), wrongTask), read('r3', days(40), wrongTask), read('r4', days(45), { karat: '18k', tasks: good.tasks }),
+      { kind: 'photo', repairID: 'r5', createdAt: days(1), output: { description: 'a' }, outcome: ticketOutcome({ description: 'b' }) },
+      { kind: 'text', repairID: null, logID: 'sil-x', createdAt: days(1), output: good, outcome: null },
+    ], now);
+    expect(out.last30).toEqual({ tickets: 2, changed: 1, tasksChanged: 1 });
+    expect(out.prev30).toEqual({ tickets: 2, changed: 2, tasksChanged: 1 });
+    expect(out.all.tickets).toBe(4);
   });
 });

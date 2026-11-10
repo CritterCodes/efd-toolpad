@@ -150,10 +150,12 @@ export function report(name, { rows, totals, fresh }, before = null) {
   const pct = (n, d) => (d ? ` (${Math.round((100 * n) / d)}%)` : '');
   const lines = [`\n== ${name}: ${totals.tickets} tickets in the tuning set (${totals.skipped} skipped: nobody could say what was right) ==`];
   lines.push(fresh?.tickets
-    ? `FRESH tickets (saved after ${TUNED_UNTIL}, never tuned against): ${fresh.tasks}/${fresh.tickets}${pct(fresh.tasks, fresh.tickets)} vs the rulings, ${fresh.asSaved}/${fresh.tickets} vs what he saved  <- the number that predicts`
+    // Fresh tickets carry no hand marks, so their "vs the rulings" is really "vs what he saved". The honest comparison is
+    // as-saved against as-saved: the tuning set's rate beside the fresh one (review, 2026-11-09).
+    ? `FRESH tickets (saved after ${TUNED_UNTIL}, never tuned against): ${fresh.asSaved}/${fresh.tickets}${pct(fresh.asSaved, fresh.tickets)} vs what he saved — the tuning set is ${totals.asSaved}/${totals.tickets}${pct(totals.asSaved, totals.tickets)} on the same measure  <- the number that predicts`
     : `FRESH tickets (saved after ${TUNED_UNTIL}): none yet. Refresh the fixtures to get some: node scripts/intake/export-logs.mjs`);
   const was = (k) => (before && before[k] !== undefined && before[k] !== totals[k] ? ` (was ${before[k]})` : '');
-  lines.push(`vs the rulings — same tasks and quantities  ${totals.tasks}/${totals.tickets}${was('tasks')}   <- headline`);
+  lines.push(`vs the rulings — same tasks and quantities  ${totals.tasks}/${totals.tickets}${was('tasks')}   <- headline; a FIT, not a forecast: these tickets are the ones the rules were written on`);
   lines.push(`vs what he saved — same tasks and quantities ${totals.asSaved}/${totals.tickets}${was('asSaved')}   <- counts his breaks as misses`);
   lines.push(`same tasks, any quantity   ${totals.taskSet}/${totals.tickets}${was('taskSet')}`);
   lines.push(`same ring sizes            ${totals.sizes}/${totals.tickets}${was('sizes')}`);

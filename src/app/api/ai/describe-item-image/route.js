@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { aiRefusal } from '@/lib/aiAccess';
 import { recordIntakeSuggestion } from '@/services/ai/smartIntakeLog';
+import { INTAKE_MODEL } from '@/services/ai/smartIntakeLimits';
 import { aiErrorMessage, userFacingAiError, PHOTO_DESCRIPTION_FALLBACK } from '@/services/ai/aiErrorMessage';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = INTAKE_MODEL;
 
 const extractGeminiText = (payload = {}) => {
   const parts = payload?.candidates?.[0]?.content?.parts;

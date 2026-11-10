@@ -119,7 +119,9 @@ const isoDate = (value) => {
 const wholeNumber = (value, min, max, fallback) => {
   // "four" is 4, not the fallback: a word for a count silently became 1 (review, 2026-11-09).
   const word = QUANTITY_WORDS[str(value).toLowerCase()];
-  const n = Math.round(word ?? Number(value));
+  // "4 prongs" is 4: a number with its unit after it silently became 1 (review, 2026-11-09).
+  const leading = str(value).match(/^(\d{1,3})(?![\d.])/);
+  const n = Math.round(word ?? (Number.isFinite(Number(value)) ? Number(value) : Number(leading?.[1] ?? NaN)));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 };
 
@@ -129,7 +131,7 @@ const wholeNumber = (value, min, max, fallback) => {
  */
 export const normalizeParsedPayload = (payload = {}) => {
   const lines = Array.isArray(payload.matchedTasks) && payload.matchedTasks.length
-    ? payload.matchedTasks.map((item) => ({ id: str(item?.id), quantity: wholeNumber(item?.quantity, 1, 99, 1) }))
+    ? payload.matchedTasks.map((item) => ({ id: str(item?.id ?? item?.taskId), quantity: wholeNumber(item?.quantity ?? item?.qty, 1, 99, 1) }))
     : (Array.isArray(payload.matchedTaskIds) ? payload.matchedTaskIds : []).map((id) => ({ id: str(id), quantity: 1 }));
   // One line per task. A task the model names twice is two of it — "laser weld the clasp, laser weld the link" — so
   // the quantities ADD (review, 2026-11-09: keeping the larger made two welds one). A sizing task is set to one per
@@ -176,6 +178,7 @@ const isSizeUp = (t) => /\bsize up\b/.test(titleOf(t));
 const isSizeDown = (t) => /\bsize down\b/.test(titleOf(t));
 /** For the form, which holds task lines rather than catalog entries: the same title rules, in the one place they live. */
 export const isSizeUpTask = (task) => /\bsize up\b/.test(titleOf(task));
+export const isSizeDownTask = (task) => /\bsize down\b/.test(titleOf(task));
 export const isCustomerGoldTask = (task) => /customer/.test(titleOf(task));
 const isSizing = (t) => isSizeUp(t) || isSizeDown(t);
 const isCustomerGold = (t) => /customer/.test(titleOf(t));
@@ -202,7 +205,30 @@ export function taskRoles(tasks = []) {
     solderTogether: one(generic.filter(isSolderTogether)),
   };
   const problems = Object.entries(roles).filter(([, t]) => !t).map(([role]) => role);
+  if (unpairedWidthTasks(tasks).length) problems.push('shankWidth');
   return { ...roles, problems };
+}
+
+const isHalfShank = (t) => /half[\s-]*shank/.test(titleOf(t));
+/**
+ * Tasks that should come as an up-to-3mm / 3-to-5mm pair and do not. Two size-ups (or two half-shanks) for the same
+ * metal are a pair by intent; when their names no longer say which is which ("Size Up — wide shank"), the width rule
+ * cannot find them and stops — silently, until this (reviews, 2026-11-09, twice).
+ */
+export function unpairedWidthTasks(tasks = []) {
+  const out = [];
+  for (const kind of [(t) => isSizeUp(t) && !isCustomerGold(t), isHalfShank]) {
+    const groups = new Map();
+    for (const t of tasks.filter(kind)) {
+      const key = String(restricted(t) ? t.metals : '');
+      groups.set(key, [...(groups.get(key) || []), t]);
+    }
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      out.push(...group.filter((t) => !narrowSiblingOf(t, tasks) && !wideSiblingOf(t, tasks)));
+    }
+  }
+  return out;
 }
 
 /** The up-to-3mm sibling of a 3-to-5mm task, or null. */
@@ -221,79 +247,9 @@ export function wideSiblingOf(task, tasks = []) {
   return siblings.length === 1 ? siblings[0] : null;
 }
 
-/* ----------------------------------------------------------- what was said */
+import { shankWidthSaid, statedPieceCount, describesDifferentWorkPerPiece, saysEach } from './smartIntakeSaid';
 
-const SHANK = '(?:band|shank|ring)';
-// Words that may sit between "wide" and the band: its metal, karat, colour, wearer.
-const BAND_FILLER = '(?:(?:\\d{2}k(?:t)?|\\d{2}[\\s-]?karat|white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|ss|pt|mens|men\'s|gents|ladies|wedding|plain)\\s+){0,4}';
-/**
- * Did the JEWELER say the shank is wide?
- *  - A width over 3mm that is ABOUT the band: the band/shank/ring is the next word ("5 mm band", "4 millimeter wide
- *    shank", "5x2 shank") or was just named ("band is 5mm", "men's band, 3.5 mm"). Any other millimetre measurement is
- *    a stone, a chain or a finding — "tighten 5mm amethyst" is not a wide shank. Asking what the number IS about,
- *    rather than listing every stone it might be, is what stops the next gem name from over-charging (reviews,
- *    2026-11-09: a list of stones missed amethyst, garnet, topaz…).
- *  - Or the word for it next to the band, with its metal in between: "wide band", "wide 14k white gold band", "heavy
- *    mens band", "cigar band", "the shank is thick".
- *
- * Read from the sentence only. The item description is usually written by the photo model, and a "thick band" it saw
- * in a picture is not the jeweler specifying a width (owner, 2026-11-09: "Default ring mm is always 3x2 unless
- * specified 3-5"; and the descriptions are "trash").
- */
-export const statesWideShank = (inputText = '') => {
-  const text = str(inputText).toLowerCase();
-  const measure = /(\d+(?:\.\d+)?)\s*(?:x\s*\d+(?:\.\d+)?\s*)?(?:mm|millimet(?:er|re)s?|mil)\b/g;
-  for (const m of text.matchAll(measure)) {
-    const width = Number(m[1]);
-    if (!(width > 3 && width <= 12)) continue;
-    const after = text.slice(m.index + m[0].length);
-    const before = text.slice(Math.max(0, m.index - 28), m.index);
-    const bandNext = new RegExp(String.raw`^\s*(?:wide\s+|width\s+)?${BAND_FILLER}${SHANK}\b`).test(after);
-    // "band is 5mm", "men's band, 3.5 mm": the band was the last thing named, with nothing else named since.
-    const bandJustNamed = new RegExp(String.raw`\b${SHANK}s?\b(?:\s+(?:is|at|of|about|measures))?[\s,:-]*$`).test(before);
-    if (bandNext || bandJustNamed) return true;
-  }
-  return new RegExp(String.raw`\b(?:wide|thick|chunky|heavy)\s+${BAND_FILLER}${SHANK}\b`).test(text)
-    || /\bcigar band\b/.test(text)
-    || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text);
-};
-
-const NUMBER_WORDS = { two: 2, both: 2, three: 3, four: 4, five: 5, six: 6 };
-const COUNT = '(\\d{1,2}|two|both|three|four|five|six)';
-// Plural only: a count of pieces is "2 rings". "7 ring needs to be 6" is a size-7 ring. And only the things that
-// ARE pieces: "pieces" and "items" are not — "bracelet broken in 2 pieces" is one bracelet (review, 2026-11-09).
-const PIECES = '(?:rings|bands|chains|bracelets|pendants|necklaces)';
-const DESCRIBES = '(?:white|yellow|rose|gold|silver|sterling|platinum|plat|wg|yg|rg|wedding|engagement|matching|stacking|plain|mens|ladies|ss|pt|\\d{2}kt?|\\d{2}[\\s-]?karat)';
-/**
- * How many pieces the sentence says are ON THIS JOB: "2 rings", "two white gold rings", "both rings", "all 3 rings".
- * 1 when it does not say. It is only ever used to CONFIRM the model's own count (see withPieceCount) — a regex has
- * been wrong about this in every review so far, each time multiplying a ticket.
- *
- * Narrow on purpose:
- *  - the number is a whole number of its own — the "5" in "size 7.5 ring" is half a size;
- *  - only words that DESCRIBE the piece sit between it and a PLURAL piece noun — "retip 4 prongs on a ring" is four
- *    prongs, "5 diamond band" is a band with five diamonds, "two jump rings" are jump rings;
- *  - not pieces that are merely mentioned: "customer has 3 rings", "wears it with 2 bands", "her other 2 rings",
- *    "1 of 2 rings", "size 6 and 7 rings";
- *  - "all N" only when a piece noun follows: "retip all 4" is four prongs.
- */
-export const statedPieceCount = (inputText = '') => {
-  const text = str(inputText).toLowerCase();
-  const found = [];
-  for (const m of text.matchAll(new RegExp(String.raw`(?<![\d.])(?:all\s+)?${COUNT}\s+(?:${DESCRIBES}\s+){0,4}${PIECES}\b`, 'g'))) {
-    const before = text.slice(Math.max(0, m.index - 14), m.index);
-    // A size, a part of a set, or pieces that are only mentioned.
-    if (!m[0].startsWith('all') && /\b(?:size|sz|to|a|of|and|or|with|has|have|other|another|her|his|their|my)\s*$/.test(before)) continue;
-    found.push(NUMBER_WORDS[m[1]] || Number(m[1]));
-  }
-  const n = Math.max(1, ...found.filter((x) => Number.isFinite(x)));
-  return n <= MAX_PIECES ? n : 1;
-};
-
-/** Does the note give the pieces DIFFERENT work ("size one down, retip the other")? Then no one count fits every line. */
-export const describesDifferentWorkPerPiece = (inputText = '') => (
-  /\bthe other\b|\bone of (?:them|the)\b|\bone (?:ring|band|needs|gets|up|down)\b|\beach\b.*\bdifferent\b|\bonly (?:sizing|the|one)\b|\b(?:engagement|wedding) (?:ring|band)\b(?!s)/.test(str(inputText).toLowerCase())
-);
+export { shankWidthSaid, statesWideShank, statedPieceCount, describesDifferentWorkPerPiece } from './smartIntakeSaid';
 
 /* ----------------------------------------------------------------- rulings */
 
@@ -317,9 +273,9 @@ const missingRole = (role) => `The task list has no single "${ROLE_NAMES[role]}"
 export const MAX_SIZES_MOVED = 5;
 
 /** Karats named in the note: "14k", "14 kt", "18 karat". A ring size equal to one of them is probably that karat. */
-const karatsSaid = (inputText = '') => [...str(inputText).toLowerCase().matchAll(/\b(10|14|18|22|24)\s*-?\s*(?:k|kt|karat|carat)\b/g)].map((m) => Number(m[1]));
+const karatsSaid = (inputText = '') => [...str(inputText).toLowerCase().matchAll(/\b(10|14|18|22|24)\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b/g)].map((m) => Number(m[1]));
 /** Does the number appear in the note as anything OTHER than the karat? "size 14" does; "14k" alone does not. */
-const saidAsSize = (inputText, n) => new RegExp(String.raw`(?<![\d.])${n}(?!\s*-?\s*(?:k|kt|karat|carat)\b)(?![\d.])`).test(str(inputText).toLowerCase());
+const saidAsSize = (inputText, n) => new RegExp(String.raw`(?<![\d.])${n}(?!\s*-?\s*(?:k|kt|karat|carat)(?:[ywr]g?)?\b)(?![\d.])`).test(str(inputText).toLowerCase());
 
 /** Sizes moved, signed: from the two sizes when both are known, else the stated change, else 0. */
 export const sizesMoved = (parsed = {}) => {
@@ -347,9 +303,10 @@ export const withKnownTasksOnly = (parsed, tasks = []) => {
 export const noteNames = (inputText = '') => {
   const text = str(inputText).toLowerCase();
   return {
-    metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)\b|\b(?:925|950)\b/.test(text),
-    karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)\b|\b(?:925|950|999|900)\b/.test(text),
-    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b/.test(text),
+    // "14ky", "10kw", "14kwg": the karat with its colour stuck on is the shop's commonest shorthand (review, 2026-11-09).
+    metal: /\b(?:gold|silver|sterling|platinum|plat|costume|yg|wg|rg|ss|pt)\b|\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950)\b/.test(text),
+    karat: /\b\d{2}\s*-?\s*(?:k|kt|karat)(?:[ywr]g?)?\b|\b(?:925|950|999|900)\b/.test(text),
+    color: /\b(?:yellow|white|rose|pink|yg|wg|rg)\b|\b\d{2}\s*-?\s*kt?[ywr]g?\b/.test(text),
   };
 };
 
@@ -456,8 +413,21 @@ export const withSizingTaskForSizes = (parsed, tasks = []) => {
  *    silent under-charge — review, 2026-11-09).
  */
 export const withShankWidth = (parsed, tasks = [], inputText = '') => {
-  const wide = statesWideShank(inputText);
+  const said = shankWidthSaid(inputText);
+  const wide = said === 'wide';
   const byId = byIdOf(tasks);
+  const matchedTasks = (parsed.matchedTasks || []).map((m) => byId.get(m.id)).filter(Boolean);
+  // The pair cannot be told apart by name: say so rather than quietly charging whichever the model picked.
+  const unpaired = unpairedWidthTasks(tasks);
+  if (matchedTasks.some((t) => unpaired.includes(t))) {
+    return warn(parsed, 'The task list\'s "up to 3mm" and "3mm to 5mm" tasks could not be told apart by name, so the shank width rule was not applied. Check the task, and fix the task names in Admin → Tasks.');
+  }
+  if (said === 'unclear') {
+    const banded = matchedTasks.find((t) => narrowSiblingOf(t, tasks) || wideSiblingOf(t, tasks));
+    return banded
+      ? warn(parsed, `A millimetre measurement is in the note, but not plainly as the shank's width: kept "${banded.title}". Check the width.`)
+      : parsed;
+  }
   let swapped = '';
   const lines = (parsed.matchedTasks || []).map((m) => {
     const task = byId.get(m.id);
@@ -496,14 +466,20 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
   const claimed = Math.max(modelSays, sentenceSays);
   const byId = byIdOf(tasks);
   const matched = parsed.matchedTasks || [];
+  const each = saysEach(inputText);
   const onePerPiece = (pieces) => matched.map((m) => (isSizing(byId.get(m.id)) ? { ...m, quantity: pieces } : { ...m, quantity: Math.max(m.quantity, pieces) }));
 
   const solder = matched.find((m) => isSolderTogether(byId.get(m.id)));
   if (solder) {
     // Rings joined: the count is how many rings, said by either the model or the sentence ("solder together two rings").
     const joins = claimed >= 2 ? claimed - 1 : solder.quantity;
-    const lines = matched.map((m) => (m === solder ? { ...m, quantity: joins } : (isSizing(byId.get(m.id)) ? { ...m, quantity: 1 } : m)));
-    return { ...withLines(parsed, lines), pieceCount: claimed, pieces: 1 };
+    const changed = joins !== solder.quantity;
+    const lines = matched.map((m) => {
+      if (m === solder) return changed ? ruled({ ...m, quantity: joins }, `${claimed} rings are ${joins} join${joins === 1 ? '' : 's'}`) : m;
+      return isSizing(byId.get(m.id)) ? { ...m, quantity: 1 } : m;
+    });
+    const out = { ...withLines(parsed, lines), pieceCount: claimed, pieces: 1 };
+    return changed ? warn(out, `"${byId.get(solder.id).title}" set to ${joins}: ${claimed} rings are ${joins} join${joins === 1 ? '' : 's'}.`) : out;
   }
   if (claimed > 1 && (agreed === 1 || describesDifferentWorkPerPiece(inputText))) {
     const why = agreed > 1 ? 'with different work on each' : 'but that is not certain from the note';
@@ -511,7 +487,15 @@ export const withPieceCount = (parsed, tasks = [], inputText = '') => {
       `This may be ${claimed} pieces, ${why}: quantities were NOT multiplied. Check each line, and the sizes, by hand.`);
   }
   if (agreed <= 1) return { ...withLines(parsed, onePerPiece(1)), pieceCount: 1, pieces: 1 };
-  return warn({ ...withLines(parsed, onePerPiece(agreed)), pieceCount: agreed, pieces: agreed }, `${agreed} pieces: each task and material is counted ${agreed} times.`);
+  // Say what happened to every line with a count of its own, instead of one sentence that is untrue for some of them.
+  const counted = matched.filter((m) => !isSizing(byId.get(m.id)) && m.quantity > 1).map((m) => {
+    const title = byId.get(m.id)?.title || 'A task';
+    if (m.quantity <= agreed) return '';
+    return each
+      ? ` "${title}" was left at ${m.quantity}, and the note says "each" — if that is ${m.quantity} on each piece, make it ${Math.min(99, m.quantity * agreed)}.`
+      : ` "${title}" was left at ${m.quantity} — check that is the total for all ${agreed}.`;
+  }).join('');
+  return warn({ ...withLines(parsed, onePerPiece(agreed)), pieceCount: agreed, pieces: agreed }, `${agreed} pieces: each task and material is counted ${agreed} times.${counted}`);
 };
 
 /**
@@ -566,6 +550,9 @@ export const withSizingStock = (parsed, tasks = []) => {
 export function decideIntake(raw, { tasks = [], inputText = '', formMetal = {} } = {}) {
   let p = normalizeParsedPayload(raw || {});
   if (p.overCap > 0) p = warn(p, `More than ${TASK_CAP} jobs: only the first ${TASK_CAP} were kept. Add the rest by hand.`);
+  for (const field of ['currentRingSize', 'desiredRingSize']) {
+    if (/\d/.test(str(raw?.[field])) && !p[field]) p = warn(p, `A ring size ("${str(raw[field])}") could not be read, so it was left blank. Enter the sizes by hand.`);
+  }
   p = withFormMetal(p, raw || {}, formMetal, inputText);
   p = withKnownTasksOnly(p, tasks);
   p = withCheckedSizes(p, inputText);

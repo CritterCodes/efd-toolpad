@@ -27,6 +27,10 @@ function Stat({ label, value }) {
   );
 }
 
+const panelSx = { p: 1.5 };
+/** "12 of 40 (30%)", or a dash when there were no tickets. */
+const trend = (t) => (t?.tickets ? `${t.tasksChanged} of ${t.tickets} (${Math.round((t.tasksChanged / t.tickets) * 100)}%)` : '—');
+
 export default function SmartIntakeLogPage() {
   const [kind, setKind] = React.useState('');
   const [surface, setSurface] = React.useState('');
@@ -70,6 +74,17 @@ export default function SmartIntakeLogPage() {
         <Stat label="Changed before saving" value={summary.changed} />
         <Stat label="Saved as suggested" value={summary.saved - summary.changed} />
       </Box>
+
+      {/* Per ticket, by the last read, with a before and an after — the only number here that can show a trend. */}
+      <Paper variant="outlined" sx={panelSx}>
+        <Typography variant="caption" color="text.secondary">Tickets whose tasks were changed before saving (sentence reads, one count per ticket)</Typography>
+        <Typography variant="body2">
+          Last 30 days: {trend(summary.tickets?.last30)} · The 30 days before: {trend(summary.tickets?.prev30)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Includes breaks and work he added at the bench, so read it as a trend. If it climbs after a change, the change made it worse.
+        </Typography>
+      </Paper>
 
       <Paper variant="outlined" sx={{ p: 1.5 }}>
         <Typography variant="caption" color="text.secondary">Where it goes wrong, by field (saved tickets)</Typography>

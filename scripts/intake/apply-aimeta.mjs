@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : ''; };
@@ -36,7 +36,8 @@ const envFile = arg('--env');
 if (envFile) {
   for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '');
+    // The file named on the command line is the database you mean: it beats a MONGODB_URI left in the shell (review, 2026-11-09).
+    if (m && (m[1] === 'MONGODB_URI' || !process.env[m[1]])) process.env[m[1]] = m[2].replace(/^"|"$/g, '');
   }
 }
 if (!process.env.MONGODB_URI) { console.error('MONGODB_URI is not set. Pass --env <path to .env.production>.'); process.exit(1); }
@@ -51,8 +52,9 @@ try {
 
   if (RESTORE) {
     const saved = JSON.parse(fs.readFileSync(RESTORE, 'utf8'));
-    for (const { title, aiMeta } of saved) {
-      const res = await tasks.updateOne({ title, isActive: { $ne: false } }, { $set: { 'aiMeta.symptoms': aiMeta.symptoms || [], 'aiMeta.whenToUse': aiMeta.whenToUse || '', 'aiMeta.neverUseWhen': aiMeta.neverUseWhen || '' } });
+    for (const { _id, title, aiMeta } of saved) {
+      // By the id the backup recorded — a task renamed since would be missed by title, or the wrong one hit (review, 2026-11-09).
+      const res = await tasks.updateOne(_id ? { _id: new ObjectId(_id) } : { title, isActive: { $ne: false } }, { $set: { 'aiMeta.symptoms': aiMeta.symptoms || [], 'aiMeta.whenToUse': aiMeta.whenToUse || '', 'aiMeta.neverUseWhen': aiMeta.neverUseWhen || '' } });
       console.log(`${res.matchedCount ? 'restored' : 'NOT FOUND'}: ${title}`);
     }
     process.exit(0);
