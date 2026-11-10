@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
-const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT, withRhodiumForWhiteGold, withSizingTaskForSizes, withDefaultShankWidth, statesWideShank } = await import('./route.js');
+const { normalizeKaratValue, normalizeParsedPayload, prefilterTasks, tasksForPrompt, buildIntakePrompt, FULL_CATALOG_LIMIT, withRhodiumForWhiteGold, withSizingTaskForSizes, withDefaultShankWidth, statesWideShank, normalizeGoldColor } = await import('./route.js');
 
 describe('normalizeKaratValue', () => {
   it('maps every casing and suffix Gemini produces onto the form vocabulary', () => {
@@ -189,5 +189,23 @@ describe('the sizing task is decided, not hoped for (owner, 2026-11-09)', () => 
     expect(statesWideShank('chunky ring')).toBe(true);
     expect(statesWideShank('3x2 mm shank')).toBe(false);
     expect(statesWideShank('size 5 to 7')).toBe(false);
+  });
+});
+
+describe('review fixes, 2026-11-09', () => {
+  it('a colour the model spelled out is read, never overwritten with yellow', () => {
+    for (const said of ['White Gold', 'wg', 'WHITE']) expect(normalizeParsedPayload({ metalType: 'gold', goldColor: said }).goldColor).toBe('white');
+    expect(normalizeGoldColor('rose gold')).toBe('rose');
+    expect(normalizeGoldColor('yg')).toBe('yellow');
+    // Said, but in words we don't know: blank for a person to fill, not a guess.
+    expect(normalizeParsedPayload({ metalType: 'gold', goldColor: 'two-tone' }).goldColor).toBe('');
+    expect(normalizeParsedPayload({ metalType: 'gold', goldColor: '' }).goldColor).toBe('yellow');
+  });
+
+  it('rhodium is per piece: 14 prongs on one ring is one rhodium; 2 rings sized is two', () => {
+    const tasks = [{ id: 'retip', title: 'Retip prongs' }, { id: 'down', title: 'Size Down' }, { id: 'rh', title: 'Rhodium Plating' }];
+    const white = (matchedTasks) => ({ metalType: 'gold', goldColor: 'white', matchedTasks, matchedTaskIds: matchedTasks.map((m) => m.id) });
+    expect(withRhodiumForWhiteGold(white([{ id: 'retip', quantity: 14 }]), tasks).matchedTasks.at(-1)).toEqual({ id: 'rh', quantity: 1 });
+    expect(withRhodiumForWhiteGold(white([{ id: 'down', quantity: 2 }, { id: 'retip', quantity: 8 }]), tasks).matchedTasks.at(-1)).toEqual({ id: 'rh', quantity: 2 });
   });
 });
