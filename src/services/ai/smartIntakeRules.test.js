@@ -576,3 +576,10 @@ describe('round 6 sweep, 2026-11-10', () => {
     expect(decideIntake({ metalType: 'gold' }, { tasks: [], inputText: '14k ring polish' }).warnings.join(' ')).toMatch(/The task list did not load/);
   });
 });
+
+describe('Codex review of #351', () => {
+  it('"ring has a wide shank" is this ring; "wife has wide band" is hers', () => {
+    for (const t of ['14k yg ring has a wide shank size 6 to 8', 'it has a thick band, size 9 to 10']) expect(shankWidthSaid(t), t).toBe('wide');
+    for (const t of ['thin band size 6 to 7, wife has wide band too', 'she has a wide band at home']) expect(shankWidthSaid(t), t).toBe('unclear');
+  });
+});

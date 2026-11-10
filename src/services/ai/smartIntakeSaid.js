@@ -33,7 +33,11 @@ const MM_WORDS = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
 // Words that may follow a measurement without being the thing measured: "6mm, size 9", "5mm and polish".
 const CONTINUES = /^(?:and|size|sized|sizing|resize|sz|needs|to|half|comfort|with|so|for|please|up|down|then|also|customer|wants|rush)$/;
 // A band that is someone else's, or denied: "wears it with a wide band", "not a wide band", "her other wide band".
-const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against|has|have|wears|wearing)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+const NOT_THIS_BAND = /\b(?:with|not|other|another|matching|next to|beside|against|wears|wearing)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+// "wife has wide band too" is hers; "ring has a wide shank" is this ring (Codex review of #351). Who HAS it decides.
+const SOMEONE_HAS = /\b(?:has|have)\s+(?:an?\s+|her\s+|his\s+|the\s+)?$/;
+const THIS_PIECE_HAS = /\b(?:ring|band|it|piece)\s+(?:has|have)\s+(?:an?\s+|the\s+)?$/;
+const notThisBand = (before) => NOT_THIS_BAND.test(before) || (SOMEONE_HAS.test(before) && !THIS_PIECE_HAS.test(before));
 /**
  * What the note says about the shank's width: 'wide', 'unclear', or '' (nothing).
  *
@@ -93,7 +97,7 @@ export const shankWidthSaid = (inputText = '') => {
   if (new RegExp(String.raw`\bheavy\s+${BAND_FILLER}ring\b(?!\s+wear)`).test(text)) unclear = true;
   const worded = new RegExp(String.raw`\b(?:(?:wide|thick|chunky)\s+${BAND_FILLER}${SHANK}\b(?!\s+wear)|heavy\s+${BAND_FILLER}(?:band|shank)\b)`, 'g');
   for (const m of text.matchAll(worded)) {
-    if (NOT_THIS_BAND.test(text.slice(Math.max(0, m.index - 16), m.index))) unclear = true; else wide = true;
+    if (notThisBand(text.slice(Math.max(0, m.index - 24), m.index))) unclear = true; else wide = true;
   }
   if (/\bcigar band\b/.test(text) || new RegExp(String.raw`\b${SHANK}\s+is\s+(?:\w+\s+)?(?:wide|thick|chunky|heavy)\b`).test(text)) wide = true;
   if (wide) return 'wide';
