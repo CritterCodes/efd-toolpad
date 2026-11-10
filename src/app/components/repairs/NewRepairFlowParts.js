@@ -125,7 +125,7 @@ export function RingSizePicker({ label, value, onChange }) {
 }
 
 /** A work-item row: stepper for qty, 44px delete, price per the item kind. */
-export function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChange, onPriceChange, priceEditable, extraFields, beforePrice, onRemove }) {
+export function TicketRow({ kind, hue, item, title, fromSentence, ruledWhy, onQuantityChange, onPriceChange, priceEditable, extraFields, beforePrice, onRemove }) {
   const unitPrice = toNumber(item.price);
   const lineTotal = unitPrice * (item.quantity || 1);
   // THE engine couldn't price this line (no metal chosen, not stocked in it…): no number, and why.
@@ -136,7 +136,10 @@ export function TicketRow({ kind, hue, item, title, fromSentence, onQuantityChan
         <Box sx={{ minWidth: 0, display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
           <StatusChip label={kind} hue={hue} />
           {item.isStullerItem && <StatusChip label="Stuller" hue="#A1A1AA" />}
-          {fromSentence && <StatusChip label={<><CheckGlyph size={10} />from your sentence</>} hue="#34D399" />}
+          {/* A line the rulings added (rhodium on white gold, the sizing task for two sizes) was not asked for by name. */}
+          {ruledWhy
+            ? <StatusChip label={`added by rule: ${ruledWhy}`} hue="#FBBF24" />
+            : fromSentence && <StatusChip label={<><CheckGlyph size={10} />from your sentence</>} hue="#34D399" />}
         </Box>
         <TapIconButton aria-label={`Remove ${item.title || item.displayName || item.name || 'line'}`} onClick={onRemove}>
           <TrashGlyph />

@@ -31,7 +31,7 @@ const { default: useNewRepairForm } = await import('./useNewRepairForm');
 // The hook's return, as it was before the split (useNewRepairForm.js at c406c90e).
 const API = [
   'formData', 'setFormData', 'loading', 'errors', 'expandedSection', 'setExpandedSection', 'showNewClientDialog',
-  'setShowNewClientDialog', 'analyzingSmartIntake', 'smartIntakeError', 'setSmartIntakeError', 'generatingImageDescription',
+  'setShowNewClientDialog', 'analyzingSmartIntake', 'smartIntakeError', 'setSmartIntakeError', 'smartIntakeNotes', 'generatingImageDescription',
   'imageDescriptionError', 'setImageDescriptionError', 'newClientData', 'setNewClientData', 'newClientLoading',
   'picturePreviewUrl', 'availableTasks', 'availableMaterials', 'availableUsers', 'benchJewelers', 'availableStores',
   'rushJobInfo', 'wholesalerPricingSettings', 'pricingSettings', 'pricingError', 'pricingTotals', 'unpricedLines',

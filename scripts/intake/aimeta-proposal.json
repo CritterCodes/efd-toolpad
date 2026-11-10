@@ -1,0 +1,58 @@
+{
+  "_about": "Proposed aiMeta for tasks whose current text contradicts how the shop uses them (docs/goals/SMART_INTAKE.md, D1). Written in the jeweler's shorthand, from the real intakes in test/fixtures/smart-intake/intakes.json. Keyed by task TITLE. Nothing here is live: `node scripts/intake/apply-aimeta.mjs` prints a before/after and writes nothing without --apply and the owner's yes.",
+  "Laser Weld": {
+    "symptoms": ["laser weld", "one laser weld", "3 laser welds", "laser weld x2", "laser-welded", "hard solder on silver", "weld a break in a chain, bracelet, bangle or earring", "crack near a stone"],
+    "whenToUse": "The shop's weld for any break or join, on any piece: chains, bracelets, bangles, earrings, pendants, rings. Priced per weld: quantity is the number of welds said. Silver is laser welded here, so 'hard solder' on a silver piece means this task.",
+    "neverUseWhen": "Not for joining two rings side by side (Solder Together per Ring) and not for replacing a worn section of shank (Half-Shank)."
+  },
+  "Size up (1 size) - up to 3mm x 2 mm shank": {
+    "symptoms": ["size up", "size 5 to 7", "going from a 5 to a 7", "size 4.75 needs to be size 6", "up 2 sizes"],
+    "whenToUse": "Sizing a ring UP on a standard shank (up to 3mm x 2mm). The default for every size-up when no shank width is said, however many sizes the ring moves: the task covers the first size and sizing stock is added for the rest. Quantity 1 per ring.",
+    "neverUseWhen": "Not when a shank wider than 3mm is stated (Size Up 3mm to 5mm), not when the customer supplies the gold (Size Up Customer Supplied Gold), and not for platinum."
+  },
+  "Size Up  - 3mm to 5mm shanks": {
+    "symptoms": ["5 mm band size up", "wide band size up", "4mm shank going up a size"],
+    "whenToUse": "Sizing a ring UP when the note states a shank wider than 3mm ('5 mm band', 'wide band'). Any number of sizes. Quantity 1 per ring.",
+    "neverUseWhen": "Not when no width is said (use the up-to-3mm size-up), not for sizing down, and not when the customer supplies the gold."
+  },
+  "Clean and Polish": {
+    "symptoms": ["clean and polish", "clean polish", "c&p", "polish", "clean"],
+    "whenToUse": "Clean and polish a piece. Use it whenever the note says clean, polish, or both, alone or alongside other work on the same ticket. Quantity 1 per piece.",
+    "neverUseWhen": "Not implied by other work: add it only when the note says it."
+  },
+  "Set Stone less than0.49ct": {
+    "symptoms": ["set stone", "set 3 stones", "set with three 1-point stones", "missing a diamond, set stone less than 1/2 carat", "set melee"],
+    "whenToUse": "Setting a stone under half a carat: melee, 1-point stones, accent stones. Priced per stone: quantity is the number of stones said.",
+    "neverUseWhen": "Not for a stone of half a carat or more (use the larger Set Stone tiers). Not for gluing a pearl or cabochon (Glue Pearl)."
+  },
+  "Set Stone 0.5ct to 0.99ct": {
+    "symptoms": ["set half carat stone", "set stone < 1 carat", "set 3/4 carat diamond", "reset center stone"],
+    "whenToUse": "Setting a stone from half a carat up to just under one carat. Priced per stone: quantity is the number of stones said.",
+    "neverUseWhen": "Not for stones under half a carat or of one carat and over (use the matching Set Stone tier)."
+  },
+  "Set Stone 1ct or larger": {
+    "symptoms": ["set stone over 1 carat", "set 1.5 carat diamond", "set stones over 1 carat, 2 times"],
+    "whenToUse": "Setting a stone of one carat or more. Priced per stone: quantity is the number of stones said.",
+    "neverUseWhen": "Not for stones under one carat (use a smaller Set Stone tier)."
+  },
+  "Add 18gu Jump Ring — 5mm and smaller": {
+    "symptoms": ["add jump ring", "two jump rings", "jump ring", "add a jump ring to the chain"],
+    "whenToUse": "Add a jump ring, 5mm or smaller. The default whenever the note says 'jump ring'. Priced per jump ring: quantity is the number said.",
+    "neverUseWhen": "Not when the note says the jump ring is laser welded (use the 'w/ laser' task). Not for a broken link (Break in chain) or a clasp (Clasp Repair)."
+  },
+  "Add 18gu Jump Ring w/ laser — 5mm and smaller": {
+    "symptoms": ["laser weld a jump ring", "jump ring, lasered closed", "add jump ring with laser"],
+    "whenToUse": "Add a jump ring, 5mm or smaller, welded closed with the laser. Use ONLY when the note says the jump ring is laser welded.",
+    "neverUseWhen": "Not for a plain 'add jump ring' (use the standard jump-ring task)."
+  },
+  "Glue Pearl": {
+    "symptoms": ["glue pearl", "reglue pearl", "reglue turquoise", "glue the stone back in", "reglue cabochon"],
+    "whenToUse": "Glue a pearl, cabochon or other glued-in stone back into its setting ('reglue').",
+    "neverUseWhen": "Not for a prong- or bezel-set stone (use a Set Stone tier)."
+  },
+  "Solder Together per Ring": {
+    "symptoms": ["solder together two rings", "solder rings together", "join wedding set", "solder 3 rings together"],
+    "whenToUse": "Soldering rings together side by side, such as a wedding set. Quantity is the number of joins: two rings is 1, three rings is 2.",
+    "neverUseWhen": "Not for a break in one ring's shank (Break in Shank), not for replacing a worn section (Half-Shank), and not for a weld on a chain, bracelet or bangle (Laser Weld)."
+  }
+}

@@ -138,7 +138,7 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 **D — the AI metadata**
 
-- **D1.** `aiMeta` is written in customer voice for a chatbot; the reader is a jeweler's shorthand (0 of 106 real
+- ◐ r2 (prepared: `scripts/intake/aimeta-proposal.json` for 11 tasks, `apply-aimeta.mjs` with a dry run, `npm run intake:replay -- --proposal` to score it. WAITING ON THE OWNER — see the Round log) **D1.** `aiMeta` is written in customer voice for a chatbot; the reader is a jeweler's shorthand (0 of 106 real
   inputs contain "my"). Rewrite, in shop shorthand and from the real inputs, for: Laser Weld (used on chains and
   bracelets, described as a crack near a stone), Size up (1 size) (says never for more than one size; all 5 real
   uses were), Clean and Polish (says not with other work; 7 of 10 were), Set Stone (says single stone; the shop uses
@@ -148,15 +148,15 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 
 **E — the form**
 
-- **E1.** Re-analysing a corrected sentence keeps the old metal, tasks and stock with no message. Make it replace what
+- ✅ r2 **E1.** Re-analysing a corrected sentence keeps the old metal, tasks and stock with no message. Make it replace what
   the previous analysis set and keep what was added by hand.
-- **E2.** A ticket can be saved without seeing its tasks: the green chips skip Work, Review shows "3 · $185.00", and the
+- ◐ r2 (assumed values are marked "(assumed)"; Review still shows a count, not the lines) **E2.** A ticket can be saved without seeing its tasks: the green chips skip Work, Review shows "3 · $185.00", and the
   chips are built from form state so a default reads as "picked up from that sentence". List the lines on Review; mark
   defaults as defaults.
-- ◐ r1 (the server returns `warnings`; the form does not show them yet) **E3.** Return `warnings` from the server ("rhodium added: white gold rule", "unknown task id dropped") and show them.
-- **E4.** When the AI is down the regex fallback fills in a weaker ticket. Shrink it to metal and sizes, with "AI
+- ✅ r2 **E3.** Return `warnings` from the server ("rhodium added: white gold rule", "unknown task id dropped") and show them.
+- ✅ r2 **E4.** When the AI is down the regex fallback fills in a weaker ticket. Shrink it to metal and sizes, with "AI
   unavailable — add the work by hand".
-- **E5.** No test covers `useSmartIntake.js`, where the model's answer becomes ticket lines. Add one.
+- ✅ r2 **E5.** No test covers `useSmartIntake.js`, where the model's answer becomes ticket lines. Add one.
 
 **G — the photo description**
 
@@ -176,12 +176,47 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
   Shop knowledge (silver is laser welded) that belongs in Laser Weld's aiMeta. Part of D1.
 - **H3.** A reset stone with no size said ("Remove and reset stone"): the model picks the smallest band, the ticket
   had 0.5–0.99ct. Unknowable from the sentence; the form should ask rather than guess. With E2.
-- **H4.** Model-mode answers vary run to run on a few tickets ("Sterling silver clean polish" matched in one run and
+- ◐ r2 (temperature 0 in the route and the replay; a few tickets still flip between runs) **H4.** Model-mode answers vary run to run on a few tickets ("Sterling silver clean polish" matched in one run and
   not the next). Score a model run only against another model run, and consider `responseSchema` (C3) and
   temperature 0.
 - **H5.** `npm run views` needs a production build with `NEXT_PUBLIC_URL=http://localhost:4300`; not run in round 1.
   Three production test files cannot load `mongodb-memory-server` in a worktree. Neither is smart intake's, both
   mean the local gate is weaker than the goal file assumes.
+
+**S — from the round 1 sweep** (`docs/goals/smart-intake-reviews/r1-sweep.md`)
+
+- ✅ r2 **S1.** Piece count misread multiplied the ticket ("retip all 4 prongs", "5 diamond band", "7 ring needs to be
+  6", "size 7.5 ring" — the last found by Codex, fixed in #345). The count is now a whole number against a PLURAL
+  piece noun, with only describing words between; "all N" counts only when nothing else follows to be counted.
+- ✅ r2 **S2.** Sizing was never checked against the sizes. Now: the task follows the direction of the sizes; a sizing
+  task is exactly one per piece; two sizing tasks keep the first; a move over 8 sizes is blanked as a misread; no
+  ring sizes on a piece that is not a ring; "all 3 to a 6" is not size 3.
+- ✅ r2 **S3.** Shank width only went down. A stated wide shank now upgrades a narrow pick; "heavy mens band" and
+  "cigar band" are wide; "4mm princess cut" and "center is 6.5mm" are not. Read from the sentence only (see Declined).
+- ✅ r2 **S4.** Rhodium was decided from the model's colour, not the form's. The form's metal is sent to the route.
+- ✅ r2 **S5.** `warnings` were computed and never shown; rule-added lines carried the "from your sentence" tick. The
+  form shows the warnings under Analyze and labels those lines "added by rule: …".
+- ✅ r2 **S6.** A ruling whose task is missing or ambiguous in the catalog went quiet. It now warns on the form, by name.
+- ✅ r2 **S7.** A second Analyze left stale tasks, stock and metal (= E1).
+- ✅ r2 **S8.** Sizing stock never followed a size edit or a hand-added size-up. The Work step now shows the mismatch
+  with a one-tap fix (`sizingStockCheck`). The SAVE still does not check it — open as **S8b**.
+- ✅ r2 **S9.** The fallback wrote a confident wrong ticket (= E4). It now reads the metal and sizes only.
+- ✅ r2 **S10.** Material matching took any positive score. Only a sizing-stock material is ever added as sizing
+  stock; the 3x2 unless the wide task is on the ticket; a warning when the list has none.
+- ✅ r2 **S11.** The replay's honesty: it prints "vs the rulings" AND "vs what he saved"; the ratchet is per ticket;
+  `npm test` fails when the prompt or task list changed since the model was last asked; no logged-answer fallback in
+  the model run; "no work was said" tickets are scored as "should suggest nothing" instead of skipped (8 → 2 skips).
+- **S8b.** The save (`src/app/api/repairs/route.js`) prices the lines it is given and does not hold sizing stock
+  against the sizes. A server-side check, or at least a note on the saved ticket.
+- **S12.** The production miss counter (= A2): per ticket, materials, failures, dates, prompt hash.
+- **S13.** Run `taskRoles` when a task is saved in Admin → Tasks and warn there — catches a rename at the moment it
+  is made, before the next intake. Cheaper than C1 and worth doing first.
+- **S14.** Review step: list the actual lines (rest of E2); show the stock check there too.
+- **S15.** Coverage: no platinum ticket, 4 store intakes, 10 tasks appear once. Add hand-written fixtures for the
+  platinum swap and a store intake when real ones don't arrive.
+- **S16.** Photo path: "the ring" for every item; gold items described "silver-toned" (= G1, F3).
+- **S17.** A mixed multi-piece job ("size one up, clean the other") cannot be expressed — the form holds one size
+  pair. It now refuses to multiply and says so; splitting into two tickets is the real answer.
 
 **F — hardening, small**
 
@@ -203,9 +238,12 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 - **O3 — "solder together". ANSWERED 2026-11-09.** Owner: *"Solder Together is per ring. 2 rings is 1x task. 3 rings
   is 2x tasks."* The quantity is the number of joins: rings − 1. It is NOT a piece count (B0 does not apply to it).
 
-- **O4 — rhodium on white gold that is not a ring.** *"yes all white gold get rhodium"* is applied to every white
-  gold job. But his own tickets leave it off a white gold tennis bracelet with one laser weld, and off "14k white
-  gold, 3 laser welds". Rings only, or everything? Until answered: everything, as ruled. (Opened round 1.)
+- **O4 — rhodium on white gold: always, or usually?** *"yes all white gold get rhodium"* is applied to every white
+  gold job. But he saved rhodium on only 6 of his 12 white gold tickets with work (round 1 sweep): it is off a tennis
+  bracelet with one laser weld, off "14k white gold, 3 laser welds", off a 6→7.5 size-up, off the customer-supplied
+  gold size-up. Rings only? Not on laser welds? Or were those misses? Until answered: every white gold job, as ruled —
+  and every one of those six marks reads "a break". **This is the largest single gap between the rulings and his
+  tickets.** (Opened round 1, sharpened round 2.)
 - **O5 — a pair of earrings.** Is a pair one piece or two? "14k white gold earrings set with stones over 1 carat,
   2 times" was saved as Set Stone ×2 + Rhodium ×1; "14k yellow gold earrings, laser weld" as Laser Weld ×2. The model
   is told a pair is one piece unless the note counts them. (Opened round 1.)
@@ -213,6 +251,16 @@ in whole sizes; a sizing task whenever two sizes are given; 3x2 unless a wide sh
 ## Declined
 
 *(findings a round chose not to act on, with the reason)*
+
+- **Read the item description for a wide shank** (round 0 review: "a wide band described there is downgraded").
+  Reversed in round 2: the description is usually written by the photo model, and round 1's sweep showed "band is
+  thick" in such a description keeping the 3–5mm task. The owner's rule is "unless specified", and he called the
+  descriptions "trash". Width is read from the jeweler's sentence only.
+- **Response schemas, the over-80-task prefilter, retry tuning, "585" karats, hardening the client-sent task list**
+  (round 1, server reviewer's own "not worth doing").
+- **A photo replay with stored images, variance statistics, a bigger dashboard** (round 1, evidence reviewer's own).
+- **Scoring every mark against the saved ticket instead of the rulings.** Kept both numbers instead: the owner said
+  on 2026-11-09 that saved size-ups were breaks, so "what he saved" cannot be the target — but it is printed.
 
 ## Reviewer briefs
 
@@ -238,6 +286,52 @@ Describe the feature to them in two sentences and give no opinion of it. Do not 
 
 *(newest first: date, PR, what was fixed, replay score before → after and which mode, what the sweep found, what was
 declined, what is waiting on the owner)*
+
+### Round 2 — 2026-11-09 — `claude/smart-intake-r2`
+
+**Round 1's sweep** found, demonstrated: the piece count misreading prongs and sizes as pieces; sizing never checked
+against the sizes; width only going down; warnings computed and never shown; a second Analyze leaving stale lines;
+stock not following a size edit; a confident wrong ticket when the AI is down; any material matching as sizing stock;
+and a replay whose headline flattered itself. Full record: `docs/goals/smart-intake-reviews/r1-sweep.md`. Triage: S1–S17
+in the Backlog, four items under Declined, O4 sharpened.
+
+**Fixed.** S1–S11 (see Backlog), E1, E3, E4, E5. In code: `withCheckedSizes`, `withSizingTaskForSizes` (direction),
+`withShankWidth` (both ways), `withPieceCount` (sizing = one per piece; different work per piece is not multiplied),
+`withFormMetal`, `sizingStockFor` (one formula, server and form), `said` and `ruled` on the answer; the form hook
+rewritten (`useSmartIntake.js`: a re-read replaces, the fallback reads metal and sizes only, only sizing stock matches
+as sizing stock) with its first test file; `sizingStockCheck` on the Work step; "(assumed)" chips; "added by rule" on
+lines. Model temperature 0. One prompt line added: no work named → no tasks.
+
+**Prepared, waiting on the owner (D1).** `scripts/intake/aimeta-proposal.json` rewrites the aiMeta of 11 tasks in shop
+shorthand. `node scripts/intake/apply-aimeta.mjs --env <file>` prints the before/after and writes nothing; it will not
+write without `--apply --owner-said-yes`. Scored with `npm run intake:replay -- --proposal`: **65/69 against 64/69
+live — inside the run-to-run noise (±2).** It fixed the silver bangles, the three-stone set and the earrings, and
+two other tickets flipped the other way. So the honest claim is "no measured loss, and the text stops contradicting
+the rulings", not "it scores higher". Not applied.
+
+**Score.** The fixtures changed this round (six "no work was said" tickets are now scored as "suggest nothing"; one
+went to skip), so the denominators moved: 63 → 69 scored, 8 → 2 skipped.
+
+| | End of round 1 (63 tickets) | End of round 2 (69 tickets) |
+|---|---|---|
+| Model mode, vs the rulings — same tasks and quantities | 58 / 63 | **64 / 69** |
+| Model mode, vs what he saved | not measured | **45 / 69** |
+| Rules mode over the logged answers, vs the rulings | 55 / 63 | **61 / 69** |
+| Sizes · metal · sizing stock (model mode) | 63 · 63 · 63 | 69 · 69 · 69 |
+
+Whether any ticket that was right at the end of round 1 is wrong now could not be checked ticket by ticket: round 1
+recorded only counts. From this round on score.json holds the passing tickets and the ratchet is per ticket. Model mode ran four times, plus one `--proposal` run; 64–66 across them.
+
+**Still wrong in model mode (5):** a reset stone with no size said (H3) · silver bangles "hard solder" (H2, fixed by
+the D1 proposal) · chain shortened to a bracelet: an extra Break in chain ×2 · white gold earrings "set with stones
+over 1 carat, 2 times": no task (D1) · silver ring "set with three stones": no task (D1).
+
+**Local gate.** `npm test`: 278 files pass; the same 3 production files cannot load `mongodb-memory-server` here.
+`npm run lint`: clean. `npm run views`: not run (H5) — **this round changed two screens** (the Piece and Work steps
+of the new-repair flow) and they were not looked at in a browser: signed-in screens need `E2E_PREVIEW_PASSWORD`,
+which this session does not have. The hook and the helpers are tested; the JSX is covered by lint and the build only.
+
+**Waiting on the owner.** O4 (rhodium: always or usually — the biggest gap), O5 (earrings), D1 (the aiMeta rewrite).
 
 ### Round 1 — 2026-11-09 — `claude/smart-intake-r1`
 

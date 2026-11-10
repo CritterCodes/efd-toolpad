@@ -5,7 +5,9 @@ import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import { CheckGlyph } from './NewRepairFlowParts';
 import CameraCapture from '@/components/shared/CameraCapture';
 
-export function NewRepairFlowPiece({ analyzingSmartIntake, appendDictated, clientPill, dictation, extractedChips, formData, generatingImageDescription, handleAnalyzeSmartIntake, handleGenerateDescriptionFromImage, imageDescriptionError, onDictationStatus, picturePreviewUrl, setFormData, setImageDescriptionError, setSmartIntakeError, setStep, smartIntakeError, step }) {
+const intakeNotesSx = { mt: 1.5 };
+
+export function NewRepairFlowPiece({ analyzingSmartIntake, appendDictated, clientPill, dictation, extractedChips, formData, generatingImageDescription, handleAnalyzeSmartIntake, handleGenerateDescriptionFromImage, imageDescriptionError, onDictationStatus, picturePreviewUrl, setFormData, setImageDescriptionError, setSmartIntakeError, setStep, smartIntakeError, smartIntakeNotes, step }) {
   return (
     <>
       {/* ── Step 2 — The piece ────────────────────────────────────────── */}
@@ -55,23 +57,30 @@ export function NewRepairFlowPiece({ analyzingSmartIntake, appendDictated, clien
               </GoldButton>
             </Box>
             {smartIntakeError && <Alert severity="warning" sx={{ mt: 1.5 }}>{smartIntakeError}</Alert>}
+            {(smartIntakeNotes?.warnings || []).length > 0 && (
+              <Alert severity="info" sx={intakeNotesSx} aria-label="What smart intake changed">
+                {smartIntakeNotes.warnings.map((note) => <Box key={note}>{note}</Box>)}
+              </Alert>
+            )}
 
             {extractedChips.length > 0 && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="caption" sx={{ fontFamily: facelift.mono, color: facelift.text3 }}>
-                  Picked up from that sentence — tap to fix on review
+                  Read from that sentence — tap to fix on review
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                  {extractedChips.map((label) => (
+                  {extractedChips.map(({ label, assumed }) => (
                     <Box
                       key={label}
                       component="button"
                       type="button"
                       onClick={() => setStep(3)}
-                      aria-label={`Edit ${label} on the review step`}
+                      aria-label={assumed ? `${label} was assumed, not said. Edit it on the review step` : `Edit ${label} on the review step`}
                       sx={{ all: 'unset', cursor: 'pointer', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
                     >
-                      <StatusChip label={<><CheckGlyph />{label}</>} hue="#34D399" />
+                      {assumed
+                        ? <StatusChip label={`${label} (assumed)`} hue="#FBBF24" />
+                        : <StatusChip label={<><CheckGlyph />{label}</>} hue="#34D399" />}
                     </Box>
                   ))}
                 </Box>

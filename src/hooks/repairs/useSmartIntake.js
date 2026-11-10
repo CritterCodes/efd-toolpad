@@ -1,219 +1,145 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { stripComputedPrices } from '@/services/pricing/computedFields';
-import { keyMatchesContext, SIZEABLE_CATEGORIES, normalizeIsoPromiseDate, inferTasksFromDescription, parsePromiseDateFromDescription, inferMaterialHintsFromSmartIntake, disambiguateSizingTasks } from '@/hooks/repairs/newRepairFormHelpers';
+import { keyMatchesContext, SIZEABLE_CATEGORIES, normalizeIsoPromiseDate, isSizingStockMaterial } from '@/hooks/repairs/newRepairFormHelpers';
 import { normalizeRingSizeValue, extractMetalContextFromDescription, extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { alignTasksToMetal } from '@/services/repairs/metalTaskFilter';
 import { normalizeSpokenIntake } from '@/services/repairs/spokenIntake';
 
-/**
- * Smart intake for the repair form (useNewRepairForm): read the typed sentence with the AI (or the rule-based fallback) and turn it into tasks, materials, metal, sizes and a promise date. Each AI call's log id is kept for the smart-intake log (Q13). A hook, called where the code used to sit.
- */
-export function useSmartIntake({ availableMaterials, availableTasks, formData, setAnalyzingSmartIntake, setFormData, setSmartIntakeError, smartIntakeLogIDsRef }) {
-  const buildTaskItemsFromInferred = useCallback((tasks = []) => {
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return [];
-    }
+export const EMPTY_INTAKE_NOTES = Object.freeze({ warnings: [], assumed: {}, fallback: false });
+export const AI_DOWN_MESSAGE = 'The AI is unavailable right now. The metal and sizes were read from the sentence. Add the work by hand.';
 
-    return tasks.map((task, index) => ({
-      ...stripComputedPrices(task),
-      id: Date.now() + index,
-      // Per-unit tasks (per prong / per stone) arrive from smart intake with a
-      // counted quantity; everything else defaults to 1 exactly as before.
-      quantity: Math.max(1, Math.round(Number(task.__aiQuantity) || 1)),
-    }));
+/**
+ * The sizing-stock line for a hint: only a material that IS sizing stock, never "the first thing that mentions the
+ * metal" (review, 2026-11-09: with no sizing stock in the list, 14k solder x2 was added with a green tick). Among
+ * sizing stocks: the one for this metal, and the 3x2 unless the wide task is on the ticket.
+ */
+export function sizingStockItemsFor(materialHints = [], availableMaterials = [], form = {}, { wide = false, now = Date.now() } = {}) {
+  const hint = (materialHints || []).find((h) => String(h?.type || '').toLowerCase() === 'sizing_material' && Number(h?.quantity) > 0);
+  if (!hint) return { items: [], missing: false };
+  const stocks = (availableMaterials || []).filter(isSizingStockMaterial);
+  if (!stocks.length) return { items: [], missing: true };
+  const score = (material) => {
+    const text = [material?.name, material?.displayName, material?.description, material?.metalType, material?.karat, material?.sku,
+      ...(Array.isArray(material?.stullerProducts) ? material.stullerProducts.flatMap((p) => [p?.description, p?.metalType, p?.karat]) : []),
+    ].filter(Boolean).join(' ').toLowerCase();
+    const context = keyMatchesContext(text, form.metalType || '', form.karat || '', form.goldColor || '');
+    return (context.hasExactContext ? 25 : 0) + (context.hasMetal ? 20 : 0) + (context.hasKarat ? 10 : 0)
+      + (text.includes(wide ? '5x2' : '3x2') ? 5 : 0);
+  };
+  const best = stocks.map((material) => ({ material, score: score(material) })).sort((a, b) => b.score - a.score)[0].material;
+  return {
+    missing: false,
+    items: [{
+      ...stripComputedPrices(best),
+      id: now,
+      quantity: Math.ceil(Number(hint.quantity)),
+      _smartIntakeHintType: 'sizing_material',
+      _smartIntakeReason: hint.reason || '',
+    }],
+  };
+}
+
+/**
+ * Smart intake for the repair form (useNewRepairForm): read the typed sentence with the AI and turn the answer into
+ * tasks, sizing stock, metal, sizes and a promise date. Each AI call's log id is kept for the smart-intake log (Q13).
+ *
+ * What this hook owns (the server's `decideIntake` owns which tasks, how many, and how much stock):
+ *  - A RE-READ REPLACES what the last read put on the ticket and keeps what was added by hand. Reading a corrected
+ *    sentence used to leave the old tasks, stock and metal while the sizes and the green chips changed
+ *    (reviews, 2026-11-09).
+ *  - The server's warnings, which values were assumed rather than said, and whether the AI was down, go to
+ *    `setSmartIntakeNotes` so the screen can say so.
+ *  - When the AI call fails, only the metal and the sizes are read from the sentence. The old rule-based guess wrote
+ *    a confident ticket with the wrong tasks, no quantities and a promise date made from "1/2 ct".
+ */
+export function useSmartIntake({ availableMaterials, availableTasks, formData, setAnalyzingSmartIntake, setFormData, setSmartIntakeError, setSmartIntakeNotes = () => {}, smartIntakeLogIDsRef }) {
+  // Whether the last read set the ring sizes — so a re-read may clear them.
+  const lastReadSetSizesRef = useRef(false);
+
+  const buildTaskItemsFromInferred = useCallback((tasks = []) => {
+    if (!Array.isArray(tasks) || tasks.length === 0) return [];
+    return tasks.map((task, index) => {
+      const { __ruled, ...rest } = task;
+      return {
+        ...stripComputedPrices(rest),
+        id: Date.now() + index,
+        // Per-unit tasks (per prong / per stone) arrive with a counted quantity; everything else is 1.
+        quantity: Math.max(1, Math.round(Number(task.__aiQuantity) || 1)),
+        // Why the rulings put this line here, when the sentence did not ask for it by name.
+        ...(__ruled ? { _smartIntakeRuled: __ruled } : {}),
+      };
+    });
   }, []);
 
-  const buildMaterialItemsFromInferred = useCallback((materialHints = [], previousForm) => {
-    if (!Array.isArray(materialHints) || materialHints.length === 0 || !Array.isArray(availableMaterials) || availableMaterials.length === 0) {
-      return [];
-    }
+  const applySmartIntakeResults = useCallback((results = {}, { replace = false } = {}) => {
+    const hadSizes = lastReadSetSizesRef.current;
+    lastReadSetSizesRef.current = Boolean(results.currentRingSize || results.desiredRingSize);
 
-    const nextMetalType = previousForm?.metalType || '';
-    const nextKarat = previousForm?.karat || '';
-    const nextGoldColor = previousForm?.goldColor || '';
-
-    const scoreMaterialForHint = (material, hintType) => {
-      const searchText = [
-        material?.name,
-        material?.displayName,
-        material?.description,
-        material?.category,
-        material?.metalType,
-        material?.karat,
-        material?.sku,
-        ...(Array.isArray(material?.stullerProducts)
-          ? material.stullerProducts.flatMap((product) => [
-              product?.description,
-              product?.metalType,
-              product?.karat,
-              product?.itemNumber
-            ])
-          : [])
-      ].filter(Boolean).join(' ').toLowerCase();
-
-      let score = 0;
-
-      if (hintType === 'sizing_material') {
-        if (String(material?.category || '').toLowerCase() === 'sizing_material') score += 100;
-        if (searchText.includes('sizing stock')) score += 60;
-        if (searchText.includes('sizing')) score += 25;
-        if (searchText.includes('stock')) score += 10;
-      }
-
-      const context = keyMatchesContext(searchText, nextMetalType, nextKarat, nextGoldColor);
-      if (context.hasMetal) score += 20;
-      if (context.hasKarat) score += 10;
-      if (context.hasExactContext) score += 25;
-
-      return score;
-    };
-
-    return materialHints.map((hint, index) => {
-      const normalizedHintType = String(hint?.type || '').trim().toLowerCase();
-      const quantity = Math.max(Number(hint?.quantity || 0), 0);
-      if (!normalizedHintType || quantity <= 0) return null;
-
-      const matchedMaterial = [...availableMaterials]
-        .map((material) => ({ material, score: scoreMaterialForHint(material, normalizedHintType) }))
-        .filter((entry) => entry.score > 0)
-        .sort((a, b) => b.score - a.score)[0]?.material;
-
-      if (!matchedMaterial) return null;
-
-      return {
-        ...stripComputedPrices(matchedMaterial),
-        id: Date.now() + index,
-        quantity,
-        _smartIntakeHintType: normalizedHintType,
-        _smartIntakeReason: hint?.reason || ''
-      };
-    }).filter(Boolean);
-  }, [availableMaterials]);
-
-  const applySmartIntakeResults = useCallback((results = {}) => {
     setFormData((prev) => {
       const updates = {};
+      const text = String(results.inputText || '').toLowerCase();
       const isRing = typeof results.isRing === 'boolean'
         ? results.isRing
-        : SIZEABLE_CATEGORIES.some((cat) => String(results.inputText || '').toLowerCase().includes(cat) || String(results.inputText || '').toLowerCase().includes('ring'));
+        : SIZEABLE_CATEGORIES.some((cat) => text.includes(cat) || text.includes('ring'));
+      if (prev.isRing !== isRing) updates.isRing = isRing;
 
-      if (typeof isRing === 'boolean' && prev.isRing !== isRing) {
-        updates.isRing = isRing;
-      }
-
-      if (results.metalType && !String(prev.metalType || '').trim()) {
-        updates.metalType = results.metalType;
-      }
-
-      if ((results.metalType === 'gold' || prev.metalType === 'gold') && results.goldColor && !String(prev.goldColor || '').trim()) {
-        updates.goldColor = results.goldColor;
-      }
-
-      if (results.karat && !String(prev.karat || '').trim()) {
+      // Metal: what the sentence SAID overwrites; anything else only fills a blank.
+      const said = results.said || {};
+      const blank = (v) => !String(v || '').trim();
+      if (results.metalType && (said.metal || blank(prev.metalType))) updates.metalType = results.metalType;
+      const metalType = updates.metalType || prev.metalType;
+      if (results.karat && (said.karat || said.metal || blank(prev.karat))) {
         updates.karat = results.karat;
-      } else if ((updates.metalType || prev.metalType) === 'platinum' && !results.karat && !String(prev.karat || '').trim()) {
-        // Platinum without a stated purity defaults to 950 — the form's primary
-        // platinum option and the key the material variants price under. Without
-        // this, the pricing context is null and platinum tasks price at base.
+      } else if (metalType === 'platinum' && !results.karat && blank(prev.karat)) {
+        // Platinum without a stated purity is 950 — the key the material variants price under.
         updates.karat = '950';
       }
+      if (metalType === 'gold' && results.goldColor && (said.color || blank(prev.goldColor))) updates.goldColor = results.goldColor;
 
-      if (isRing && results.currentRingSize) {
-        updates.currentRingSize = normalizeRingSizeValue(results.currentRingSize);
+      if (isRing && results.currentRingSize) updates.currentRingSize = normalizeRingSizeValue(results.currentRingSize);
+      else if (replace && hadSizes) updates.currentRingSize = '';
+      if (isRing && results.desiredRingSize) updates.desiredRingSize = normalizeRingSizeValue(results.desiredRingSize);
+      else if (replace && hadSizes) updates.desiredRingSize = '';
+
+      if (results.promiseDate && blank(prev.promiseDate)) {
+        const date = normalizeIsoPromiseDate(results.promiseDate);
+        if (date) updates.promiseDate = date;
       }
 
-      if (isRing && results.desiredRingSize) {
-        updates.desiredRingSize = normalizeRingSizeValue(results.desiredRingSize);
-      }
+      if (replace) {
+        // Lines the last read added go; lines added by hand stay.
+        const keptTasks = (prev.tasks || []).filter((t) => !t.__aiQuantity);
+        const keptIds = new Set(keptTasks.map((t) => String(t._id || '')));
+        const fresh = buildTaskItemsFromInferred((results.inferredTasks || []).filter((t) => !keptIds.has(String(t._id || ''))));
+        if (fresh.length || keptTasks.length !== (prev.tasks || []).length) updates.tasks = [...keptTasks, ...fresh];
 
-      if (results.promiseDate && !String(prev.promiseDate || '').trim()) {
-        const normalizedPromiseDate = normalizeIsoPromiseDate(results.promiseDate);
-        if (normalizedPromiseDate) {
-          updates.promiseDate = normalizedPromiseDate;
-        }
-      }
-
-      if (Array.isArray(results.inferredTasks) && results.inferredTasks.length > 0 && (!prev.tasks || prev.tasks.length === 0)) {
-        const inferredTaskItems = buildTaskItemsFromInferred(results.inferredTasks);
-        if (inferredTaskItems.length > 0) {
-          updates.tasks = inferredTaskItems;
-        }
-      }
-
-      if (Array.isArray(results.materialHints) && results.materialHints.length > 0) {
-        const inferredMaterialItems = buildMaterialItemsFromInferred(results.materialHints, {
-          ...prev,
-          ...updates
-        });
-
-        if (inferredMaterialItems.length > 0) {
-          const mergedMaterials = [...(prev.materials || [])];
-
-          inferredMaterialItems.forEach((item) => {
-            const matchIndex = mergedMaterials.findIndex((existing) => {
-              const sameId = existing?._id && item?._id && String(existing._id) === String(item._id);
-              const sameName = String(existing?.name || existing?.displayName || '').trim().toLowerCase()
-                === String(item?.name || item?.displayName || '').trim().toLowerCase();
-              return sameId || sameName;
-            });
-
-            if (matchIndex >= 0) {
-              const existing = mergedMaterials[matchIndex];
-              mergedMaterials[matchIndex] = {
-                ...existing,
-                quantity: Math.max(Number(existing.quantity || 0), Number(item.quantity || 0)),
-                _smartIntakeHintType: existing._smartIntakeHintType || item._smartIntakeHintType,
-                _smartIntakeReason: existing._smartIntakeReason || item._smartIntakeReason
-              };
-              return;
-            }
-
-            mergedMaterials.push(item);
-          });
-
-          updates.materials = mergedMaterials;
-        }
+        const keptMaterials = (prev.materials || []).filter((m) => !m._smartIntakeHintType);
+        const stock = sizingStockItemsFor(results.materialHints, availableMaterials, { ...prev, ...updates }, { wide: results.wideShank });
+        // A sizing stock he already added by hand is not doubled.
+        const add = stock.items.filter(() => !keptMaterials.some(isSizingStockMaterial));
+        if (add.length || keptMaterials.length !== (prev.materials || []).length) updates.materials = [...keptMaterials, ...add];
       }
 
       return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
     });
-  }, [buildMaterialItemsFromInferred, buildTaskItemsFromInferred]);
+  }, [availableMaterials, buildTaskItemsFromInferred, setFormData]);
 
+  /** The AI is down: read only what a regex reads reliably — the metal and the sizes. No tasks, no stock, no date. */
   const runRuleBasedSmartIntake = useCallback((inputText = '') => {
     const parsingText = String(inputText || '').trim();
-    if (!parsingText) {
-      return;
-    }
-
-    const detectedMetalContext = extractMetalContextFromDescription(parsingText) || {};
-    const detectedRingSizes = extractRingSizesFromDescription(parsingText);
-    const inferredTasks = alignTasksToMetal(
-      inferTasksFromDescription(parsingText, availableTasks),
-      detectedMetalContext.metalType || '',
-      availableTasks
-    );
-    const isRingCategory = SIZEABLE_CATEGORIES.some((cat) => parsingText.toLowerCase().includes(cat) || parsingText.toLowerCase().includes('ring'));
-    const promiseDate = parsePromiseDateFromDescription(parsingText);
-    const materialHints = inferMaterialHintsFromSmartIntake({
-      inputText: parsingText,
-      isRing: isRingCategory,
-      currentRingSize: detectedRingSizes.currentRingSize,
-      desiredRingSize: detectedRingSizes.desiredRingSize
-    });
-
+    if (!parsingText) return;
+    const metal = extractMetalContextFromDescription(parsingText) || {};
+    const sizes = extractRingSizesFromDescription(parsingText);
     applySmartIntakeResults({
       inputText: parsingText,
-      isRing: isRingCategory,
-      metalType: detectedMetalContext.metalType || '',
-      karat: detectedMetalContext.karat || '',
-      goldColor: detectedMetalContext.goldColor || '',
-      currentRingSize: detectedRingSizes.currentRingSize,
-      desiredRingSize: detectedRingSizes.desiredRingSize,
-      promiseDate,
-      materialHints,
-      inferredTasks
+      metalType: metal.metalType || '',
+      karat: metal.karat || '',
+      goldColor: metal.goldColor || '',
+      currentRingSize: sizes.currentRingSize,
+      desiredRingSize: sizes.desiredRingSize,
+      said: { metal: Boolean(metal.metalType), karat: Boolean(metal.karat), color: Boolean(metal.goldColor) },
     });
-  }, [availableTasks, applySmartIntakeResults]);
+  }, [applySmartIntakeResults]);
 
   const handleAnalyzeSmartIntake = useCallback(async () => {
     // Dictated forms ("14 karat", "7 and a half") folded into what the extractors match.
@@ -243,13 +169,13 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
         body: JSON.stringify({
           inputText: parsingText,
           description: String(formData.description || '').trim(),
-          tasks: strippedTasks
+          tasks: strippedTasks,
+          // What the form already knows. The note often leaves the colour out, and rhodium depends on it.
+          metal: { metalType: formData.metalType || '', karat: formData.karat || '', goldColor: formData.goldColor || '' },
         })
       });
 
-      // A gateway timeout (504) returns Vercel's HTML error page, not JSON —
-      // parse defensively so the fallback banner names the failure instead of
-      // showing a JSON.parse token error.
+      // A gateway timeout (504) returns Vercel's HTML error page, not JSON — parse defensively.
       const payload = await response.json().catch(() => null);
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.error || `AI request failed (HTTP ${response.status})`);
@@ -258,43 +184,20 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
       const parsed = payload?.data?.parsed || {};
       // The smart-intake log entry for this suggestion; the save tells it what the ticket became (Q13).
       if (payload?.data?.intakeLogID) smartIntakeLogIDsRef.current.push(payload.data.intakeLogID);
-      // matchedTasks carries per-task quantity ("retip 14 prongs" = retip x14);
-      // matchedTaskIds is the legacy shape and implies quantity 1.
-      const matchedPairs = Array.isArray(parsed.matchedTasks) && parsed.matchedTasks.length > 0
-        ? parsed.matchedTasks
-        : (Array.isArray(parsed.matchedTaskIds) ? parsed.matchedTaskIds : []).map((id) => ({ id, quantity: 1 }));
-      const quantityByTaskId = new Map(
-        matchedPairs.map((p) => [String(p.id), Math.max(1, Number(p.quantity) || 1)])
-      );
 
-      let aiMatchedTasks = [];
-      if (matchedPairs.length > 0) {
-        aiMatchedTasks = matchedPairs
-          .map((p) => availableTasks.find((t) => String(t._id) === String(p.id)))
-          .filter(Boolean);
-      }
-
-      if (aiMatchedTasks.length === 0) {
-        aiMatchedTasks = inferTasksFromDescription(parsingText, availableTasks);
-      }
-
-      aiMatchedTasks = disambiguateSizingTasks(
-        aiMatchedTasks, parsingText,
-        parsed.currentRingSize || '', parsed.desiredRingSize || ''
-      );
-
-      // Metal is the recipe: a platinum job swaps generic matches for the
-      // laser-welded platinum tasks, and a platinum task never lands on a gold
-      // job. Deterministic — the AI prompt only hints, this decides. Aligned
-      // one at a time so each task's quantity survives an identity swap.
-      aiMatchedTasks = aiMatchedTasks
-        .map((task) => {
+      const matched = Array.isArray(parsed.matchedTasks) ? parsed.matchedTasks : [];
+      // Metal is the recipe: a platinum job swaps generic matches for the laser-welded platinum tasks, and a platinum
+      // task never lands on a gold job. Aligned one at a time so each line's quantity survives the swap; two matches
+      // that align to the same task become one line.
+      const inferredTasks = matched
+        .map((line) => {
+          const task = availableTasks.find((t) => String(t._id) === String(line.id));
+          if (!task) return null;
           const [aligned] = alignTasksToMetal([task], parsed.metalType || '', availableTasks);
           if (!aligned) return null;
-          return { ...aligned, __aiQuantity: quantityByTaskId.get(String(task._id)) || 1 };
+          return { ...aligned, __aiQuantity: Math.max(1, Number(line.quantity) || 1), __ruled: line.ruled || '' };
         })
         .filter(Boolean)
-        // Two matches can align to the same task (a generic and its platinum sibling): one line, the larger quantity.
         .reduce((lines, task) => {
           const same = lines.find((l) => String(l._id) === String(task._id));
           if (same) same.__aiQuantity = Math.max(same.__aiQuantity, task.__aiQuantity);
@@ -302,33 +205,48 @@ export function useSmartIntake({ availableMaterials, availableTasks, formData, s
           return lines;
         }, []);
 
+      const stock = sizingStockItemsFor(parsed.materialHints, availableMaterials, {});
+      const warnings = [...(Array.isArray(parsed.warnings) ? parsed.warnings : [])];
+      if (stock.missing) warnings.push('This job needs sizing stock, and the materials list has none to add. Add it by hand.');
+      const said = parsed.said || {};
+      const formHadColor = Boolean(String(formData.goldColor || '').trim());
+
       applySmartIntakeResults({
         inputText: parsingText,
         isRing: typeof parsed.isRing === 'boolean' ? parsed.isRing : null,
         metalType: parsed.metalType || '',
         karat: parsed.karat || '',
         goldColor: parsed.goldColor || '',
+        said,
         currentRingSize: parsed.currentRingSize || '',
         desiredRingSize: parsed.desiredRingSize || '',
-        // The date is the model's or nothing. The regex fallback read "set 1/2 ct diamond" as January 2 (seen twice
-        // in the production log, review 2026-11-09); the form supplies its own default date.
+        // The date is the model's or nothing: a regex once read "set 1/2 ct diamond" as January 2.
         promiseDate: parsed.promiseDate || '',
-        // Sizing stock is computed on the server from the sizes and the piece count (smartIntakeRules.withSizingStock).
-        // An empty list is an answer — "no extra stock" — not a reason to guess again here.
+        // Sizing stock is computed on the server. An empty list means "none".
         materialHints: Array.isArray(parsed.materialHints) ? parsed.materialHints : [],
-        inferredTasks: aiMatchedTasks
+        wideShank: inferredTasks.some((t) => /3\s*(?:mm)?\s*to\s*5\s*mm/i.test(String(t.title || ''))),
+        inferredTasks,
+      }, { replace: true });
+
+      setSmartIntakeNotes({
+        warnings,
+        // Gold whose colour nobody said: shown as assumed, not as something picked up from the sentence.
+        assumed: { goldColor: parsed.metalType === 'gold' && !said.color && !formHadColor },
+        fallback: false,
       });
     } catch (error) {
+      console.error('Smart intake failed:', error?.message);
       runRuleBasedSmartIntake(parsingText);
-      setSmartIntakeError(`AI parse unavailable, used fallback rules. ${error.message || ''}`.trim());
+      setSmartIntakeNotes({ warnings: [], assumed: {}, fallback: true });
+      setSmartIntakeError(AI_DOWN_MESSAGE);
     } finally {
       setAnalyzingSmartIntake(false);
     }
-  }, [formData.smartIntakeInput, formData.description, availableTasks, applySmartIntakeResults, runRuleBasedSmartIntake]);
+  }, [formData.smartIntakeInput, formData.description, formData.metalType, formData.karat, formData.goldColor, availableTasks, availableMaterials,
+    applySmartIntakeResults, runRuleBasedSmartIntake, setAnalyzingSmartIntake, setSmartIntakeError, setSmartIntakeNotes, smartIntakeLogIDsRef]);
 
   return {
     buildTaskItemsFromInferred,
-    buildMaterialItemsFromInferred,
     applySmartIntakeResults,
     runRuleBasedSmartIntake,
     handleAnalyzeSmartIntake,

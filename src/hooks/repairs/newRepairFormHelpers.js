@@ -1,5 +1,6 @@
 import { extractRingSizesFromDescription } from '@/services/repairs/smartIntakeExtractors';
 import { ringSizeNumber } from '@/services/repairs/ringSizing';
+import { sizingStockFor, isSizeUpTask, isCustomerGoldTask } from '@/services/ai/smartIntakeRules';
 // Item categories that might have sizes
 export const SIZEABLE_CATEGORIES = ['ring', 'band', 'wedding-ring', 'engagement-ring'];
 
@@ -324,3 +325,30 @@ export const normalizeWholesalerPricingSettings = (settings = {}) => {
   };
 };
 
+
+/** Is this material sizing stock? By its category, or by name for materials filed without one. */
+export const isSizingStockMaterial = (material) => (
+  String(material?.category || '').toLowerCase() === 'sizing_material'
+  || /sizing stock/i.test(`${material?.name || ''} ${material?.displayName || ''}`)
+);
+
+/**
+ * Does the sizing stock on the ticket match its sizes? Smart intake works the stock out once, when the sentence is
+ * read; changing a size afterwards, or adding a size-up by hand, left the old stock — an under- or over-charge nobody
+ * saw, and the save does not check it (review, 2026-11-09). The form shows this instead of guessing a fix.
+ *
+ * Returns null when there is nothing to say, else { want, have, moved, line } — `line` is the stock line to correct.
+ * The rule is the owner's (2026-11-09: "2 sizes up is 1x task and 1x sizing stock material"; "1.25 sizes is charged as
+ * 2"), from smartIntakeRules.sizingStockFor, the same function the server uses.
+ */
+export function sizingStockCheck(formData = {}) {
+  const sizeUp = (formData.tasks || []).find(isSizeUpTask);
+  const stockLines = (formData.materials || []).filter(isSizingStockMaterial);
+  const have = stockLines.reduce((n, m) => n + (Number(m.quantity) || 0), 0);
+  if (!sizeUp && !have) return null;
+  const moved = getRingSizeDelta(formData.currentRingSize, formData.desiredRingSize);
+  // No size-up on the ticket, or sizes not both entered: nothing to hold the stock against.
+  if (!sizeUp || !moved) return null;
+  const want = sizingStockFor({ moved, pieces: Number(sizeUp.quantity) || 1, customerGold: isCustomerGoldTask(sizeUp) });
+  return want === have ? null : { want, have, moved, line: stockLines[0] || null };
+}

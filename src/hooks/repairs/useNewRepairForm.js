@@ -36,7 +36,7 @@ import usePromiseDateEstimate from '@/hooks/repairs/usePromiseDateEstimate';
 import { intakeClientPhotoActions } from './intakeClientPhotoActions';
 import { intakeSubmitActions } from './intakeSubmitActions';
 import { useIntakeItems } from './useIntakeItems';
-import { useSmartIntake } from './useSmartIntake';
+import { useSmartIntake, EMPTY_INTAKE_NOTES } from './useSmartIntake';
 import { useIntakeCatalogs } from './useIntakeCatalogs';
 import { useIntakeSetup } from './useIntakeSetup';
 export { toNumber } from './newRepairFormHelpers';
@@ -129,6 +129,8 @@ export default function useNewRepairForm({
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [analyzingSmartIntake, setAnalyzingSmartIntake] = useState(false);
   const [smartIntakeError, setSmartIntakeError] = useState('');
+  // What the last smart-intake read wants said out loud: the rulings' warnings, values it assumed, and "the AI was down".
+  const [smartIntakeNotes, setSmartIntakeNotes] = useState(EMPTY_INTAKE_NOTES);
   const [generatingImageDescription, setGeneratingImageDescription] = useState(false);
   const [imageDescriptionError, setImageDescriptionError] = useState('');
 
@@ -275,6 +277,7 @@ export default function useNewRepairForm({
     setAnalyzingSmartIntake,
     setFormData,
     setSmartIntakeError,
+    setSmartIntakeNotes,
     smartIntakeLogIDsRef,
   });
 
@@ -382,6 +385,7 @@ export default function useNewRepairForm({
     analyzingSmartIntake,
     smartIntakeError,
     setSmartIntakeError,
+    smartIntakeNotes,
     generatingImageDescription,
     imageDescriptionError,
     setImageDescriptionError,

@@ -4,11 +4,18 @@
  *
  * One row per TICKET (the last attempt for it — earlier attempts were retries). The answer is `decideIntake` over a
  * model answer, so the rulings in code are always part of what is measured.
+ *
+ * TWO numbers, always printed together, because they answer different questions (review, 2026-11-09):
+ *   vs the rulings   the saved ticket, corrected by marks.json where he gave a break, entered a habit that is now a
+ *                    ruling, or saved work the sentence never said. This is what the system is built to hit.
+ *   vs what he saved the saved ticket exactly as it was. Lower by design — it counts his breaks as misses — but it is
+ *                    the number no ruling of ours can flatter. If the gap grows, the marks are drifting from the shop.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { decideIntake, parseRingSize } from '@/services/ai/smartIntakeRules';
+import { decideIntake, parseRingSize, buildIntakePrompt } from '@/services/ai/smartIntakeRules';
 
 export const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/smart-intake');
 const read = (name, fallback) => {
@@ -27,6 +34,10 @@ export function loadFixtures() {
   };
 }
 
+/** A fingerprint of everything the model is sent except the note: the prompt's words and the task list. */
+export const promptHashFor = (catalog) => crypto.createHash('sha256')
+  .update(buildIntakePrompt({ inputText: '', description: '', tasks: catalog, todayIso: '' })).digest('hex').slice(0, 12);
+
 /** The last attempt for each ticket, in order. */
 export function lastAttemptPerTicket(intakes = []) {
   const last = new Map();
@@ -37,31 +48,38 @@ export function lastAttemptPerTicket(intakes = []) {
 const lineKey = (lines = []) => lines.map((l) => `${l.id}x${l.quantity || 1}`).sort().join(',');
 const setKey = (lines = []) => [...new Set(lines.map((l) => l.id))].sort().join(',');
 const sameSize = (a, b) => (parseRingSize(a) ?? '') === (parseRingSize(b) ?? '');
-const label = (lines, titleOf) => lines.map((l) => `${titleOf.get(l.id) || l.id}${(l.quantity || 1) > 1 ? ` x${l.quantity}` : ''}`).join(' + ') || '—';
+const label = (lines, titleOf) => lines.map((l) => `${titleOf.get(l.id) || l.title || l.id || '?'}${(l.quantity || 1) > 1 ? ` x${l.quantity}` : ''}`).join(' + ') || '—';
+const savedLines = (intake) => (intake.saved.tasks || []).map((t) => ({ id: t.id, title: t.title, quantity: t.quantity || 1 }));
 
 /**
- * What the ticket should have been. A `skip` mark means nobody could know. An `expect` mark replaces the saved tasks
- * (and gives the sizing stock); without one the saved ticket is the answer and no sizing stock is expected. A task
- * name in a mark that the catalog doesn't have throws — the fixtures and the catalog must agree.
+ * What the ticket should have been.
+ *   skip     nobody could say what the right answer is: excluded.
+ *   expect   .tasks replaces the saved tasks ({} = "suggest nothing": the work was never said);
+ *            .stock is the sizing stock the owner's rule gives (0 when absent);
+ *            .sizes replaces the saved sizes ([current, desired]);
+ *            .ignore lists fields the sentence never gave ("metal", "sizes"), which are then not scored.
+ * Without a mark the saved ticket is the answer and no sizing stock is expected. A task name the catalog doesn't have
+ * throws — the fixtures and the catalog must agree.
  */
 export function expectedFor(intake, marks = {}, catalog = []) {
   const mark = marks[intake.id] || {};
   if (mark.skip) return { skip: mark.skip };
   const byTitle = new Map(catalog.map((t) => [t.title, t.id]));
+  const e = mark.expect || {};
   let tasks;
-  if (mark.expect?.tasks) {
-    tasks = Object.entries(mark.expect.tasks).map(([title, quantity]) => {
+  if (e.tasks) {
+    tasks = Object.entries(e.tasks).map(([title, quantity]) => {
       if (!byTitle.has(title)) throw new Error(`marks.json ${intake.id}: no task titled "${title}" in catalog.json`);
       return { id: byTitle.get(title), quantity };
     });
   } else {
-    tasks = (intake.saved.tasks || []).map((t) => ({ id: t.id, quantity: t.quantity || 1 }));
+    tasks = savedLines(intake);
   }
-  // `sizesUnsaid`: the sizes on the ticket were typed by hand; the sentence only gave the change ("up 2 sizes").
-  return { tasks, stock: mark.expect?.stock || 0, sizesUnsaid: !!mark.expect?.sizesUnsaid, saved: intake.saved };
+  const sizes = e.sizes || [intake.saved.currentRingSize, intake.saved.desiredRingSize];
+  return { tasks, stock: e.stock || 0, sizes, ignore: e.ignore || [], marked: !!mark.expect, saved: intake.saved };
 }
 
-/** The model answer to replay for an intake: a fresh one when given, else what was logged at the time. */
+/** The model answer to replay for an intake as it was logged at the time (`raw` when the log kept it). */
 export const loggedAnswer = (intake) => intake.ai?.raw || intake.ai || {};
 
 /** Score a set of model answers through today's rulings. `answerFor(intake)` returns the raw model answer. */
@@ -71,23 +89,22 @@ export function scoreReplay({ intakes, marks, catalog }, answerFor = loggedAnswe
   for (const intake of lastAttemptPerTicket(intakes)) {
     const want = expectedFor(intake, marks, catalog);
     if (want.skip) { rows.push({ id: intake.id, text: intake.text, skip: want.skip }); continue; }
-    const got = decideIntake(answerFor(intake), { tasks: catalog, inputText: intake.text, description: intake.description });
+    const got = decideIntake(answerFor(intake), { tasks: catalog, inputText: intake.text });
     const stock = (got.materialHints || []).filter((h) => h.type === 'sizing_material').reduce((n, h) => n + h.quantity, 0);
     const saved = want.saved;
     const ok = {
       tasks: lineKey(got.matchedTasks) === lineKey(want.tasks),
       taskSet: setKey(got.matchedTasks) === setKey(want.tasks),
-      sizes: want.sizesUnsaid
-        ? !got.currentRingSize && !got.desiredRingSize
-        : sameSize(got.currentRingSize, saved.currentRingSize) && sameSize(got.desiredRingSize, saved.desiredRingSize),
-      metal: got.metalType === (saved.metalType || '') && (got.goldColor || '') === (saved.goldColor || '')
-        && (!saved.karat || got.karat === saved.karat),
+      sizes: want.ignore.includes('sizes') || (sameSize(got.currentRingSize, want.sizes[0]) && sameSize(got.desiredRingSize, want.sizes[1])),
+      metal: want.ignore.includes('metal') || (got.metalType === (saved.metalType || '') && (got.goldColor || '') === (saved.goldColor || '')
+        && (!saved.karat || got.karat === saved.karat)),
       stock: stock === want.stock,
     };
     ok.all = Object.values(ok).every(Boolean);
     rows.push({
-      id: intake.id, text: intake.text, ok,
-      fields: `got ${got.metalType}/${got.karat}/${got.goldColor} ${got.currentRingSize}>${got.desiredRingSize}, saved ${saved.metalType}/${saved.karat}/${saved.goldColor} ${saved.currentRingSize}>${saved.desiredRingSize}`,
+      id: intake.id, text: intake.text, ok, marked: want.marked,
+      asSaved: lineKey(got.matchedTasks) === lineKey(savedLines(intake)),
+      fields: `got ${got.metalType}/${got.karat}/${got.goldColor} ${got.currentRingSize}>${got.desiredRingSize}, want ${saved.metalType}/${saved.karat}/${saved.goldColor} ${want.sizes[0]}>${want.sizes[1]}`,
       got: `${label(got.matchedTasks, titleOf)}${stock ? ` | stock x${stock}` : ''}`,
       want: `${label(want.tasks, titleOf)}${want.stock ? ` | stock x${want.stock}` : ''}`,
     });
@@ -99,22 +116,33 @@ export function scoreReplay({ intakes, marks, catalog }, answerFor = loggedAnswe
     totals: {
       tickets: scored.length, skipped: rows.length - scored.length,
       tasks: count('tasks'), taskSet: count('taskSet'), sizes: count('sizes'), metal: count('metal'), stock: count('stock'), all: count('all'),
+      asSaved: scored.filter((r) => r.asSaved).length,
+      // The tickets that are right today. The ratchet is on THESE, not on the count: fixing one ticket while breaking
+      // another keeps the count and must still fail (review, 2026-11-09).
+      passing: scored.filter((r) => r.ok.all).map((r) => r.id).sort(),
     },
   };
 }
 
 export const METRICS = ['tasks', 'taskSet', 'sizes', 'metal', 'stock', 'all'];
 
-/** A printable report: the totals, then every ticket whose tasks or stock are wrong. */
+/** Tickets that were right in the recorded run and are not now. */
+export const regressions = (before, totals) => (before?.passing || []).filter((id) => !totals.passing.includes(id));
+
+/** A printable report: the totals, then every ticket that is not right. */
 export function report(name, { rows, totals }, before = null) {
-  const lines = [`\n== ${name}: ${totals.tickets} tickets scored (${totals.skipped} unknowable, skipped) ==`];
+  const lines = [`\n== ${name}: ${totals.tickets} tickets scored (${totals.skipped} skipped: nobody could say what was right) ==`];
   const was = (k) => (before && before[k] !== undefined && before[k] !== totals[k] ? ` (was ${before[k]})` : '');
-  lines.push(`same tasks and quantities  ${totals.tasks}/${totals.tickets}${was('tasks')}   <- headline`);
+  lines.push(`vs the rulings — same tasks and quantities  ${totals.tasks}/${totals.tickets}${was('tasks')}   <- headline`);
+  lines.push(`vs what he saved — same tasks and quantities ${totals.asSaved}/${totals.tickets}${was('asSaved')}   <- counts his breaks as misses`);
   lines.push(`same tasks, any quantity   ${totals.taskSet}/${totals.tickets}${was('taskSet')}`);
   lines.push(`same ring sizes            ${totals.sizes}/${totals.tickets}${was('sizes')}`);
   lines.push(`same metal, karat, colour  ${totals.metal}/${totals.tickets}${was('metal')}`);
   lines.push(`same sizing stock          ${totals.stock}/${totals.tickets}${was('stock')}`);
   lines.push(`everything right           ${totals.all}/${totals.tickets}${was('all')}`);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const id of regressions(before, totals)) lines.push(`  !! was right, now wrong: "${(byId.get(id)?.text || id).slice(0, 80)}"`);
+  for (const id of totals.passing.filter((x) => before?.passing && !before.passing.includes(x))) lines.push(`  ++ was wrong, now right: "${(byId.get(id)?.text || id).slice(0, 80)}"`);
   for (const r of rows.filter((x) => !x.skip && !(x.ok.tasks && x.ok.stock))) {
     lines.push(`  x "${r.text.slice(0, 80)}"\n      got:  ${r.got}\n      want: ${r.want}`);
   }
